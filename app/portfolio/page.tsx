@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { Trash2 } from "lucide-react"
+import { RotateCcw, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { useDios } from "@/components/dios/store"
 import { fmtCompact, fmtCurrency, fmtPct } from "@/lib/format"
@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table"
 
 export default function PortfolioPage() {
-  const { portfolio, removeHolding, cash } = useDios()
+  const { portfolio, removeHolding, cash, resetPortfolio } = useDios()
   const { positions, totalValue, totalPL, totalPLPct, exposure } = portfolio
   const [confirm, setConfirm] = useState<string | null>(null)
 
@@ -46,7 +46,23 @@ export default function PortfolioPage() {
             Positions, performance and multi-dimensional exposure with ETF look-through.
           </p>
         </div>
-        <AddHoldingDialog />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              resetPortfolio()
+              toast.success("Portfolio reset to the starting Stake snapshot")
+            }}
+          >
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Reset starting data
+          </Button>
+          <AddHoldingDialog />
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-100">
+        Holdings are seeded from the Stake screenshots shared in ChatGPT. Quantities are high-confidence; average costs are approximate until confirmed against an official Stake statement. Market prices remain demo data.
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -99,7 +115,7 @@ export default function PortfolioPage() {
                     </span>
                   </TableCell>
                   <TableCell className="hidden text-sm text-muted-foreground md:table-cell">{p.instrument.sector}</TableCell>
-                  <TableCell className="text-right tabular-nums">{p.quantity}</TableCell>
+                  <TableCell className="text-right tabular-nums">{p.quantity.toLocaleString(undefined, { maximumFractionDigits: 4 })}</TableCell>
                   <TableCell className="text-right tabular-nums">{fmtCurrency(p.avgCost)}</TableCell>
                   <TableCell className="text-right tabular-nums">{fmtCurrency(p.price)}</TableCell>
                   <TableCell className="text-right tabular-nums font-medium">{fmtCurrency(p.marketValue, "USD", 0)}</TableCell>
