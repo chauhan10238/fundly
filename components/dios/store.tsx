@@ -1,49 +1,60 @@
 "use client"
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { buildPortfolio, type PortfolioSummary } from "@/lib/dios/portfolio-engine"
 import { getInstrument } from "@/lib/dios/universe"
 import { DEFAULT_SETTINGS } from "@/lib/dios/macro"
 import { SEED_CASH, SEED_HOLDINGS, SEED_RECOMMENDATIONS, SEED_TRANSACTIONS } from "@/lib/dios/seed"
 import type { Holding, RecommendationRecord, Settings, Transaction } from "@/lib/dios/types"
 
-interface StoreValue {
+const STORAGE_KEY = "dios-portfolio-v1"
+
+interface PersistedStore {
   holdings: Holding[]
   cash: number
   transactions: Transaction[]
   settings: Settings
   recommendations: RecommendationRecord[]
+}
+
+interface StoreValue extends PersistedStore {
   portfolio: PortfolioSummary
-  // portfolio mutations
+  hydrated: boolean
   upsertHolding: (h: Holding) => void
   removeHolding: (ticker: string) => void
   addCash: (amount: number) => void
   withdrawCash: (amount: number) => void
-  // transactions
   addTransaction: (t: Omit<Transaction, "id">) => void
   addTransactions: (t: Omit<Transaction, "id">[]) => number
   removeTransaction: (id: string) => void
-  // settings
   updateSettings: (patch: Partial<Settings>) => void
   resetSettings: () => void
-  // recommendations
   addRecommendation: (r: RecommendationRecord) => void
+  resetPortfolio: () => void
 }
 
 const StoreContext = createContext<StoreValue | null>(null)
-
 let idCounter = 1000
-const nextId = () => `t${++idCounter}`
+const nextId = () => `t${Date.now()}-${++idCounter}`
 
-// Apply a buy/sell transaction to holdings using weighted-average cost.
+function normalizeHolding(h: Holding): Holding {
+  return {
+    ticker: h.ticker.trim().toUpperCase(),
+    quantity: Math.max(0, Number(h.quantity) || 0),
+    avgCost: Math.max(0, Number(h.avgCost) || 0),
+  }
+}
+
 function applyTradeToHoldings(holdings: Holding[], t: Omit<Transaction, "id">): Holding[] {
   if (t.type !== "Buy" && t.type !== "Sell") return holdings
+  const ticker = t.ticker.trim().toUpperCase()
   const next = holdings.map((h) => ({ ...h }))
-  const idx = next.findIndex((h) => h.ticker === t.ticker)
+  const idx = next.findIndex((h) => h.ticker === ticker)
   const fees = (t.brokerageFee ?? 0) + (t.fxFee ?? 0)
+
   if (t.type === "Buy") {
     if (idx === -1) {
-      next.push({ ticker: t.ticker, quantity: t.quantity, avgCost: t.price + fees / Math.max(t.quantity, 1) })
+      next.push({ ticker, quantity: t.quantity, avgCost: t.price + fees / Math.max(t.quantity, 1) })
     } else {
       const h = next[idx]
       const newQty = h.quantity + t.quantity
@@ -52,9 +63,10 @@ function applyTradeToHoldings(holdings: Holding[], t: Omit<Transaction, "id">): 
     }
   } else if (idx !== -1) {
     next[idx].quantity = Math.max(0, next[idx].quantity - t.quantity)
-    if (next[idx].quantity === 0) next.splice(idx, 1)
+    if (next[idx].quantity <= 0.0000001) next.splice(idx, 1)
   }
-  return next
+
+  return next.sort((a, b) => a.ticker.localeCompare(b.ticker))
 }
 
 function cashDelta(t: Omit<Transaction, "id">): number {
@@ -70,77 +82,115 @@ function cashDelta(t: Omit<Transaction, "id">): number {
   }
 }
 
+function initialState(): PersistedStore {
+  return {
+    holdings: SEED_HOLDINGS.map(normalizeHolding),
+    cash: SEED_CASH,
+    transactions: SEED_TRANSACTIONS,
+    settings: DEFAULT_SETTINGS,
+    recommendations: SEED_RECOMMENDATIONS,
+  }
+}
+
 export function DiosProvider({ children }: { children: React.ReactNode }) {
-  const [holdings, setHoldings] = useState<Holding[]>(SEED_HOLDINGS)
-  const [cash, setCash] = useState<number>(SEED_CASH)
-  const [transactions, setTransactions] = useState<Transaction[]>(SEED_TRANSACTIONS)
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
-  const [recommendations, setRecommendations] = useState<RecommendationRecord[]>(SEED_RECOMMENDATIONS)
+  const [state, setState] = useState<PersistedStore>(initialState)
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<PersistedStore>
+        setState((current) => ({
+          holdings: Array.isArray(parsed.holdings) ? parsed.holdings.map(normalizeHolding) : current.holdings,
+          cash: typeof parsed.cash === "number" ? parsed.cash : current.cash,
+          transactions: Array.isArray(parsed.transactions) ? parsed.transactions : current.transactions,
+          settings: parsed.settings ? { ...current.settings, ...parsed.settings, weights: { ...current.settings.weights, ...parsed.settings.weights } } : current.settings,
+          recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : current.recommendations,
+        }))
+      }
+    } catch {
+      // Corrupt local storage should never block the app; fall back to seed data.
+    } finally {
+      setHydrated(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!hydrated) return
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  }, [state, hydrated])
 
   const portfolio = useMemo(
-    () => buildPortfolio(holdings, cash, settings),
-    [holdings, cash, settings],
+    () => buildPortfolio(state.holdings, state.cash, state.settings),
+    [state.holdings, state.cash, state.settings],
   )
 
-  const upsertHolding = useCallback((h: Holding) => {
-    setHoldings((prev) => {
-      const idx = prev.findIndex((x) => x.ticker === h.ticker)
-      if (idx === -1) return [...prev, h]
-      const next = [...prev]
-      next[idx] = h
-      return next
+  const upsertHolding = useCallback((holding: Holding) => {
+    const h = normalizeHolding(holding)
+    setState((prev) => {
+      const idx = prev.holdings.findIndex((x) => x.ticker === h.ticker)
+      const holdings = [...prev.holdings]
+      if (idx === -1) holdings.push(h)
+      else holdings[idx] = h
+      return { ...prev, holdings: holdings.filter((x) => x.quantity > 0).sort((a, b) => a.ticker.localeCompare(b.ticker)) }
     })
   }, [])
 
   const removeHolding = useCallback((ticker: string) => {
-    setHoldings((prev) => prev.filter((h) => h.ticker !== ticker))
+    setState((prev) => ({ ...prev, holdings: prev.holdings.filter((h) => h.ticker !== ticker.trim().toUpperCase()) }))
   }, [])
 
-  const addCash = useCallback((amount: number) => setCash((c) => c + amount), [])
-  const withdrawCash = useCallback((amount: number) => setCash((c) => Math.max(0, c - amount)), [])
+  const addCash = useCallback((amount: number) => setState((prev) => ({ ...prev, cash: prev.cash + amount })), [])
+  const withdrawCash = useCallback((amount: number) => setState((prev) => ({ ...prev, cash: Math.max(0, prev.cash - amount) })), [])
 
-  const addTransaction = useCallback((t: Omit<Transaction, "id">) => {
-    setTransactions((prev) => [{ ...t, id: nextId() }, ...prev])
-    if (getInstrument(t.ticker) || t.type === "Buy" || t.type === "Sell") {
-      setHoldings((prev) => applyTradeToHoldings(prev, t))
-    }
-    setCash((c) => c + cashDelta(t))
+  const addTransaction = useCallback((transaction: Omit<Transaction, "id">) => {
+    const t = { ...transaction, ticker: transaction.ticker.trim().toUpperCase() }
+    setState((prev) => ({
+      ...prev,
+      transactions: [{ ...t, id: nextId() }, ...prev.transactions],
+      holdings: (getInstrument(t.ticker) || t.type === "Buy" || t.type === "Sell")
+        ? applyTradeToHoldings(prev.holdings, t)
+        : prev.holdings,
+      cash: prev.cash + cashDelta(t),
+    }))
   }, [])
 
   const addTransactions = useCallback((batch: Omit<Transaction, "id">[]) => {
-    let applied = 0
-    setTransactions((prev) => {
-      const created = batch.map((t) => ({ ...t, id: nextId() }))
-      applied = created.length
-      return [...created, ...prev]
-    })
-    setHoldings((prev) => batch.reduce((acc, t) => applyTradeToHoldings(acc, t), prev))
-    setCash((c) => batch.reduce((acc, t) => acc + cashDelta(t), c))
-    return applied
+    const normalized = batch.map((t) => ({ ...t, ticker: t.ticker.trim().toUpperCase() }))
+    setState((prev) => ({
+      ...prev,
+      transactions: [...normalized.map((t) => ({ ...t, id: nextId() })), ...prev.transactions],
+      holdings: normalized.reduce((acc, t) => applyTradeToHoldings(acc, t), prev.holdings),
+      cash: normalized.reduce((acc, t) => acc + cashDelta(t), prev.cash),
+    }))
+    return normalized.length
   }, [])
 
   const removeTransaction = useCallback((id: string) => {
-    setTransactions((prev) => prev.filter((t) => t.id !== id))
+    setState((prev) => ({ ...prev, transactions: prev.transactions.filter((t) => t.id !== id) }))
   }, [])
 
   const updateSettings = useCallback((patch: Partial<Settings>) => {
-    setSettings((prev) => ({ ...prev, ...patch, weights: { ...prev.weights, ...(patch.weights ?? {}) } }))
+    setState((prev) => ({
+      ...prev,
+      settings: { ...prev.settings, ...patch, weights: { ...prev.settings.weights, ...(patch.weights ?? {}) } },
+    }))
   }, [])
 
-  const resetSettings = useCallback(() => setSettings(DEFAULT_SETTINGS), [])
+  const resetSettings = useCallback(() => setState((prev) => ({ ...prev, settings: DEFAULT_SETTINGS })), [])
+  const addRecommendation = useCallback((r: RecommendationRecord) => setState((prev) => ({ ...prev, recommendations: [r, ...prev.recommendations] })), [])
+  const resetPortfolio = useCallback(() => setState(initialState()), [])
 
-  const addRecommendation = useCallback((r: RecommendationRecord) => {
-    setRecommendations((prev) => [r, ...prev])
-  }, [])
-
-  const value: StoreValue = {
-    holdings, cash, transactions, settings, recommendations, portfolio,
-    upsertHolding, removeHolding, addCash, withdrawCash,
-    addTransaction, addTransactions, removeTransaction,
-    updateSettings, resetSettings, addRecommendation,
-  }
-
-  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
+  return (
+    <StoreContext.Provider value={{
+      ...state, portfolio, hydrated, upsertHolding, removeHolding, addCash, withdrawCash,
+      addTransaction, addTransactions, removeTransaction, updateSettings, resetSettings,
+      addRecommendation, resetPortfolio,
+    }}>
+      {children}
+    </StoreContext.Provider>
+  )
 }
 
 export function useDios() {
