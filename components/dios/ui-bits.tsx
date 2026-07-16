@@ -50,13 +50,20 @@ export function scoreColor(score: number) {
   return "text-negative"
 }
 
-export function ScorePill({ score, className }: { score: number; className?: string }) {
+export function ScorePill({ score, size = "md", className }: { score: number; size?: "sm" | "md"; className?: string }) {
   const bg = score >= 80 ? "bg-positive text-positive-foreground"
     : score >= 65 ? "bg-positive/80 text-positive-foreground"
     : score >= 50 ? "bg-warning/30 text-warning-foreground border border-warning/50"
     : "bg-negative/85 text-negative-foreground"
   return (
-    <span className={cn("inline-flex min-w-9 items-center justify-center rounded-md px-1.5 py-0.5 text-xs font-bold tabular-nums", bg, className)}>
+    <span
+      className={cn(
+        "inline-flex items-center justify-center rounded-md font-bold tabular-nums",
+        size === "sm" ? "min-w-8 px-1.5 py-0.5 text-xs" : "min-w-9 px-1.5 py-0.5 text-xs",
+        bg,
+        className,
+      )}
+    >
       {score}
     </span>
   )
