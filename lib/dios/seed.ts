@@ -2,17 +2,46 @@ import type { Holding, RecommendationRecord, Transaction } from "./types"
 import { buildScenarios } from "./scenarios"
 import { getInstrument } from "./universe"
 
-// Seed portfolio — editable in the app. Illustrative demo positions only.
+// Deepak Chauhan Portfolio (Stake)
+// These values are the initial portfolio loaded when DIOS runs for the first time.
+// Once transactions are entered, DIOS will maintain the portfolio automatically.
+
 export const SEED_HOLDINGS: Holding[] = [
-  { ticker: "VT", quantity: 200, avgCost: 101.2 },
-  { ticker: "GLD", quantity: 30, avgCost: 198.4 },
-  { ticker: "MLPX", quantity: 150, avgCost: 47.9 },
-  { ticker: "TSM", quantity: 60, avgCost: 149.6 },
-  { ticker: "AMD", quantity: 30, avgCost: 156.3 },
-  { ticker: "INTC", quantity: 120, avgCost: 33.8 },
+  {
+    ticker: "VT",
+    quantity: 20.8111,
+    avgCost: 144.01,
+  },
+  {
+    ticker: "GLD",
+    quantity: 0.9113,
+    avgCost: 421.00,
+  },
+  {
+    ticker: "MLPX",
+    quantity: 4.0446,
+    avgCost: 75.16,
+  },
+  {
+    ticker: "TSM",
+    quantity: 3.8206,
+    avgCost: 443.00,
+  },
+  {
+    ticker: "AMD",
+    quantity: 0.5288,
+    avgCost: 550.37,
+  },
+  {
+    ticker: "INTC",
+    quantity: 14.9978,
+    avgCost: 128.20,
+  },
 ]
 
-export const SEED_CASH = 8250
+// Starting cash.
+// This can be updated later or calculated from transactions.
+export const SEED_CASH = 0
 
 export const SEED_TRANSACTIONS: Transaction[] = [
   { id: "t1", date: "2025-06-02", ticker: "CASH", type: "Deposit", quantity: 40000, price: 1, currency: "USD", brokerageFee: 0, fxFee: 0, notes: "Initial funding" },
