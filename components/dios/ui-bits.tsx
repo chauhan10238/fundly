@@ -1,7 +1,27 @@
-import type { ReactNode } from "react"
+import type { ComponentProps, ReactNode } from "react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { buttonVariants } from "@/components/ui/button"
+import type { VariantProps } from "class-variance-authority"
 import type { Recommendation } from "@/lib/dios/types"
+
+// Base UI's Button uses a `render` prop rather than `asChild`, so we provide a
+// dedicated link-styled-as-button helper for navigation.
+export function ButtonLink({
+  href,
+  variant,
+  size,
+  className,
+  children,
+  ...props
+}: ComponentProps<typeof Link> & VariantProps<typeof buttonVariants>) {
+  return (
+    <Link href={href} className={cn(buttonVariants({ variant, size, className }))} {...props}>
+      {children}
+    </Link>
+  )
+}
 
 const RECO_STYLES: Record<Recommendation, string> = {
   "Strong Buy": "bg-positive text-positive-foreground",

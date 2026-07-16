@@ -2,6 +2,8 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
+import { DiosProvider } from '@/components/dios/store'
+import { AppShell } from '@/components/dios/app-shell'
 import './globals.css'
 
 const inter = Inter({
@@ -39,7 +41,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} bg-background`}>
       <body className="font-sans antialiased">
-        {children}
+        <DiosProvider>
+          <AppShell>{children}</AppShell>
+        </DiosProvider>
         <Toaster position="top-right" />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

@@ -72,3 +72,10 @@ export const DEFAULT_SETTINGS: Settings = {
 }
 
 export const LAST_REFRESH = "2026-02-16T09:32:00-05:00"
+
+export const MARKET_TAPE: { label: string; value: string; change: number }[] = [
+  { label: "S&P", value: "5,942", change: 0.34 },
+  { label: "NDX", value: "21,180", change: 0.61 },
+  { label: "VIX", value: "16.2", change: -3.1 },
+  { label: "AUD/USD", value: "0.6612", change: -0.18 },
+]
