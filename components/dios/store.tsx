@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
-import { buildPortfolio, type PortfolioSummary } from "@/lib/dios/portfolio-engine"
+import { buildPortfolio, type LiveQuote, type LiveQuoteMap, type PortfolioSummary } from "@/lib/dios/portfolio-engine"
 import { getInstrument } from "@/lib/dios/universe"
 import { DEFAULT_SETTINGS } from "@/lib/dios/macro"
 import { SEED_CASH, SEED_HOLDINGS, SEED_RECOMMENDATIONS, SEED_TRANSACTIONS } from "@/lib/dios/seed"
@@ -17,9 +17,16 @@ interface PersistedStore {
   recommendations: RecommendationRecord[]
 }
 
+type QuoteStatus = "idle" | "loading" | "live" | "partial" | "error"
+
 interface StoreValue extends PersistedStore {
   portfolio: PortfolioSummary
   hydrated: boolean
+  quoteStatus: QuoteStatus
+  quoteError: string | null
+  quotesRefreshedAt: string | null
+  unavailableQuotes: string[]
+  refreshQuotes: () => Promise<void>
   upsertHolding: (h: Holding) => void
   removeHolding: (ticker: string) => void
   addCash: (amount: number) => void
@@ -95,6 +102,11 @@ function initialState(): PersistedStore {
 export function DiosProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<PersistedStore>(initialState)
   const [hydrated, setHydrated] = useState(false)
+  const [liveQuotes, setLiveQuotes] = useState<LiveQuoteMap>({})
+  const [quoteStatus, setQuoteStatus] = useState<QuoteStatus>("idle")
+  const [quoteError, setQuoteError] = useState<string | null>(null)
+  const [quotesRefreshedAt, setQuotesRefreshedAt] = useState<string | null>(null)
+  const [unavailableQuotes, setUnavailableQuotes] = useState<string[]>([])
 
   useEffect(() => {
     try {
@@ -121,9 +133,60 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   }, [state, hydrated])
 
+  const refreshQuotes = useCallback(async () => {
+    const symbols = Array.from(new Set(state.holdings.map((h) => h.ticker.trim().toUpperCase()).filter(Boolean)))
+    if (symbols.length === 0) {
+      setLiveQuotes({})
+      setQuoteStatus("idle")
+      setQuoteError(null)
+      setQuotesRefreshedAt(null)
+      setUnavailableQuotes([])
+      return
+    }
+
+    setQuoteStatus("loading")
+    setQuoteError(null)
+
+    try {
+      const response = await fetch(`/api/quotes?symbols=${encodeURIComponent(symbols.join(","))}`, {
+        cache: "no-store",
+      })
+      const payload = await response.json() as {
+        quotes?: LiveQuote[]
+        unavailable?: string[]
+        refreshedAt?: string
+        error?: string
+      }
+
+      if (!response.ok || !Array.isArray(payload.quotes)) {
+        throw new Error(payload.error || `Quote request failed with status ${response.status}`)
+      }
+
+      const nextQuotes = Object.fromEntries(payload.quotes.map((quote) => [quote.symbol, quote]))
+      const unavailable = Array.isArray(payload.unavailable) ? payload.unavailable : []
+
+      setLiveQuotes((current) => ({ ...current, ...nextQuotes }))
+      setUnavailableQuotes(unavailable)
+      setQuotesRefreshedAt(payload.refreshedAt ?? new Date().toISOString())
+      setQuoteStatus(unavailable.length > 0 ? "partial" : "live")
+    } catch (error) {
+      setQuoteStatus("error")
+      setQuoteError(error instanceof Error ? error.message : "Unable to retrieve live prices")
+    }
+  }, [state.holdings])
+
+  useEffect(() => {
+    if (!hydrated) return
+    void refreshQuotes()
+
+    const minutes = Math.max(1, state.settings.dataRefreshMinutes || 5)
+    const interval = window.setInterval(() => void refreshQuotes(), minutes * 60_000)
+    return () => window.clearInterval(interval)
+  }, [hydrated, refreshQuotes, state.settings.dataRefreshMinutes])
+
   const portfolio = useMemo(
-    () => buildPortfolio(state.holdings, state.cash, state.settings),
-    [state.holdings, state.cash, state.settings],
+    () => buildPortfolio(state.holdings, state.cash, state.settings, liveQuotes),
+    [state.holdings, state.cash, state.settings, liveQuotes],
   )
 
   const upsertHolding = useCallback((holding: Holding) => {
@@ -184,7 +247,8 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <StoreContext.Provider value={{
-      ...state, portfolio, hydrated, upsertHolding, removeHolding, addCash, withdrawCash,
+      ...state, portfolio, hydrated, quoteStatus, quoteError, quotesRefreshedAt,
+      unavailableQuotes, refreshQuotes, upsertHolding, removeHolding, addCash, withdrawCash,
       addTransaction, addTransactions, removeTransaction, updateSettings, resetSettings,
       addRecommendation, resetPortfolio,
     }}>
