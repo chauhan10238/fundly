@@ -19,10 +19,11 @@ import type {
   Settings,
   SourceCitation,
   MarketSnapshot,
+  ExternalAnalysisContext,
+  LiveNewsItem,
 } from "./types"
 import { changePct, fmtPct } from "../format"
 
-const RETRIEVED = "2026-02-16T09:32:00-05:00"
 
 // Curated alternative sets; fallback to sector peers.
 const ALT_MAP: Record<string, string[]> = {
@@ -149,37 +150,40 @@ function buildAlternatives(inst: Instrument, portfolio: PortfolioSummary, settin
     .sort((a, b) => b.score - a.score)
 }
 
-function sourcesFor(inst: Instrument): SourceCitation[] {
-  const base: SourceCitation[] = [
-    { id: "S1", name: "Federal Reserve / FRED — macro series", date: "2026-02-14", url: "https://fred.stlouisfed.org", retrieved: RETRIEVED },
-    { id: "S2", name: "Demo market-data provider — quote & history", date: "2026-02-16", url: "#", retrieved: RETRIEVED },
+function fallbackSources(inst: Instrument, retrieved: string): SourceCitation[] {
+  return [
+    { id: "S1", name: "DIOS tracked instrument model — fallback data", date: retrieved.slice(0, 10), url: "", retrieved },
+    { id: "S2", name: `${inst.name} — tracked universe metadata`, date: retrieved.slice(0, 10), url: "", retrieved },
   ]
-  if (inst.type === "stock") {
-    base.push(
-      { id: "S3", name: `SEC EDGAR — ${inst.ticker} latest 10-Q`, date: "2026-01-29", url: "https://www.sec.gov/edgar", retrieved: RETRIEVED },
-      { id: "S4", name: `${inst.name} investor relations — earnings release`, date: "2026-01-30", url: "#", retrieved: RETRIEVED },
-    )
-  } else {
-    base.push(
-      { id: "S3", name: `${inst.name} issuer factsheet & holdings`, date: "2026-02-13", url: "#", retrieved: RETRIEVED },
-    )
-  }
-  if (inst.themes?.includes("semiconductors")) {
-    base.push({ id: "S5", name: "US BIS export-control updates", date: "2026-02-05", url: "https://www.bis.gov", retrieved: RETRIEVED })
-  }
-  return base
 }
+
+function sourceRef(item: LiveNewsItem, context: ExternalAnalysisContext): string {
+  const index = context.sources.findIndex((source) => source.url && source.url === item.url)
+  return index >= 0 ? `[${context.sources[index].id}, ${item.publishedAt.slice(0, 10)}]` : `[${item.publishedAt.slice(0, 10)}]`
+}
+
+function recentNewsReasons(context?: ExternalAnalysisContext): string[] {
+  if (!context?.news.length) return []
+  return context.news.slice(0, 3).map((item) => `${item.title} — ${item.source} ${sourceRef(item, context)}.`)
+}
+
+function newsRisk(context?: ExternalAnalysisContext): string | null {
+  const negative = context?.news.find((item) => item.sentiment === "negative")
+  return negative ? `${negative.title} — ${negative.source} ${sourceRef(negative, context!)}.` : null
+}
+
 
 export function analyse(
   ticker: string,
   portfolio: PortfolioSummary,
   settings: Settings,
   market?: MarketSnapshot,
+  external?: ExternalAnalysisContext,
 ): AnalysisReport | { error: string } {
   const inst = getInstrument(ticker)
   if (!inst) return { error: `Ticker "${ticker}" is not in the current demo universe. Add it to the universe or configure a market-data provider.` }
 
-  const dataComplete = Boolean(market?.isLive)
+  const dataComplete = Boolean(market?.isLive && external && external.sources.length > 0)
   const held = portfolio.positions.find((p) => p.ticker === inst.ticker)
   const currentWeight = held?.weight ?? 0
 
@@ -213,19 +217,19 @@ export function analyse(
     modelVersion: MODEL_VERSION,
     scoringVersion: SCORING_VERSION,
     scores,
-    whyToday: buildWhyToday({ ...inst, price }, scores),
-    whyNotToday: buildWhyNotToday({ ...inst, price }, scores, portfolioImpact),
-    whyNotWait: buildWhyNotWait({ ...inst, price }, scores),
-    recentChanges: buildRecentChanges({ ...inst, price }),
+    whyToday: buildWhyToday({ ...inst, price }, scores, external),
+    whyNotToday: buildWhyNotToday({ ...inst, price }, scores, portfolioImpact, external),
+    whyNotWait: buildWhyNotWait({ ...inst, price }, scores, external),
+    recentChanges: buildRecentChanges({ ...inst, price }, external),
     betterEntryConditions: buildBetterEntry({ ...inst, price }, scores),
     thesisInvalidation: buildInvalidation({ ...inst, price }),
     alternatives,
     scenarios,
     portfolioImpact,
-    sources: sourcesFor(inst),
+    sources: external?.sources.length ? external.sources : fallbackSources(inst, market?.refreshedAt ?? new Date().toISOString()),
     dataComplete,
-    strongestReasons: buildWhyToday({ ...inst, price }, scores).slice(0, 3),
-    mainRisk: buildInvalidation({ ...inst, price })[0] ?? "The investment thesis may weaken if fundamentals or portfolio fit deteriorate.",
+    strongestReasons: buildWhyToday({ ...inst, price }, scores, external).slice(0, 3),
+    mainRisk: newsRisk(external) ?? buildInvalidation({ ...inst, price })[0] ?? "The investment thesis may weaken if fundamentals or portfolio fit deteriorate.",
     decisionChangeCondition: buildBetterEntry({ ...inst, price }, scores)[0] ?? "A material change in valuation, fundamentals or portfolio concentration would change the decision.",
     concentrationWarnings: buildConcentrationWarnings(inst, portfolio, currentWeight, settings),
     marketDataProvider: market?.provider ?? "DIOS model fallback",
@@ -260,40 +264,54 @@ function buildConcentrationWarnings(
   return warnings
 }
 
-function buildWhyToday(inst: Instrument, s: ScoreSet): string[] {
+function buildWhyToday(inst: Instrument, s: ScoreSet, context?: ExternalAnalysisContext): string[] {
   const out: string[] = []
-  if (s.technical >= 65) out.push(`Price trend is constructive with momentum score ${s.technical}/100; the name trades above key moving averages [S2, 2026-02-16].`)
-  if (s.macro >= 60) out.push(`Macro regime ("${MACRO.regime}") is supportive at ${s.macro}/100 for this profile — disinflation plus an easing bias [S1, 2026-02-14].`)
-  if (s.quality >= 80) out.push(`Business quality is high (${s.quality}/100): durable margins and competitive position support a core allocation [S3].`)
-  if (inst.themes?.includes("ai")) out.push(`Structural AI-driven demand remains a multi-quarter tailwind per the latest results [S4, 2026-01-30].`)
-  if (out.length === 0) out.push(`Valuation is the primary attraction today at ${s.valuation}/100; entry is reasonable rather than momentum-driven [S2].`)
+  const positiveNews = context?.news.filter((item) => item.sentiment === "positive").slice(0, 2) ?? []
+  for (const item of positiveNews) out.push(`${item.title} — ${item.source} ${sourceRef(item, context!)}.`)
+  if (context?.earnings?.isUpcoming) out.push(`Upcoming earnings on ${context.earnings.date}; event risk supports staged sizing rather than a full entry.`)
+  if (s.technical >= 65) out.push(`Price trend is constructive with momentum score ${s.technical}/100; the name trades above key moving averages based on the current price trend.`)
+  if (s.macro >= 60) out.push(`Macro regime ("${MACRO.regime}") is supportive at ${s.macro}/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.`)
+  if (s.quality >= 80) out.push(`Business quality is high (${s.quality}/100): durable margins and competitive position support a core allocation.`)
+  if (inst.themes?.includes("ai")) out.push(`Structural AI-driven demand remains a multi-quarter tailwind; confirm this against the latest earnings source listed below.`)
+  if (out.length === 0) out.push(`Valuation is the primary attraction today at ${s.valuation}/100; entry is reasonable rather than momentum-driven.`)
   return out
 }
 
-function buildWhyNotToday(inst: Instrument, s: ScoreSet, impact: PortfolioImpact): string[] {
+function buildWhyNotToday(inst: Instrument, s: ScoreSet, impact: PortfolioImpact, context?: ExternalAnalysisContext): string[] {
   const out: string[] = []
-  if (s.geopolitics < 50) out.push(`Geopolitical risk is elevated (${s.geopolitics}/100) given ${inst.country === "Taiwan" ? "Taiwan Strait supply concentration" : "sector-specific export-control exposure"} [S5, 2026-02-05].`)
-  if (s.valuation < 45) out.push(`Valuation is full at ${s.valuation}/100, leaving limited margin of safety if guidance disappoints [S3].`)
+  const negativeNews = context?.news.filter((item) => item.sentiment === "negative").slice(0, 2) ?? []
+  for (const item of negativeNews) out.push(`${item.title} — ${item.source} ${sourceRef(item, context!)}.`)
+  if (s.geopolitics < 50) out.push(`Geopolitical risk is elevated (${s.geopolitics}/100) given ${inst.country === "Taiwan" ? "Taiwan Strait supply concentration" : "sector-specific export-control exposure"}; monitor the latest geopolitical sources below.`)
+  if (s.valuation < 45) out.push(`Valuation is full at ${s.valuation}/100, leaving limited margin of safety if guidance disappoints.`)
   if (impact.directOverlap.length || impact.lookThroughOverlap.length) out.push(`Adds to existing overlap with ${[...impact.directOverlap, ...impact.lookThroughOverlap].join(", ")}, raising concentration.`)
   if (s.psychology < 50) out.push(`Behavioural risk of chasing strength is high (${s.psychology}/100); avoid adding on an extended move.`)
   if (out.length === 0) out.push(`No major red flags today, but size the entry to respect portfolio limits.`)
   return out
 }
 
-function buildWhyNotWait(inst: Instrument, s: ScoreSet): string[] {
+function buildWhyNotWait(inst: Instrument, s: ScoreSet, context?: ExternalAnalysisContext): string[] {
   const out: string[] = []
+  const positiveNews = context?.news.filter((item) => item.sentiment === "positive").slice(0, 2) ?? []
+  for (const item of positiveNews) out.push(`${item.title} — ${item.source} ${sourceRef(item, context!)}.`)
+  if (context?.earnings?.isUpcoming) out.push(`Upcoming earnings on ${context.earnings.date}; event risk supports staged sizing rather than a full entry.`)
   if (s.technical >= 65) out.push(`Waiting risks missing continuation while the trend and flows (${s.flows}/100) remain positive.`)
-  if (inst.nextEvent) out.push(`A catalyst (${inst.nextEvent}) on ${inst.nextEventDate} could re-rate the name before a cheaper entry appears.`)
+  if (context?.earnings?.isUpcoming) out.push(`Earnings are scheduled for ${context.earnings.date}; a positive surprise could re-rate the name before a cheaper entry appears.`)
+  else if (inst.nextEvent) out.push(`A catalyst (${inst.nextEvent}) on ${inst.nextEventDate} could re-rate the name before a cheaper entry appears.`)
   out.push(`Dollar-cost averaging a partial position now preserves optionality versus waiting for a perfect entry that may not arrive.`)
   return out
 }
 
-function buildRecentChanges(inst: Instrument): string[] {
+function buildRecentChanges(inst: Instrument, context?: ExternalAnalysisContext): string[] {
+  const live = recentNewsReasons(context)
+  if (live.length) {
+    if (context?.earnings) live.push(`${context.earnings.isUpcoming ? "Upcoming" : "Most recent"} earnings date: ${context.earnings.date}.`)
+    return live
+  }
   const out: string[] = []
-  if (inst.themes?.includes("semiconductors")) out.push(`Latest quarter showed re-accelerating data-center revenue and raised full-year guidance [S4, 2026-01-30].`)
-  if (inst.themes?.includes("gold")) out.push(`Real yields fell ~30bps over the past month and central-bank buying continued [S1, 2026-02-14].`)
-  out.push(`Consensus estimates were revised ${inst.growthHint > 70 ? "higher" : "modestly"} over the last 30 days [S2].`)
-  out.push(`Macro regime shifted toward an easing bias since the January FOMC [S1, 2026-01-29].`)
+  if (inst.themes?.includes("semiconductors")) out.push(`Latest quarter showed re-accelerating data-center revenue and raised full-year guidance.`)
+  if (inst.themes?.includes("gold")) out.push(`Real yields fell ~30bps over the past month and central-bank buying continued using the current DIOS macro regime.`)
+  out.push(`Consensus estimates were revised ${inst.growthHint > 70 ? "higher" : "modestly"} over the last 30 days.`)
+  out.push(`Macro regime shifted toward an easing bias since the January FOMC.`)
   return out
 }
 
