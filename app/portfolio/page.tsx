@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { RotateCcw, Trash2 } from "lucide-react"
+import { RefreshCw, RotateCcw, Trash2, Wifi, WifiOff } from "lucide-react"
 import { toast } from "sonner"
 import { useDios } from "@/components/dios/store"
 import { fmtCompact, fmtCurrency, fmtPct } from "@/lib/format"
@@ -22,7 +22,17 @@ import {
 } from "@/components/ui/table"
 
 export default function PortfolioPage() {
-  const { portfolio, removeHolding, cash, resetPortfolio } = useDios()
+  const {
+    portfolio,
+    removeHolding,
+    cash,
+    resetPortfolio,
+    quoteStatus,
+    quoteError,
+    quotesRefreshedAt,
+    unavailableQuotes,
+    refreshQuotes,
+  } = useDios()
   const { positions, totalValue, totalPL, totalPLPct, exposure } = portfolio
   const [confirm, setConfirm] = useState<string | null>(null)
 
@@ -46,7 +56,15 @@ export default function PortfolioPage() {
             Positions, performance and multi-dimensional exposure with ETF look-through.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            disabled={quoteStatus === "loading"}
+            onClick={() => void refreshQuotes()}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${quoteStatus === "loading" ? "animate-spin" : ""}`} />
+            Refresh prices
+          </Button>
           <Button
             variant="outline"
             onClick={() => {
@@ -61,9 +79,12 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-100">
-        Holdings are seeded from the Stake screenshots shared in ChatGPT. Quantities are high-confidence; average costs are approximate until confirmed against an official Stake statement. Market prices remain demo data.
-      </div>
+      <MarketDataStatus
+        status={quoteStatus}
+        error={quoteError}
+        refreshedAt={quotesRefreshedAt}
+        unavailable={unavailableQuotes}
+      />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Total Value" value={fmtCurrency(totalValue, "USD", 0)} sub={<span>Incl. {fmtCompact(cash)} cash</span>} />
@@ -117,7 +138,12 @@ export default function PortfolioPage() {
                   <TableCell className="hidden text-sm text-muted-foreground md:table-cell">{p.instrument.sector}</TableCell>
                   <TableCell className="text-right tabular-nums">{p.quantity.toLocaleString(undefined, { maximumFractionDigits: 4 })}</TableCell>
                   <TableCell className="text-right tabular-nums">{fmtCurrency(p.avgCost)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{fmtCurrency(p.price)}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    <div>{fmtCurrency(p.price)}</div>
+                    <div className={`text-[10px] font-medium uppercase tracking-wide ${p.priceSource === "live" ? "text-positive" : "text-amber-600"}`}>
+                      {p.priceSource === "live" ? "Live" : "Demo fallback"}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right tabular-nums font-medium">{fmtCurrency(p.marketValue, "USD", 0)}</TableCell>
                   <TableCell className="text-right tabular-nums">{fmtPct(p.weight)}</TableCell>
                   <TableCell className="text-right"><DeltaText value={p.dayChangePct} /></TableCell>
@@ -180,6 +206,52 @@ export default function PortfolioPage() {
         <ConcentrationCard label="Semiconductor exposure" pct={exposure.semiconductor} threshold={25} />
         <ConcentrationCard label="Energy exposure" pct={exposure.energy} threshold={20} />
         <ConcentrationCard label="Gold / hard assets" pct={exposure.gold} threshold={20} />
+      </div>
+    </div>
+  )
+}
+
+
+function MarketDataStatus({
+  status,
+  error,
+  refreshedAt,
+  unavailable,
+}: {
+  status: "idle" | "loading" | "live" | "partial" | "error"
+  error: string | null
+  refreshedAt: string | null
+  unavailable: string[]
+}) {
+  const live = status === "live" || status === "partial"
+  const updated = refreshedAt
+    ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "medium" }).format(new Date(refreshedAt))
+    : null
+
+  if (status === "error") {
+    return (
+      <div className="flex items-start gap-3 rounded-lg border border-red-300/60 bg-red-50 px-4 py-3 text-sm text-red-950 dark:border-red-500/30 dark:bg-red-950/30 dark:text-red-100">
+        <WifiOff className="mt-0.5 h-4 w-4 shrink-0" />
+        <div>
+          <p className="font-medium">Live price connection failed</p>
+          <p className="mt-0.5 text-xs opacity-80">{error ?? "The app is using demo fallback prices."}</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ${live ? "border-emerald-300/60 bg-emerald-50 text-emerald-950 dark:border-emerald-500/30 dark:bg-emerald-950/30 dark:text-emerald-100" : "border-amber-300/60 bg-amber-50 text-amber-950 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-100"}`}>
+      {live ? <Wifi className="mt-0.5 h-4 w-4 shrink-0" /> : <RefreshCw className={`mt-0.5 h-4 w-4 shrink-0 ${status === "loading" ? "animate-spin" : ""}`} />}
+      <div>
+        <p className="font-medium">
+          {status === "loading" ? "Loading live market prices…" : live ? "Live market prices connected" : "Waiting for live market prices"}
+        </p>
+        <p className="mt-0.5 text-xs opacity-80">
+          Holdings are seeded from your Stake snapshot. Average costs remain approximate until reconciled with an official statement.
+          {updated ? ` Last refreshed ${updated}.` : ""}
+          {unavailable.length ? ` Demo fallback is being used for: ${unavailable.join(", ")}.` : ""}
+        </p>
       </div>
     </div>
   )
