@@ -180,8 +180,8 @@ export function analyse(
   market?: MarketSnapshot,
   external?: ExternalAnalysisContext,
 ): AnalysisReport | { error: string } {
-  const inst = getInstrument(ticker)
-  if (!inst) return { error: `Ticker "${ticker}" is not in the current demo universe. Add it to the universe or configure a market-data provider.` }
+  const inst = external?.instrument ?? getInstrument(ticker)
+  if (!inst) return { error: `No instrument profile was returned for "${ticker}".` }
 
   const dataComplete = Boolean(market?.isLive && external && external.sources.length > 0)
   const held = portfolio.positions.find((p) => p.ticker === inst.ticker)

@@ -87,7 +87,7 @@ function AnalyseInner() {
       scenarios: report.scenarios,
       modelVersion: report.modelVersion,
       scoringVersion: report.scoringVersion,
-      sector: inst?.sector ?? "—",
+      sector: externalContext?.instrument?.sector ?? inst?.sector ?? "—",
       macroRegime: MACRO.regime,
       outcomes: { d1: null, w1: null, m1: null, m3: null, m6: null, m12: null },
     }
@@ -96,7 +96,7 @@ function AnalyseInner() {
     toast.success(`Logged ${report.recommendation} for ${report.ticker}`, {
       description: "Saved to recommendation history for outcome tracking.",
     })
-  }, [report, addRecommendation])
+  }, [report, addRecommendation, externalContext])
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -162,7 +162,7 @@ function AnalyseInner() {
       )}
 
       {!result && (
-        <Panel title="Start an analysis" description="Search for any instrument in the tracked universe above.">
+        <Panel title="Start an analysis" description="Search for any supported US-listed stock or ETF above.">
           <p className="p-4 text-sm text-muted-foreground text-pretty">
             DIOS scores each instrument across macro, geopolitics, earnings, fundamentals, valuation, quality, flows,
             technicals, portfolio fit, timing, psychology and opportunity cost — then explains why to act (or wait),

@@ -40,3 +40,12 @@
 - Removed buy recommendations based solely on a falling price; quality, fundamentals, valuation and portfolio fit must also pass.
 - Added concentration alerts and live/fallback market-data labels.
 - Added manual analysis refresh and resilient fallback behaviour when live quotes are unavailable.
+
+## 1.3.2 — Universal Search & Current Quotes
+
+- Added live stock and ETF name/ticker search.
+- Added Yahoo Finance current quote provider with FMP fallback.
+- Removed the tracked-universe restriction from Analyse.
+- Added dynamic instrument profiles for symbols not in the local universe.
+- Portfolio quotes now use the same provider chain for stocks and ETFs.
+- Old demo prices are no longer used when the live API route succeeds.

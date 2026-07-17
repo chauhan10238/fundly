@@ -179,6 +179,7 @@ export interface LiveFundamentalContext {
 }
 
 export interface ExternalAnalysisContext {
+  instrument?: Instrument
   refreshedAt: string
   news: LiveNewsItem[]
   earnings: LiveEarningsContext | null
