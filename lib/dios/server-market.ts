@@ -12,7 +12,10 @@ type YahooChartResult = {
     chartPreviousClose?: number
     previousClose?: number
     regularMarketTime?: number
+    marketState?: string
   }
+  timestamp?: number[]
+  indicators?: { quote?: Array<{ close?: Array<number | null> }> }
 }
 
 export type SearchResult = {
@@ -21,6 +24,16 @@ export type SearchResult = {
   exchange: string
   type: InstrumentType
   currency?: string
+}
+
+export type MarketOverviewItem = {
+  symbol: string
+  label: string
+  price: number
+  previousClose: number
+  changePercent: number
+  timestamp: number | null
+  provider: string
 }
 
 function cleanSymbol(value: string) {
@@ -32,7 +45,7 @@ async function fetchJson(url: string) {
     cache: "no-store",
     headers: {
       Accept: "application/json",
-      "User-Agent": "Mozilla/5.0 DIOS/2.0",
+      "User-Agent": "Mozilla/5.0 DIOS/1.4",
     },
   })
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
@@ -63,34 +76,54 @@ export async function searchYahoo(query: string): Promise<SearchResult[]> {
     .filter((row: SearchResult) => Boolean(row.symbol))
 }
 
+function latestIntradayPoint(result: YahooChartResult): { price?: number; timestamp?: number } {
+  const closes = result.indicators?.quote?.[0]?.close ?? []
+  const timestamps = result.timestamp ?? []
+  for (let i = closes.length - 1; i >= 0; i -= 1) {
+    const value = closes[i]
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+      return { price: value, timestamp: timestamps[i] }
+    }
+  }
+  return {}
+}
+
 export async function fetchYahooQuote(symbolInput: string): Promise<{ snapshot: MarketSnapshot; name: string; currency: string; type: InstrumentType } | null> {
   const symbol = cleanSymbol(symbolInput)
   if (!symbol) return null
   const payload = await fetchJson(
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=5d&includePrePost=false`,
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d&includePrePost=true&events=div%2Csplits`,
   )
   const result: YahooChartResult | undefined = payload?.chart?.result?.[0]
   const meta = result?.meta
-  const price = meta?.regularMarketPrice
+  if (!result || !meta) return null
+
+  const intraday = latestIntradayPoint(result)
+  const price = intraday.price ?? meta.regularMarketPrice
   if (typeof price !== "number" || !Number.isFinite(price) || price <= 0) return null
+
   const previousClose =
-    typeof meta?.chartPreviousClose === "number" && meta.chartPreviousClose > 0
+    typeof meta.chartPreviousClose === "number" && meta.chartPreviousClose > 0
       ? meta.chartPreviousClose
-      : typeof meta?.previousClose === "number" && meta.previousClose > 0
+      : typeof meta.previousClose === "number" && meta.previousClose > 0
         ? meta.previousClose
         : price
+  const quoteTime = intraday.timestamp ?? meta.regularMarketTime ?? Math.floor(Date.now() / 1000)
+  const marketState = (meta.marketState ?? "").toUpperCase()
+  const isLive = ["REGULAR", "PRE", "POST", "PREPRE", "POSTPOST"].includes(marketState)
+
   return {
     snapshot: {
       price,
       previousClose,
       changePercent: previousClose ? ((price - previousClose) / previousClose) * 100 : 0,
-      refreshedAt: new Date().toISOString(),
-      provider: "Yahoo Finance",
-      isLive: true,
+      refreshedAt: new Date(quoteTime * 1000).toISOString(),
+      provider: "Yahoo Finance intraday",
+      isLive,
     },
-    name: meta?.longName || meta?.shortName || symbol,
-    currency: meta?.currency || "USD",
-    type: mapYahooType(meta?.instrumentType),
+    name: meta.longName || meta.shortName || symbol,
+    currency: meta.currency || "USD",
+    type: mapYahooType(meta.instrumentType),
   }
 }
 
@@ -111,16 +144,17 @@ export async function fetchFmpQuote(symbolInput: string, apiKey?: string): Promi
         ? row.previousClose
         : typeof row.change === "number" ? price - row.change : price
       const pct = row.changesPercentage ?? row.changePercentage
+      const ts = typeof row.timestamp === "number" ? row.timestamp : Math.floor(Date.now() / 1000)
       return {
         price,
         previousClose,
         changePercent: typeof pct === "number" ? pct : previousClose ? ((price - previousClose) / previousClose) * 100 : 0,
-        refreshedAt: new Date().toISOString(),
+        refreshedAt: new Date(ts * 1000).toISOString(),
         provider: "Financial Modeling Prep",
         isLive: true,
       }
     } catch {
-      // next endpoint
+      // try next endpoint
     }
   }
   return null
@@ -136,6 +170,29 @@ export async function resolveLiveQuote(symbol: string, apiKey?: string) {
   const fmp = await fetchFmpQuote(symbol, apiKey)
   if (!fmp) return null
   return { snapshot: fmp, name: cleanSymbol(symbol), currency: "USD", type: "stock" as InstrumentType }
+}
+
+export async function fetchMarketOverview(apiKey?: string): Promise<MarketOverviewItem[]> {
+  const instruments = [
+    { symbol: "^GSPC", label: "S&P 500" },
+    { symbol: "^IXIC", label: "NASDAQ" },
+    { symbol: "^VIX", label: "VIX" },
+    { symbol: "AUDUSD=X", label: "AUD/USD" },
+  ]
+  const settled = await Promise.allSettled(instruments.map(async (item) => ({ item, quote: await resolveLiveQuote(item.symbol, apiKey) })))
+  return settled.flatMap((result) => {
+    if (result.status !== "fulfilled" || !result.value.quote) return []
+    const { item, quote } = result.value
+    return [{
+      symbol: item.symbol,
+      label: item.label,
+      price: quote.snapshot.price,
+      previousClose: quote.snapshot.previousClose,
+      changePercent: quote.snapshot.changePercent,
+      timestamp: Math.floor(new Date(quote.snapshot.refreshedAt).getTime() / 1000),
+      provider: quote.snapshot.provider,
+    }]
+  })
 }
 
 export function buildDynamicInstrument(args: {
@@ -174,9 +231,9 @@ export function buildDynamicInstrument(args: {
 export function sourceFromQuote(provider: string, symbol: string, retrieved: string): SourceCitation {
   return {
     id: "S1",
-    name: `${provider} — current quote for ${symbol}`,
+    name: `${provider} — latest available quote for ${symbol}`,
     date: retrieved.slice(0, 10),
-    url: provider === "Yahoo Finance" ? `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}` : "",
+    url: provider.startsWith("Yahoo") ? `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}` : "",
     retrieved,
   }
 }

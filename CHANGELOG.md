@@ -58,3 +58,12 @@
 - Added dynamic instrument profiles for symbols not in the local universe.
 - Portfolio quotes now use the same provider chain for stocks and ETFs.
 - Old demo prices are no longer used when the live API route succeeds.
+
+## 1.4.0 — Live Market Integrity
+
+- Replaced the static top market tape with live S&P 500, Nasdaq Composite, VIX and AUD/USD data.
+- Added `/api/market-overview` and 10-second visible-tab refresh.
+- Updated Yahoo quote retrieval to use 1-minute intraday data including pre-market and after-hours sessions.
+- Added quote timestamps and clearer live/latest-available labels.
+- Removed the misleading “Demo data” banner and demo-data footer wording.
+- Changed portfolio and analysis quote polling to every 10 seconds while the browser tab is visible.

@@ -241,7 +241,7 @@ export default function DashboardPage() {
       </div>
 
       <p className="text-center text-xs text-muted-foreground">
-        DIOS is a personal decision-support tool using illustrative demo data. Nothing here is investment advice.
+        DIOS is a personal decision-support tool using current and latest-available market data. Informational analysis only; verify prices with your broker before trading.
       </p>
     </div>
   )

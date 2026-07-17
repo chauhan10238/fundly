@@ -185,10 +185,16 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated) return
     void refreshQuotes()
 
-    const minutes = Math.max(1, state.settings.dataRefreshMinutes || 5)
-    const interval = window.setInterval(() => void refreshQuotes(), minutes * 60_000)
-    return () => window.clearInterval(interval)
-  }, [hydrated, refreshQuotes, state.settings.dataRefreshMinutes])
+    const refresh = () => {
+      if (document.visibilityState === "visible") void refreshQuotes()
+    }
+    const interval = window.setInterval(refresh, 10_000)
+    document.addEventListener("visibilitychange", refresh)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener("visibilitychange", refresh)
+    }
+  }, [hydrated, refreshQuotes])
 
   const portfolio = useMemo(
     () => buildPortfolio(state.holdings, state.cash, state.settings, liveQuotes),

@@ -49,6 +49,15 @@ function AnalyseInner() {
 
   useEffect(() => {
     void loadMarket()
+    const refresh = () => {
+      if (document.visibilityState === "visible") void loadMarket()
+    }
+    const timer = window.setInterval(refresh, 10_000)
+    document.addEventListener("visibilitychange", refresh)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener("visibilitychange", refresh)
+    }
   }, [loadMarket])
 
   const result = useMemo(() => {
@@ -131,9 +140,9 @@ function AnalyseInner() {
             <span>
               {loadingMarket
                 ? `Retrieving current market data for ${ticker}…`
-                : market?.isLive
-                  ? `Live price connected via ${market.provider}`
-                  : marketError || "DIOS model fallback price in use"}
+                : market
+                  ? `${market.isLive ? "Latest market price" : "Latest available price"} via ${market.provider} · quote ${new Date(market.refreshedAt).toLocaleTimeString()}`
+                  : marketError || "Current market price unavailable"}
             </span>
           </div>
           <Button size="sm" variant="outline" onClick={() => void loadMarket()} disabled={loadingMarket}>

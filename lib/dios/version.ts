@@ -1,2 +1,2 @@
-export const DIOS_VERSION = "1.3.3"
-export const DIOS_RELEASE_NAME = "Closed Position Cleanup"
+export const DIOS_VERSION = "1.4.0"
+export const DIOS_VERSION_NAME = "Live Market Integrity"
