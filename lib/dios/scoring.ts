@@ -136,23 +136,21 @@ export function recommend(
   currentWeight: number,
   settings: Settings,
 ): Recommendation {
-  // Losing / weak names
+  const overweight =
+    (inst.type === "stock" && currentWeight > 10) ||
+    (inst.leveraged && currentWeight > 3)
+
+  if (overweight) return "Reduce"
   if (overall < 40) return "Avoid"
   if (overall < 50) return scores.technical < 45 ? "Sell" : "Reduce"
+  if (overall < 58) return "Hold"
 
-  // Portfolio-fit gating
-  const overweight =
-    (inst.type === "stock" && currentWeight > settings.maxStockWeight) ||
-    (inst.leveraged && currentWeight > settings.maxLeveragedWeight)
-  if (overweight) return "Reduce"
-
-  if (overall >= settings.minStrongBuyScore && scores.portfolioFit >= 55) return "Strong Buy"
-  if (overall >= settings.minBuyScore) {
-    if (scores.portfolioFit < 50) return "Start Small"
-    if (scores.timing < 50) return "Buy Watch"
-    return "Buy"
-  }
-  if (overall >= 55) return scores.timing < 50 ? "Buy Watch" : "Start Small"
+  // A falling price alone never creates a buy recommendation. The model still
+  // requires acceptable fundamentals, portfolio fit and valuation.
+  if (scores.fundamentals < 55 || scores.quality < 50) return "Hold"
+  if (scores.portfolioFit < 45) return currentWeight > 0 ? "Reduce" : "No Action"
+  if (overall >= settings.minBuyScore && scores.timing >= 55 && scores.valuation >= 45) return "Buy"
+  if (overall >= 60) return "Buy Watch"
   return "Hold"
 }
 
