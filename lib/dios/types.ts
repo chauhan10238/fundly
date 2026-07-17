@@ -141,6 +141,15 @@ export interface PortfolioImpact {
   ownsAnalysed: boolean
 }
 
+export interface MarketSnapshot {
+  price: number
+  previousClose: number
+  changePercent: number
+  refreshedAt: string
+  provider: string
+  isLive: boolean
+}
+
 export interface AnalysisReport {
   ticker: string
   name: string
@@ -169,6 +178,12 @@ export interface AnalysisReport {
   portfolioImpact: PortfolioImpact
   sources: SourceCitation[]
   dataComplete: boolean
+  strongestReasons: string[]
+  mainRisk: string
+  decisionChangeCondition: string
+  concentrationWarnings: string[]
+  marketDataProvider: string
+  isLivePrice: boolean
 }
 
 export interface ScoringWeights {
