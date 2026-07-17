@@ -18,6 +18,7 @@ import type {
   ScoreSet,
   Settings,
   SourceCitation,
+  MarketSnapshot,
 } from "./types"
 import { changePct, fmtPct } from "../format"
 
@@ -173,11 +174,12 @@ export function analyse(
   ticker: string,
   portfolio: PortfolioSummary,
   settings: Settings,
+  market?: MarketSnapshot,
 ): AnalysisReport | { error: string } {
   const inst = getInstrument(ticker)
   if (!inst) return { error: `Ticker "${ticker}" is not in the current demo universe. Add it to the universe or configure a market-data provider.` }
 
-  const dataComplete = true // demo data is always "complete"; real providers may return false
+  const dataComplete = Boolean(market?.isLive)
   const held = portfolio.positions.find((p) => p.ticker === inst.ticker)
   const currentWeight = held?.weight ?? 0
 
@@ -190,13 +192,15 @@ export function analyse(
   const scenarios = buildScenarios(inst, scores, overallScore)
   const portfolioImpact = buildPortfolioImpact(inst, portfolio, currentWeight, proposedWeight)
   const alternatives = buildAlternatives(inst, portfolio, settings)
-  const dailyChange = changePct(inst.price, inst.prevClose)
+  const price = market?.price ?? inst.price
+  const previousClose = market?.previousClose ?? inst.prevClose
+  const dailyChange = market?.changePercent ?? changePct(price, previousClose)
 
   const report: AnalysisReport = {
     ticker: inst.ticker,
     name: inst.name,
     instrumentType: inst.type,
-    price: inst.price,
+    price,
     dailyChange,
     overallScore,
     recommendation,
@@ -205,23 +209,55 @@ export function analyse(
     currentWeight,
     proposedWeight,
     horizon: settings.defaultHorizon,
-    lastUpdated: RETRIEVED,
+    lastUpdated: market?.refreshedAt ?? new Date().toISOString(),
     modelVersion: MODEL_VERSION,
     scoringVersion: SCORING_VERSION,
     scores,
-    whyToday: buildWhyToday(inst, scores),
-    whyNotToday: buildWhyNotToday(inst, scores, portfolioImpact),
-    whyNotWait: buildWhyNotWait(inst, scores),
-    recentChanges: buildRecentChanges(inst),
-    betterEntryConditions: buildBetterEntry(inst, scores),
-    thesisInvalidation: buildInvalidation(inst),
+    whyToday: buildWhyToday({ ...inst, price }, scores),
+    whyNotToday: buildWhyNotToday({ ...inst, price }, scores, portfolioImpact),
+    whyNotWait: buildWhyNotWait({ ...inst, price }, scores),
+    recentChanges: buildRecentChanges({ ...inst, price }),
+    betterEntryConditions: buildBetterEntry({ ...inst, price }, scores),
+    thesisInvalidation: buildInvalidation({ ...inst, price }),
     alternatives,
     scenarios,
     portfolioImpact,
     sources: sourcesFor(inst),
     dataComplete,
+    strongestReasons: buildWhyToday({ ...inst, price }, scores).slice(0, 3),
+    mainRisk: buildInvalidation({ ...inst, price })[0] ?? "The investment thesis may weaken if fundamentals or portfolio fit deteriorate.",
+    decisionChangeCondition: buildBetterEntry({ ...inst, price }, scores)[0] ?? "A material change in valuation, fundamentals or portfolio concentration would change the decision.",
+    concentrationWarnings: buildConcentrationWarnings(inst, portfolio, currentWeight, settings),
+    marketDataProvider: market?.provider ?? "DIOS model fallback",
+    isLivePrice: Boolean(market?.isLive),
   }
   return report
+}
+
+function buildConcentrationWarnings(
+  inst: Instrument,
+  portfolio: PortfolioSummary,
+  currentWeight: number,
+  settings: Settings,
+): string[] {
+  const warnings: string[] = []
+  const sectorWeight = portfolio.exposure.sector.find((item) => item.label === inst.sector)?.pct ?? 0
+  if (inst.type === "stock" && currentWeight > 10) {
+    warnings.push(`${inst.ticker} is ${currentWeight.toFixed(1)}% of the portfolio, above the 10% single-stock rule.`)
+  }
+  if (sectorWeight > 35) {
+    warnings.push(`${inst.sector} exposure is ${sectorWeight.toFixed(1)}%, above the 35% sector rule.`)
+  }
+  if (inst.leveraged && currentWeight > 3) {
+    warnings.push(`${inst.ticker} is leveraged and exceeds the 3% maximum exposure rule.`)
+  }
+  if (inst.themes?.includes("semiconductors") && portfolio.exposure.semiconductor > 35) {
+    warnings.push(`Semiconductor exposure is ${portfolio.exposure.semiconductor.toFixed(1)}%, above the 35% concentration rule.`)
+  }
+  if (warnings.length === 0 && currentWeight > settings.maxStockWeight && inst.type === "stock") {
+    warnings.push(`${inst.ticker} exceeds your configured ${settings.maxStockWeight}% stock limit.`)
+  }
+  return warnings
 }
 
 function buildWhyToday(inst: Instrument, s: ScoreSet): string[] {
