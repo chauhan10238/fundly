@@ -10,7 +10,7 @@ import { TickerSearch } from "@/components/dios/ticker-search"
 import { AnalysisReportView } from "@/components/dios/analysis-report"
 import { Panel } from "@/components/dios/ui-bits"
 import { Button } from "@/components/ui/button"
-import type { AnalysisReport, MarketSnapshot, RecommendationRecord } from "@/lib/dios/types"
+import type { AnalysisReport, ExternalAnalysisContext, MarketSnapshot, RecommendationRecord } from "@/lib/dios/types"
 import { MACRO } from "@/lib/dios/macro"
 import { getInstrument } from "@/lib/dios/universe"
 
@@ -24,6 +24,7 @@ function AnalyseInner() {
   const [logged, setLogged] = useState(false)
   const [market, setMarket] = useState<MarketSnapshot | null>(null)
   const [marketError, setMarketError] = useState<string | null>(null)
+  const [externalContext, setExternalContext] = useState<ExternalAnalysisContext | null>(null)
   const [loadingMarket, setLoadingMarket] = useState(false)
 
   const loadMarket = useCallback(async () => {
@@ -32,12 +33,14 @@ function AnalyseInner() {
     setMarketError(null)
     try {
       const response = await fetch(`/api/analysis?ticker=${encodeURIComponent(ticker)}`, { cache: "no-store" })
-      const payload = await response.json() as { snapshot?: MarketSnapshot; error?: string; warning?: string }
+      const payload = await response.json() as { snapshot?: MarketSnapshot; context?: ExternalAnalysisContext; error?: string; warning?: string }
       if (!response.ok || !payload.snapshot) throw new Error(payload.error || `Analysis request failed (${response.status})`)
       setMarket(payload.snapshot)
-      setMarketError(payload.warning ?? null)
+      setExternalContext(payload.context ?? null)
+      setMarketError(payload.warning ?? (payload.context?.warnings?.length ? payload.context.warnings.join(" ") : null))
     } catch (error) {
       setMarket(null)
+      setExternalContext(null)
       setMarketError(error instanceof Error ? error.message : "Unable to retrieve market data")
     } finally {
       setLoadingMarket(false)
@@ -50,8 +53,8 @@ function AnalyseInner() {
 
   const result = useMemo(() => {
     if (!ticker) return null
-    return analyse(ticker, portfolio, settings, market ?? undefined)
-  }, [ticker, portfolio, settings, market])
+    return analyse(ticker, portfolio, settings, market ?? undefined, externalContext ?? undefined)
+  }, [ticker, portfolio, settings, market, externalContext])
 
   useEffect(() => {
     setLogged(false)
