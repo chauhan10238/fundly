@@ -150,6 +150,44 @@ export interface MarketSnapshot {
   isLive: boolean
 }
 
+
+export interface LiveNewsItem {
+  title: string
+  publishedAt: string
+  url: string
+  source: string
+  sentiment: "positive" | "neutral" | "negative"
+  relevance: "company" | "sector" | "macro" | "geopolitics"
+}
+
+export interface LiveEarningsContext {
+  date: string
+  epsEstimated?: number
+  epsActual?: number
+  revenueEstimated?: number
+  revenueActual?: number
+  isUpcoming: boolean
+}
+
+export interface LiveFundamentalContext {
+  marketCap?: number
+  beta?: number
+  sector?: string
+  industry?: string
+  companyName?: string
+  description?: string
+}
+
+export interface ExternalAnalysisContext {
+  refreshedAt: string
+  news: LiveNewsItem[]
+  earnings: LiveEarningsContext | null
+  fundamentals: LiveFundamentalContext | null
+  etfHoldings: Array<{ symbol: string; name: string; weight: number }>
+  sources: SourceCitation[]
+  warnings: string[]
+}
+
 export interface AnalysisReport {
   ticker: string
   name: string
