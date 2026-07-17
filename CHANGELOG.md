@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.3 — Closed Position Cleanup
+
+- Removes tiny residual fractional positions after a full sale.
+- Filters zero and immaterial holdings during local-storage hydration.
+- Prevents sold positions from appearing on the Dashboard, warnings and exposure analysis.
+- Adds a Sell all shortcut that uses the exact stored holding quantity.
+- Prevents sell quantities from exceeding the current holding.
+- Applies the same close-position tolerance when rebuilding holdings from transaction history.
+
 ## 1.3.1 — Live News & Fresh Sources
 
 - Replaced illustrative dated citations with analysis-time sources.

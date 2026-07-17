@@ -35,7 +35,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import type { TransactionType } from "@/lib/dios/types"
+import type { Holding, TransactionType } from "@/lib/dios/types"
 
 const TYPE_COLORS: Record<string, string> = {
   Buy: "text-positive",
@@ -47,7 +47,7 @@ const TYPE_COLORS: Record<string, string> = {
 }
 
 export default function TransactionsPage() {
-  const { transactions, addTransaction, removeTransaction, addTransactions } = useDios()
+  const { transactions, holdings, addTransaction, removeTransaction, addTransactions } = useDios()
 
   const totals = useMemo(() => {
     let invested = 0
@@ -72,7 +72,7 @@ export default function TransactionsPage() {
         </div>
         <div className="flex gap-2">
           <ImportCsvDialog onImport={addTransactions} />
-          <AddTransactionDialog onAdd={addTransaction} />
+          <AddTransactionDialog onAdd={addTransaction} holdings={holdings} />
         </div>
       </div>
 
@@ -142,7 +142,13 @@ export default function TransactionsPage() {
   )
 }
 
-function AddTransactionDialog({ onAdd }: { onAdd: (t: Omit<import("@/lib/dios/types").Transaction, "id">) => void }) {
+function AddTransactionDialog({
+  onAdd,
+  holdings,
+}: {
+  onAdd: (t: Omit<import("@/lib/dios/types").Transaction, "id">) => void
+  holdings: Holding[]
+}) {
   const [open, setOpen] = useState(false)
   const [type, setType] = useState<TransactionType>("Buy")
   const [ticker, setTicker] = useState("")
@@ -151,6 +157,8 @@ function AddTransactionDialog({ onAdd }: { onAdd: (t: Omit<import("@/lib/dios/ty
   const [price, setPrice] = useState("")
   const [fee, setFee] = useState("")
 
+  const selectedHolding = holdings.find((h) => h.ticker === ticker.trim().toUpperCase())
+
   function submit() {
     const needsTicker = type === "Buy" || type === "Sell" || type === "Dividend"
     const t = ticker.trim().toUpperCase()
@@ -158,11 +166,27 @@ function AddTransactionDialog({ onAdd }: { onAdd: (t: Omit<import("@/lib/dios/ty
       toast.error(`${t || "Ticker"} is not in the demo universe`)
       return
     }
+
+    let submittedQuantity = Number(quantity) || 0
+    if (type === "Sell") {
+      const heldQuantity = selectedHolding?.quantity ?? 0
+      if (heldQuantity <= 0) {
+        toast.error(`No ${t} holding is available to sell`)
+        return
+      }
+      if (submittedQuantity > heldQuantity + 0.000001) {
+        toast.error(`Sell quantity exceeds the ${heldQuantity.toFixed(4)} shares held`)
+        return
+      }
+      const closeTolerance = Math.max(0.001, heldQuantity * 0.001)
+      if (heldQuantity - submittedQuantity <= closeTolerance) submittedQuantity = heldQuantity
+    }
+
     onAdd({
       date,
       ticker: needsTicker ? t : "CASH",
       type,
-      quantity: Number(quantity) || 0,
+      quantity: submittedQuantity,
       price: Number(price) || (type === "Deposit" || type === "Withdrawal" ? 1 : 0),
       currency: "USD",
       brokerageFee: Number(fee) || 0,
@@ -235,8 +259,25 @@ function AddTransactionDialog({ onAdd }: { onAdd: (t: Omit<import("@/lib/dios/ty
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="tx-qty">Qty</Label>
-              <Input id="tx-qty" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="tx-qty">Qty</Label>
+                {type === "Sell" && selectedHolding && (
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-primary hover:underline"
+                    onClick={() => setQuantity(String(selectedHolding.quantity))}
+                  >
+                    Sell all ({selectedHolding.quantity.toFixed(4)})
+                  </button>
+                )}
+              </div>
+              <Input
+                id="tx-qty"
+                type="number"
+                step="any"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="tx-price">Price</Label>

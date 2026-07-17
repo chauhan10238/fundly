@@ -8,6 +8,7 @@ import { SEED_CASH, SEED_HOLDINGS, SEED_RECOMMENDATIONS, SEED_TRANSACTIONS } fro
 import type { Holding, RecommendationRecord, Settings, Transaction } from "@/lib/dios/types"
 
 const STORAGE_KEY = "dios-portfolio-v1"
+const MIN_POSITION_QTY = 0.001
 
 interface PersistedStore {
   holdings: Holding[]
@@ -45,9 +46,10 @@ let idCounter = 1000
 const nextId = () => `t${Date.now()}-${++idCounter}`
 
 function normalizeHolding(h: Holding): Holding {
+  const rawQuantity = Math.max(0, Number(h.quantity) || 0)
   return {
     ticker: h.ticker.trim().toUpperCase(),
-    quantity: Math.max(0, Number(h.quantity) || 0),
+    quantity: rawQuantity <= MIN_POSITION_QTY ? 0 : rawQuantity,
     avgCost: Math.max(0, Number(h.avgCost) || 0),
   }
 }
@@ -69,8 +71,12 @@ function applyTradeToHoldings(holdings: Holding[], t: Omit<Transaction, "id">): 
       h.quantity = newQty
     }
   } else if (idx !== -1) {
-    next[idx].quantity = Math.max(0, next[idx].quantity - t.quantity)
-    if (next[idx].quantity <= 0.0000001) next.splice(idx, 1)
+    const heldQuantity = next[idx].quantity
+    const remaining = heldQuantity - t.quantity
+    const closeTolerance = Math.max(MIN_POSITION_QTY, heldQuantity * 0.001)
+
+    if (remaining <= closeTolerance) next.splice(idx, 1)
+    else next[idx].quantity = remaining
   }
 
   return next.sort((a, b) => a.ticker.localeCompare(b.ticker))
@@ -114,7 +120,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<PersistedStore>
         setState((current) => ({
-          holdings: Array.isArray(parsed.holdings) ? parsed.holdings.map(normalizeHolding) : current.holdings,
+          holdings: Array.isArray(parsed.holdings) ? parsed.holdings.map(normalizeHolding).filter((h) => h.quantity > 0) : current.holdings,
           cash: typeof parsed.cash === "number" ? parsed.cash : current.cash,
           transactions: Array.isArray(parsed.transactions) ? parsed.transactions : current.transactions,
           settings: parsed.settings ? { ...current.settings, ...parsed.settings, weights: { ...current.settings.weights, ...parsed.settings.weights } } : current.settings,

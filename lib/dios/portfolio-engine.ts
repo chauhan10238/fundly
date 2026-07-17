@@ -2,6 +2,8 @@ import { getInstrument } from "./universe"
 import type { Holding, Instrument, Settings, Transaction } from "./types"
 import { changePct } from "../format"
 
+const MIN_POSITION_QTY = 0.001
+
 export interface LiveQuote {
   symbol: string
   name?: string
@@ -86,7 +88,7 @@ export function buildPositions(holdings: Holding[], liveQuotes: LiveQuoteMap = {
   const positions: Position[] = []
   for (const h of holdings) {
     const instrument = getInstrument(h.ticker)
-    if (!instrument || h.quantity <= 0) continue
+    if (!instrument || h.quantity <= MIN_POSITION_QTY) continue
 
     const quote = liveQuotes[instrument.ticker]
     const price = quote?.price ?? instrument.price
@@ -325,10 +327,13 @@ export function deriveHoldingsFromTransactions(transactions: Transaction[]): {
       pos.quantity = newQty
       cashDelta -= t.price * t.quantity + fees
     } else if (t.type === "Sell") {
-      pos.realisedPL += (t.price - pos.avgCost) * t.quantity - fees
-      pos.quantity -= t.quantity
-      cashDelta += t.price * t.quantity - fees
-      if (pos.quantity <= 0.0000001) pos.quantity = 0
+      const soldQuantity = Math.min(t.quantity, pos.quantity)
+      pos.realisedPL += (t.price - pos.avgCost) * soldQuantity - fees
+      pos.quantity -= soldQuantity
+      cashDelta += t.price * soldQuantity - fees
+
+      const closeTolerance = Math.max(MIN_POSITION_QTY, (pos.quantity + soldQuantity) * 0.001)
+      if (pos.quantity <= closeTolerance) pos.quantity = 0
     }
     map.set(t.ticker, pos)
   }
@@ -337,7 +342,7 @@ export function deriveHoldingsFromTransactions(transactions: Transaction[]): {
   const realisedByTicker: Record<string, number> = {}
   for (const p of map.values()) {
     realisedByTicker[p.ticker] = p.realisedPL
-    if (p.quantity > 0) holdings.push({ ticker: p.ticker, quantity: p.quantity, avgCost: p.avgCost })
+    if (p.quantity > MIN_POSITION_QTY) holdings.push({ ticker: p.ticker, quantity: p.quantity, avgCost: p.avgCost })
   }
   return { holdings, realisedByTicker, cashDelta }
 }
