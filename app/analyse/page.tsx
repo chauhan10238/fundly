@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { BookmarkPlus, Check } from "lucide-react"
+import { BookmarkPlus, Check, Loader2, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { useDios } from "@/components/dios/store"
 import { analyse } from "@/lib/dios/analyse"
@@ -10,7 +10,7 @@ import { TickerSearch } from "@/components/dios/ticker-search"
 import { AnalysisReportView } from "@/components/dios/analysis-report"
 import { Panel } from "@/components/dios/ui-bits"
 import { Button } from "@/components/ui/button"
-import type { AnalysisReport, RecommendationRecord } from "@/lib/dios/types"
+import type { AnalysisReport, MarketSnapshot, RecommendationRecord } from "@/lib/dios/types"
 import { MACRO } from "@/lib/dios/macro"
 import { getInstrument } from "@/lib/dios/universe"
 
@@ -22,11 +22,36 @@ function AnalyseInner() {
   const ticker = params.get("ticker")?.toUpperCase() ?? ""
   const { portfolio, settings, addRecommendation, recommendations } = useDios()
   const [logged, setLogged] = useState(false)
+  const [market, setMarket] = useState<MarketSnapshot | null>(null)
+  const [marketError, setMarketError] = useState<string | null>(null)
+  const [loadingMarket, setLoadingMarket] = useState(false)
+
+  const loadMarket = useCallback(async () => {
+    if (!ticker) return
+    setLoadingMarket(true)
+    setMarketError(null)
+    try {
+      const response = await fetch(`/api/analysis?ticker=${encodeURIComponent(ticker)}`, { cache: "no-store" })
+      const payload = await response.json() as { snapshot?: MarketSnapshot; error?: string; warning?: string }
+      if (!response.ok || !payload.snapshot) throw new Error(payload.error || `Analysis request failed (${response.status})`)
+      setMarket(payload.snapshot)
+      setMarketError(payload.warning ?? null)
+    } catch (error) {
+      setMarket(null)
+      setMarketError(error instanceof Error ? error.message : "Unable to retrieve market data")
+    } finally {
+      setLoadingMarket(false)
+    }
+  }, [ticker])
+
+  useEffect(() => {
+    void loadMarket()
+  }, [loadMarket])
 
   const result = useMemo(() => {
     if (!ticker) return null
-    return analyse(ticker, portfolio, settings)
-  }, [ticker, portfolio, settings])
+    return analyse(ticker, portfolio, settings, market ?? undefined)
+  }, [ticker, portfolio, settings, market])
 
   useEffect(() => {
     setLogged(false)
@@ -95,6 +120,25 @@ function AnalyseInner() {
           <span className="ml-auto text-xs text-muted-foreground">{recommendations.length} recommendations logged</span>
         </div>
       </div>
+
+      {ticker && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            {loadingMarket && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            <span>
+              {loadingMarket
+                ? `Retrieving current market data for ${ticker}…`
+                : market?.isLive
+                  ? `Live price connected via ${market.provider}`
+                  : marketError || "DIOS model fallback price in use"}
+            </span>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => void loadMarket()} disabled={loadingMarket}>
+            <RefreshCw className={`h-3.5 w-3.5 ${loadingMarket ? "animate-spin" : ""}`} />
+            Refresh analysis
+          </Button>
+        </div>
+      )}
 
       {result && "error" in result && (
         <Panel title="Not found">
