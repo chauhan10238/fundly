@@ -234,7 +234,7 @@ export function AnalysisReportView({
       </Panel>
 
       {/* Sources */}
-      <Panel title="Sources & data lineage" description="Every claim is traceable. Demo citations are illustrative.">
+      <Panel title="Sources & data lineage" description="Live sources are fetched at analysis time; older fallback citations are clearly labelled.">
         <ul className="divide-y divide-border">
           {r.sources.map((s) => (
             <li key={s.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-sm">
