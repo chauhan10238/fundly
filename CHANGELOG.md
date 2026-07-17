@@ -19,3 +19,13 @@
 - Preserved demo fallback prices when a ticker is temporarily unavailable.
 - Removed the duplicate semiconductor concentration card.
 - Kept the FMP API key server-side through `FMP_API_KEY`.
+
+## DIOS 1.3.0 — Live Analyse Decision Engine
+
+- Added `/api/analysis` for secure live quote retrieval on the Analyse page.
+- Connected analysis reports to current FMP prices, daily movement and timestamps.
+- Added a high-signal decision summary with the three strongest reasons, main risk and decision-change condition.
+- Enforced portfolio rules for single-stock exposure above 10%, sector exposure above 35% and leveraged ETF exposure above 3%.
+- Removed buy recommendations based solely on a falling price; quality, fundamentals, valuation and portfolio fit must also pass.
+- Added concentration alerts and live/fallback market-data labels.
+- Added manual analysis refresh and resilient fallback behaviour when live quotes are unavailable.
