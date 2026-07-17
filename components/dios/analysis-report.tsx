@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Layers,
   ArrowRight,
+  ShieldAlert,
 } from "lucide-react"
 import type { AnalysisReport } from "@/lib/dios/types"
 import { fmtCurrency, fmtPct } from "@/lib/format"
@@ -91,11 +92,45 @@ export function AnalysisReportView({
           </div>
         </div>
         <div className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
-          Model {r.modelVersion} · Scoring {r.scoringVersion} · Retrieved {new Date(r.lastUpdated).toLocaleString("en-US")}
+          Model {r.modelVersion} · Scoring {r.scoringVersion} · {r.isLivePrice ? "Live" : "Fallback"} price via {r.marketDataProvider} · Retrieved {new Date(r.lastUpdated).toLocaleString("en-US")}
           {!r.dataComplete && (
             <span className="ml-2 font-medium text-warning-foreground">Partial data — confidence reduced</span>
           )}
         </div>
+      </Panel>
+
+      <Panel title="Decision summary" description="The highest-signal output from the DIOS decision engine.">
+        <div className="grid gap-4 p-4 lg:grid-cols-3">
+          <div className="rounded-md border border-border bg-muted/30 p-3">
+            <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Three strongest reasons</div>
+            <ol className="mt-2 space-y-2 text-sm">
+              {r.strongestReasons.map((reason, index) => (
+                <li key={index} className="flex gap-2"><span className="font-mono text-primary">{index + 1}.</span><span>{reason}</span></li>
+              ))}
+            </ol>
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 p-3">
+            <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Main risk</div>
+            <p className="mt-2 text-sm leading-relaxed">{r.mainRisk}</p>
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 p-3">
+            <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">What changes the decision</div>
+            <p className="mt-2 text-sm leading-relaxed">{r.decisionChangeCondition}</p>
+          </div>
+        </div>
+        {r.concentrationWarnings.length > 0 && (
+          <div className="border-t border-border p-4">
+            <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-foreground" />
+              <div>
+                <div className="text-sm font-semibold">Concentration rules triggered</div>
+                <ul className="mt-1 space-y-1 text-sm text-muted-foreground">
+                  {r.concentrationWarnings.map((warning) => <li key={warning}>• {warning}</li>)}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
       </Panel>
 
       <div className="grid gap-6 lg:grid-cols-2">
