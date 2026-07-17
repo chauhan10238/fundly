@@ -2,6 +2,18 @@ import { getInstrument } from "./universe"
 import type { Holding, Instrument, Settings, Transaction } from "./types"
 import { changePct } from "../format"
 
+export interface LiveQuote {
+  symbol: string
+  name?: string
+  price: number
+  previousClose: number
+  change?: number
+  changePercent?: number
+  timestamp?: number | null
+}
+
+export type LiveQuoteMap = Record<string, LiveQuote>
+
 export interface Position {
   ticker: string
   instrument: Instrument
@@ -15,6 +27,8 @@ export interface Position {
   weight: number
   dayChangePct: number
   dayChangeValue: number
+  priceSource: "live" | "demo"
+  quoteTimestamp: number | null
 }
 
 export interface Allocation {
@@ -68,21 +82,29 @@ function toAllocations(map: Map<string, number>, total: number): Allocation[] {
     .sort((a, b) => b.value - a.value)
 }
 
-export function buildPositions(holdings: Holding[]): Position[] {
+export function buildPositions(holdings: Holding[], liveQuotes: LiveQuoteMap = {}): Position[] {
   const positions: Position[] = []
   for (const h of holdings) {
     const instrument = getInstrument(h.ticker)
     if (!instrument || h.quantity <= 0) continue
-    const marketValue = instrument.price * h.quantity
+
+    const quote = liveQuotes[instrument.ticker]
+    const price = quote?.price ?? instrument.price
+    const prevClose = quote?.previousClose ?? instrument.prevClose
+    const marketValue = price * h.quantity
     const costBasis = h.avgCost * h.quantity
-    const dayChangePct = changePct(instrument.price, instrument.prevClose)
-    const dayChangeValue = (instrument.price - instrument.prevClose) * h.quantity
+    const dayChangePct =
+      typeof quote?.changePercent === "number"
+        ? quote.changePercent
+        : changePct(price, prevClose)
+    const dayChangeValue = (price - prevClose) * h.quantity
+
     positions.push({
       ticker: instrument.ticker,
       instrument,
       quantity: h.quantity,
       avgCost: h.avgCost,
-      price: instrument.price,
+      price,
       marketValue,
       costBasis,
       unrealisedPL: marketValue - costBasis,
@@ -90,6 +112,8 @@ export function buildPositions(holdings: Holding[]): Position[] {
       weight: 0,
       dayChangePct,
       dayChangeValue,
+      priceSource: quote ? "live" : "demo",
+      quoteTimestamp: quote?.timestamp ?? null,
     })
   }
   return positions
@@ -227,8 +251,13 @@ export function computeWarnings(
   return warnings
 }
 
-export function buildPortfolio(holdings: Holding[], cash: number, settings: Settings): PortfolioSummary {
-  const positions = buildPositions(holdings)
+export function buildPortfolio(
+  holdings: Holding[],
+  cash: number,
+  settings: Settings,
+  liveQuotes: LiveQuoteMap = {},
+): PortfolioSummary {
+  const positions = buildPositions(holdings, liveQuotes)
   const investedValue = positions.reduce((s, p) => s + p.marketValue, 0)
   const totalValue = investedValue + cash
   const costBasis = positions.reduce((s, p) => s + p.costBasis, 0)
