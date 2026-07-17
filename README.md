@@ -31,3 +31,16 @@ To learn more, take a look at the following resources:
 - [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 - [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+
+## Live portfolio prices
+
+DIOS 1.2 retrieves current holding prices through a server-side route.
+
+1. Create an FMP API key.
+2. In Vercel, add `FMP_API_KEY` under Project Settings → Environment Variables.
+3. Apply it to Production and Preview.
+4. Redeploy the project.
+5. Open Portfolio and select **Refresh prices**.
+
+The API key is read only in `app/api/quotes/route.ts` and is never sent to the browser.
+When a quote is unavailable, DIOS clearly labels the affected position as a demo fallback.
