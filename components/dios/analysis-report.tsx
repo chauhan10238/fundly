@@ -1,316 +1,269 @@
-import { getInstrument, UNIVERSE_LIST, MODEL_VERSION, SCORING_VERSION } from "./universe"
-import { GEO, MACRO } from "./macro"
+"use client"
+
+import Link from "next/link"
 import {
-  computeScores,
-  confidenceScore,
-  recommend,
-  riskAdjusted,
-  suggestedMaxWeight,
-  weightedScore,
-} from "./scoring"
-import { buildScenarios } from "./scenarios"
-import type { PortfolioSummary } from "./portfolio-engine"
-import type {
-  Alternative,
-  AnalysisReport,
-  Instrument,
-  PortfolioImpact,
-  ScoreSet,
-  Settings,
-  SourceCitation,
-  MarketSnapshot,
-} from "./types"
-import { changePct, fmtPct } from "../format"
+  CheckCircle2,
+  XCircle,
+  Clock,
+  AlertTriangle,
+  RefreshCw,
+  Layers,
+  ArrowRight,
+  ShieldAlert,
+} from "lucide-react"
+import type { AnalysisReport } from "@/lib/dios/types"
+import { fmtCurrency, fmtPct } from "@/lib/format"
+import {
+  DeltaText,
+  Panel,
+  RecommendationBadge,
+  RiskBadge,
+  ScorePill,
+} from "@/components/dios/ui-bits"
+import { ScoreBreakdown } from "@/components/dios/score-breakdown"
+import { ScenarioView } from "@/components/dios/scenario-view"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
-const RETRIEVED = "2026-02-16T09:32:00-05:00"
-
-// Curated alternative sets; fallback to sector peers.
-const ALT_MAP: Record<string, string[]> = {
-  INTC: ["SMH", "SOXX", "TSM", "AMD", "VOO"],
-  SMH: ["SOXX", "SOXQ", "NVDA", "VOO", "GLD"],
-  SOXX: ["SMH", "SOXQ", "XLK", "VOO"],
-  AMD: ["NVDA", "SMH", "AVGO", "SOXX"],
-  NVDA: ["SMH", "AVGO", "SOXX", "TSM"],
-  TSM: ["SMH", "ASML", "AVGO", "SOXX"],
-  VOO: ["VTI", "VT", "QQQ", "SCHD"],
-  VT: ["VTI", "VOO", "SCHD"],
-  GLD: ["GDX", "SLV", "TLT", "SCHD"],
-  QQQ: ["XLK", "VOO", "SMH", "VTI"],
-}
-
-function findAlternatives(inst: Instrument): string[] {
-  if (ALT_MAP[inst.ticker]) return ALT_MAP[inst.ticker]
-  const peers = UNIVERSE_LIST.filter(
-    (i) => i.ticker !== inst.ticker && i.sector === inst.sector && !i.leveraged,
+function ReasonList({
+  items,
+  icon,
+  tone,
+}: {
+  items: string[]
+  icon: React.ReactNode
+  tone: string
+}) {
+  return (
+    <ul className="space-y-2.5 p-4">
+      {items.map((t, i) => (
+        <li key={i} className="flex gap-2.5 text-sm">
+          <span className={`mt-0.5 shrink-0 ${tone}`}>{icon}</span>
+          <span className="text-pretty leading-relaxed text-foreground">{t}</span>
+        </li>
+      ))}
+    </ul>
   )
-    .sort((a, b) => b.qualityHint - a.qualityHint)
-    .slice(0, 3)
-    .map((i) => i.ticker)
-  return [...peers, "VOO"].slice(0, 4)
 }
 
-function riskLabel(band: string) {
-  return band.charAt(0).toUpperCase() + band.slice(1)
+export function AnalysisReportView({
+  report,
+  weights,
+}: {
+  report: AnalysisReport
+  weights: import("@/lib/dios/types").ScoringWeights
+}) {
+  const r = report
+  const pi = r.portfolioImpact
+
+  return (
+    <div className="space-y-6">
+      {/* Header verdict card */}
+      <Panel title={`${r.ticker} — ${r.name}`} description={`${r.instrumentType === "etf" ? "ETF" : "Stock"} · Horizon ${r.horizon}`}>
+        <div className="grid gap-4 p-4 md:grid-cols-[auto_1fr] md:items-center">
+          <div className="flex items-center gap-4">
+            <div className="flex flex-col items-center rounded-lg border border-border bg-muted/40 px-5 py-3">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Overall</span>
+              <span className="font-mono text-4xl font-bold tabular-nums leading-none">{r.overallScore}</span>
+              <span className="mt-1 text-[10px] text-muted-foreground">/ 100</span>
+            </div>
+            <div className="space-y-2">
+              <RecommendationBadge value={r.recommendation} className="text-sm" />
+              <div className="text-sm">
+                <span className="text-muted-foreground">Price </span>
+                <span className="font-mono font-semibold">{fmtCurrency(r.price)}</span>
+                <span className="ml-2">
+                  <DeltaText value={r.dailyChange} />
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Metric label="Confidence" value={`${r.confidence}%`} />
+            <Metric label="Suggested max" value={fmtPct(r.suggestedMaxWeight)} />
+            <Metric label="Current weight" value={r.currentWeight > 0 ? fmtPct(r.currentWeight) : "—"} />
+            <Metric label="Proposed weight" value={fmtPct(r.proposedWeight)} />
+          </div>
+        </div>
+        <div className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
+          Model {r.modelVersion} · Scoring {r.scoringVersion} · {r.isLivePrice ? "Live" : "Fallback"} price via {r.marketDataProvider} · Retrieved {new Date(r.lastUpdated).toLocaleString("en-US")}
+          {!r.dataComplete && (
+            <span className="ml-2 font-medium text-warning-foreground">Partial data — confidence reduced</span>
+          )}
+        </div>
+      </Panel>
+
+      <Panel title="Decision summary" description="The highest-signal output from the DIOS decision engine.">
+        <div className="grid gap-4 p-4 lg:grid-cols-3">
+          <div className="rounded-md border border-border bg-muted/30 p-3">
+            <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Three strongest reasons</div>
+            <ol className="mt-2 space-y-2 text-sm">
+              {r.strongestReasons.map((reason, index) => (
+                <li key={index} className="flex gap-2"><span className="font-mono text-primary">{index + 1}.</span><span>{reason}</span></li>
+              ))}
+            </ol>
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 p-3">
+            <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Main risk</div>
+            <p className="mt-2 text-sm leading-relaxed">{r.mainRisk}</p>
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 p-3">
+            <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">What changes the decision</div>
+            <p className="mt-2 text-sm leading-relaxed">{r.decisionChangeCondition}</p>
+          </div>
+        </div>
+        {r.concentrationWarnings.length > 0 && (
+          <div className="border-t border-border p-4">
+            <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-foreground" />
+              <div>
+                <div className="text-sm font-semibold">Concentration rules triggered</div>
+                <ul className="mt-1 space-y-1 text-sm text-muted-foreground">
+                  {r.concentrationWarnings.map((warning) => <li key={warning}>• {warning}</li>)}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+      </Panel>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel title="Why buy today" description="The case for acting now.">
+          <ReasonList items={r.whyToday} icon={<CheckCircle2 className="h-4 w-4" />} tone="text-positive" />
+        </Panel>
+        <Panel title="Why not today" description="Reasons for caution.">
+          <ReasonList items={r.whyNotToday} icon={<XCircle className="h-4 w-4" />} tone="text-negative" />
+        </Panel>
+        <Panel title="Why not wait" description="Cost of delaying the decision.">
+          <ReasonList items={r.whyNotWait} icon={<Clock className="h-4 w-4" />} tone="text-primary" />
+        </Panel>
+        <Panel title="What changed recently" description="New information since the last look.">
+          <ReasonList items={r.recentChanges} icon={<RefreshCw className="h-4 w-4" />} tone="text-muted-foreground" />
+        </Panel>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel title="Score breakdown" description="Twelve weighted factors drive the overall score.">
+          <ScoreBreakdown scores={r.scores} weights={weights} />
+        </Panel>
+        <Panel title="Scenario analysis" description="Probability-weighted return ranges for the horizon.">
+          <ScenarioView scenarios={r.scenarios} />
+        </Panel>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel title="Better entry conditions" description="What would improve the setup.">
+          <ReasonList items={r.betterEntryConditions} icon={<ArrowRight className="h-4 w-4" />} tone="text-primary" />
+        </Panel>
+        <Panel title="Thesis invalidation" description="What would prove the thesis wrong.">
+          <ReasonList items={r.thesisInvalidation} icon={<AlertTriangle className="h-4 w-4" />} tone="text-warning-foreground" />
+        </Panel>
+      </div>
+
+      {/* Portfolio impact */}
+      <Panel title="Portfolio impact & fit" description="How this position interacts with what you already own.">
+        <div className="space-y-4 p-4">
+          <p className="rounded-md border border-border bg-muted/40 p-3 text-sm text-pretty leading-relaxed">
+            {pi.concentrationNote}
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Metric label="Sector before" value={fmtPct(pi.sectorExposureBefore)} />
+            <Metric label="Sector after" value={fmtPct(pi.sectorExposureAfter)} />
+            <Metric label="Est. correlation" value={pi.correlation.toFixed(2)} />
+            <Metric label="Diversification" value={pi.diversificationBenefit.split(" — ")[0]} />
+          </div>
+          {(pi.directOverlap.length > 0 || pi.lookThroughOverlap.length > 0) && (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <Layers className="h-4 w-4 text-warning-foreground" />
+              <span className="text-muted-foreground">Overlaps with:</span>
+              {[...pi.directOverlap, ...pi.lookThroughOverlap].map((t) => (
+                <Link
+                  key={t}
+                  href={`/analyse?ticker=${t}`}
+                  className="rounded bg-warning/20 px-1.5 py-0.5 font-mono text-xs font-medium text-warning-foreground"
+                >
+                  {t}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </Panel>
+
+      {/* Alternatives */}
+      <Panel title="Alternatives considered" description="Other ways to express or improve on this idea.">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Instrument</TableHead>
+              <TableHead className="text-center">Score</TableHead>
+              <TableHead>Risk</TableHead>
+              <TableHead className="hidden md:table-cell">Valuation</TableHead>
+              <TableHead className="hidden lg:table-cell">Fit</TableHead>
+              <TableHead>Rationale</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {r.alternatives.map((a) => (
+              <TableRow key={a.ticker}>
+                <TableCell>
+                  <Link href={`/analyse?ticker=${a.ticker}`} className="group block">
+                    <span className="font-mono font-semibold group-hover:underline">{a.ticker}</span>
+                    <span className="block max-w-[10rem] truncate text-xs text-muted-foreground">{a.name}</span>
+                  </Link>
+                </TableCell>
+                <TableCell className="text-center">
+                  <ScorePill score={a.score} />
+                </TableCell>
+                <TableCell>
+                  <RiskBadge band={a.risk} />
+                </TableCell>
+                <TableCell className="hidden text-sm md:table-cell">{a.valuation}</TableCell>
+                <TableCell className="hidden text-sm lg:table-cell">{a.portfolioFit}</TableCell>
+                <TableCell className="max-w-[18rem] text-xs text-muted-foreground text-pretty">{a.rationale}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Panel>
+
+      {/* Sources */}
+      <Panel title="Sources & data lineage" description="Every claim is traceable. Demo citations are illustrative.">
+        <ul className="divide-y divide-border">
+          {r.sources.map((s) => (
+            <li key={s.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-sm">
+              <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs font-medium">{s.id}</span>
+              <span className="flex-1 text-foreground">{s.name}</span>
+              <span className="text-xs text-muted-foreground">Published {s.date}</span>
+              {s.url && s.url !== "#" && (
+                <a
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary underline-offset-2 hover:underline"
+                >
+                  link
+                </a>
+              )}
+            </li>
+          ))}
+        </ul>
+      </Panel>
+    </div>
+  )
 }
 
-function buildPortfolioImpact(
-  inst: Instrument,
-  portfolio: PortfolioSummary,
-  currentWeight: number,
-  proposedWeight: number,
-): PortfolioImpact {
-  const ownsAnalysed = portfolio.positions.some((p) => p.ticker === inst.ticker)
-  const sectorBefore = portfolio.exposure.sector.find((s) => s.label === inst.sector)?.pct ?? 0
-
-  // direct overlap: held stocks that are also underlying names of the analysed ETF,
-  // or (if analysing a stock) ETFs held that contain this stock.
-  const directOverlap: string[] = []
-  const lookThroughOverlap: string[] = []
-
-  if (inst.type === "etf" && inst.holdings) {
-    for (const p of portfolio.positions) {
-      if (p.instrument.type === "stock" && inst.holdings[p.ticker]) directOverlap.push(p.ticker)
-    }
-  } else if (inst.type === "stock") {
-    for (const p of portfolio.positions) {
-      if (p.instrument.type === "etf" && p.instrument.holdings?.[inst.ticker]) lookThroughOverlap.push(p.ticker)
-      if (p.instrument.type === "stock" && p.instrument.sector === inst.sector) directOverlap.push(p.ticker)
-    }
-  }
-
-  const countryOverlap = portfolio.positions
-    .filter((p) => p.instrument.country === inst.country && p.ticker !== inst.ticker)
-    .map((p) => p.ticker)
-
-  // crude correlation proxy from shared sector/theme
-  let correlation = 0.2
-  if (sectorBefore > 0) correlation += 0.3
-  if (inst.themes?.includes("semiconductors") && portfolio.exposure.semiconductor > 15) correlation += 0.3
-  correlation = Math.min(0.92, Math.round(correlation * 100) / 100)
-
-  const sectorAfter = sectorBefore + (proposedWeight - currentWeight)
-
-  let diversificationBenefit = "Moderate"
-  if (inst.sector === "Diversified" || inst.tags.includes("core")) diversificationBenefit = "High — broadens the portfolio"
-  else if (directOverlap.length >= 2 || lookThroughOverlap.length >= 1) diversificationBenefit = "Low — concentrates existing exposure"
-
-  let concentrationNote: string
-  if (!ownsAnalysed) {
-    concentrationNote = `You do not currently own ${inst.ticker}.`
-    if (directOverlap.length || lookThroughOverlap.length) {
-      const dup = [...directOverlap, ...lookThroughOverlap].join(", ")
-      concentrationNote += ` However, purchasing ${inst.ticker} would increase ${inst.sector.toLowerCase()} exposure and duplicate exposure to ${dup}.`
-    }
-  } else {
-    const held = portfolio.positions.find((p) => p.ticker === inst.ticker)!
-    concentrationNote = `You already own ${inst.ticker} at ${held.weight.toFixed(1)}% of the portfolio. This analysis evaluates adding to or trimming the position.`
-  }
-
-  return {
-    currentWeight,
-    proposedWeight,
-    sectorExposureBefore: sectorBefore,
-    sectorExposureAfter: sectorAfter,
-    directOverlap,
-    lookThroughOverlap,
-    countryOverlap,
-    correlation,
-    diversificationBenefit,
-    concentrationNote,
-    ownsAnalysed,
-  }
-}
-
-function buildAlternatives(inst: Instrument, portfolio: PortfolioSummary, settings: Settings): Alternative[] {
-  return findAlternatives(inst)
-    .map((t) => getInstrument(t))
-    .filter((i): i is Instrument => Boolean(i))
-    .map((alt) => {
-      const held = portfolio.positions.find((p) => p.ticker === alt.ticker)
-      const currentWeight = held?.weight ?? 0
-      const scores = computeScores({ instrument: alt, portfolio, currentWeight, settings })
-      const overall = weightedScore(scores, settings)
-      const sc = buildScenarios(alt, scores, overall)
-      const isDiversifier = alt.sector === "Diversified" || alt.tags.includes("core")
-      return {
-        ticker: alt.ticker,
-        name: alt.name,
-        score: overall,
-        risk: alt.riskBand,
-        valuation: alt.valuationHint > 58 ? "Attractive" : alt.valuationHint > 45 ? "Fair" : "Full",
-        diversification: isDiversifier ? "Improves diversification" : "Similar exposure",
-        portfolioFit: scores.portfolioFit >= 60 ? "Good fit" : scores.portfolioFit >= 45 ? "Overlaps" : "Concentrates",
-        expectedReturn: `${fmtPct(sc.base.low * 100, 0)} to ${fmtPct(sc.base.high * 100, 0)} p.a. (base)`,
-        rationale: isDiversifier
-          ? `Broader exposure than ${inst.ticker} with lower single-name risk.`
-          : `Comparable ${alt.sector.toLowerCase()} exposure; compare valuation and quality versus ${inst.ticker}.`,
-      }
-    })
-    .sort((a, b) => b.score - a.score)
-}
-
-function sourcesFor(inst: Instrument): SourceCitation[] {
-  const base: SourceCitation[] = [
-    { id: "S1", name: "Federal Reserve / FRED — macro series", date: "2026-02-14", url: "https://fred.stlouisfed.org", retrieved: RETRIEVED },
-    { id: "S2", name: "Demo market-data provider — quote & history", date: "2026-02-16", url: "#", retrieved: RETRIEVED },
-  ]
-  if (inst.type === "stock") {
-    base.push(
-      { id: "S3", name: `SEC EDGAR — ${inst.ticker} latest 10-Q`, date: "2026-01-29", url: "https://www.sec.gov/edgar", retrieved: RETRIEVED },
-      { id: "S4", name: `${inst.name} investor relations — earnings release`, date: "2026-01-30", url: "#", retrieved: RETRIEVED },
-    )
-  } else {
-    base.push(
-      { id: "S3", name: `${inst.name} issuer factsheet & holdings`, date: "2026-02-13", url: "#", retrieved: RETRIEVED },
-    )
-  }
-  if (inst.themes?.includes("semiconductors")) {
-    base.push({ id: "S5", name: "US BIS export-control updates", date: "2026-02-05", url: "https://www.bis.gov", retrieved: RETRIEVED })
-  }
-  return base
-}
-
-export function analyse(
-  ticker: string,
-  portfolio: PortfolioSummary,
-  settings: Settings,
-  market?: MarketSnapshot,
-): AnalysisReport | { error: string } {
-  const inst = getInstrument(ticker)
-  if (!inst) return { error: `Ticker "${ticker}" is not in the current demo universe. Add it to the universe or configure a market-data provider.` }
-
-  const dataComplete = Boolean(market?.isLive)
-  const held = portfolio.positions.find((p) => p.ticker === inst.ticker)
-  const currentWeight = held?.weight ?? 0
-
-  const scores: ScoreSet = computeScores({ instrument: inst, portfolio, currentWeight, settings })
-  const overallScore = weightedScore(scores, settings)
-  const recommendation = recommend(overallScore, scores, inst, currentWeight, settings)
-  const confidence = confidenceScore(scores, dataComplete)
-  const maxWeight = suggestedMaxWeight(inst, overallScore, settings)
-  const proposedWeight = Math.min(maxWeight, held ? held.weight : maxWeight * 0.6)
-  const scenarios = buildScenarios(inst, scores, overallScore)
-  const portfolioImpact = buildPortfolioImpact(inst, portfolio, currentWeight, proposedWeight)
-  const alternatives = buildAlternatives(inst, portfolio, settings)
-  const price = market?.price ?? inst.price
-  const previousClose = market?.previousClose ?? inst.prevClose
-  const dailyChange = market?.changePercent ?? changePct(price, previousClose)
-
-  const report: AnalysisReport = {
-    ticker: inst.ticker,
-    name: inst.name,
-    instrumentType: inst.type,
-    price,
-    dailyChange,
-    overallScore,
-    recommendation,
-    confidence,
-    suggestedMaxWeight: maxWeight,
-    currentWeight,
-    proposedWeight,
-    horizon: settings.defaultHorizon,
-    lastUpdated: market?.refreshedAt ?? new Date().toISOString(),
-    modelVersion: MODEL_VERSION,
-    scoringVersion: SCORING_VERSION,
-    scores,
-    whyToday: buildWhyToday({ ...inst, price }, scores),
-    whyNotToday: buildWhyNotToday({ ...inst, price }, scores, portfolioImpact),
-    whyNotWait: buildWhyNotWait({ ...inst, price }, scores),
-    recentChanges: buildRecentChanges({ ...inst, price }),
-    betterEntryConditions: buildBetterEntry({ ...inst, price }, scores),
-    thesisInvalidation: buildInvalidation({ ...inst, price }),
-    alternatives,
-    scenarios,
-    portfolioImpact,
-    sources: sourcesFor(inst),
-    dataComplete,
-    strongestReasons: buildWhyToday({ ...inst, price }, scores).slice(0, 3),
-    mainRisk: buildInvalidation({ ...inst, price })[0] ?? "The investment thesis may weaken if fundamentals or portfolio fit deteriorate.",
-    decisionChangeCondition: buildBetterEntry({ ...inst, price }, scores)[0] ?? "A material change in valuation, fundamentals or portfolio concentration would change the decision.",
-    concentrationWarnings: buildConcentrationWarnings(inst, portfolio, currentWeight, settings),
-    marketDataProvider: market?.provider ?? "DIOS model fallback",
-    isLivePrice: Boolean(market?.isLive),
-  }
-  return report
-}
-
-function buildConcentrationWarnings(
-  inst: Instrument,
-  portfolio: PortfolioSummary,
-  currentWeight: number,
-  settings: Settings,
-): string[] {
-  const warnings: string[] = []
-  const sectorWeight = portfolio.exposure.sector.find((item) => item.label === inst.sector)?.pct ?? 0
-  if (inst.type === "stock" && currentWeight > 10) {
-    warnings.push(`${inst.ticker} is ${currentWeight.toFixed(1)}% of the portfolio, above the 10% single-stock rule.`)
-  }
-  if (sectorWeight > 35) {
-    warnings.push(`${inst.sector} exposure is ${sectorWeight.toFixed(1)}%, above the 35% sector rule.`)
-  }
-  if (inst.leveraged && currentWeight > 3) {
-    warnings.push(`${inst.ticker} is leveraged and exceeds the 3% maximum exposure rule.`)
-  }
-  if (inst.themes?.includes("semiconductors") && portfolio.exposure.semiconductor > 35) {
-    warnings.push(`Semiconductor exposure is ${portfolio.exposure.semiconductor.toFixed(1)}%, above the 35% concentration rule.`)
-  }
-  if (warnings.length === 0 && currentWeight > settings.maxStockWeight && inst.type === "stock") {
-    warnings.push(`${inst.ticker} exceeds your configured ${settings.maxStockWeight}% stock limit.`)
-  }
-  return warnings
-}
-
-function buildWhyToday(inst: Instrument, s: ScoreSet): string[] {
-  const out: string[] = []
-  if (s.technical >= 65) out.push(`Price trend is constructive with momentum score ${s.technical}/100; the name trades above key moving averages [S2, 2026-02-16].`)
-  if (s.macro >= 60) out.push(`Macro regime ("${MACRO.regime}") is supportive at ${s.macro}/100 for this profile — disinflation plus an easing bias [S1, 2026-02-14].`)
-  if (s.quality >= 80) out.push(`Business quality is high (${s.quality}/100): durable margins and competitive position support a core allocation [S3].`)
-  if (inst.themes?.includes("ai")) out.push(`Structural AI-driven demand remains a multi-quarter tailwind per the latest results [S4, 2026-01-30].`)
-  if (out.length === 0) out.push(`Valuation is the primary attraction today at ${s.valuation}/100; entry is reasonable rather than momentum-driven [S2].`)
-  return out
-}
-
-function buildWhyNotToday(inst: Instrument, s: ScoreSet, impact: PortfolioImpact): string[] {
-  const out: string[] = []
-  if (s.geopolitics < 50) out.push(`Geopolitical risk is elevated (${s.geopolitics}/100) given ${inst.country === "Taiwan" ? "Taiwan Strait supply concentration" : "sector-specific export-control exposure"} [S5, 2026-02-05].`)
-  if (s.valuation < 45) out.push(`Valuation is full at ${s.valuation}/100, leaving limited margin of safety if guidance disappoints [S3].`)
-  if (impact.directOverlap.length || impact.lookThroughOverlap.length) out.push(`Adds to existing overlap with ${[...impact.directOverlap, ...impact.lookThroughOverlap].join(", ")}, raising concentration.`)
-  if (s.psychology < 50) out.push(`Behavioural risk of chasing strength is high (${s.psychology}/100); avoid adding on an extended move.`)
-  if (out.length === 0) out.push(`No major red flags today, but size the entry to respect portfolio limits.`)
-  return out
-}
-
-function buildWhyNotWait(inst: Instrument, s: ScoreSet): string[] {
-  const out: string[] = []
-  if (s.technical >= 65) out.push(`Waiting risks missing continuation while the trend and flows (${s.flows}/100) remain positive.`)
-  if (inst.nextEvent) out.push(`A catalyst (${inst.nextEvent}) on ${inst.nextEventDate} could re-rate the name before a cheaper entry appears.`)
-  out.push(`Dollar-cost averaging a partial position now preserves optionality versus waiting for a perfect entry that may not arrive.`)
-  return out
-}
-
-function buildRecentChanges(inst: Instrument): string[] {
-  const out: string[] = []
-  if (inst.themes?.includes("semiconductors")) out.push(`Latest quarter showed re-accelerating data-center revenue and raised full-year guidance [S4, 2026-01-30].`)
-  if (inst.themes?.includes("gold")) out.push(`Real yields fell ~30bps over the past month and central-bank buying continued [S1, 2026-02-14].`)
-  out.push(`Consensus estimates were revised ${inst.growthHint > 70 ? "higher" : "modestly"} over the last 30 days [S2].`)
-  out.push(`Macro regime shifted toward an easing bias since the January FOMC [S1, 2026-01-29].`)
-  return out
-}
-
-function buildBetterEntry(inst: Instrument, s: ScoreSet): string[] {
-  const out: string[] = []
-  const pullback = inst.price * (s.valuation < 45 ? 0.9 : 0.95)
-  out.push(`A pullback toward $${pullback.toFixed(2)} (${s.valuation < 45 ? "~10%" : "~5%"}) would improve the risk/reward.`)
-  if (inst.nextEvent) out.push(`Waiting for ${inst.nextEvent} on ${inst.nextEventDate} would remove event uncertainty before committing full size.`)
-  out.push(`Confirmation of margin stability or guidance in the next report would raise conviction for a larger position.`)
-  return out
-}
-
-function buildInvalidation(inst: Instrument): string[] {
-  const out: string[] = []
-  if (inst.themes?.includes("semiconductors")) out.push("A demand air-pocket or inventory correction that cuts forward revenue guidance would invalidate the thesis.")
-  if (inst.country === "Taiwan") out.push("A material escalation in Taiwan Strait tensions disrupting foundry supply.")
-  out.push(`A close below key support (roughly $${(inst.price * 0.82).toFixed(2)}, ~18% downside) would signal thesis failure and trigger the exit rule.`)
-  out.push("Two consecutive quarters of margin compression without a clear one-off explanation.")
-  return out
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-muted/40 p-2.5">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-0.5 font-mono text-sm font-semibold text-pretty">{value}</div>
+    </div>
+  )
 }
