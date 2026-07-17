@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.1 — Live News & Fresh Sources
+
+- Replaced illustrative dated citations with analysis-time sources.
+- Added current ticker news through Financial Modeling Prep.
+- Added recent geopolitical and war-risk coverage through GDELT.
+- Added live earnings-calendar context for stocks.
+- Added current company profile context and ETF holdings where available.
+- Added graceful warnings when an endpoint is unavailable on the active API plan.
+- Updated analysis reasons and recent-changes sections to use the latest returned observations.
+
+
 ## DIOS 1.1.0 — Personal Portfolio Foundation
 
 - Replaced fabricated demo holdings with the current Stake snapshot: VT, GLD, MLPX, TSM, AMD and INTC.
