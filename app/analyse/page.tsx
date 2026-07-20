@@ -9,6 +9,7 @@ import { analyse } from "@/lib/dios/analyse"
 import { TickerSearch } from "@/components/dios/ticker-search"
 import { AnalysisReportView } from "@/components/dios/analysis-report"
 import { InstitutionalIntelligenceView } from "@/components/dios/institutional-intelligence"
+import { AnalysisReportActions } from "@/components/dios/analysis-report-actions"
 import { Panel } from "@/components/dios/ui-bits"
 import { Button } from "@/components/ui/button"
 import type {
@@ -28,15 +29,19 @@ function AnalyseInner() {
   const params = useSearchParams()
   const ticker = params.get("ticker")?.toUpperCase() ?? ""
   const { portfolio, settings, addRecommendation, recommendations } = useDios()
+
   const [logged, setLogged] = useState(false)
   const [market, setMarket] = useState<MarketSnapshot | null>(null)
   const [marketError, setMarketError] = useState<string | null>(null)
-  const [externalContext, setExternalContext] = useState<ExternalAnalysisContext | null>(null)
-  const [intelligence, setIntelligence] = useState<InstitutionalCompanyIntelligence | null>(null)
+  const [externalContext, setExternalContext] =
+    useState<ExternalAnalysisContext | null>(null)
+  const [intelligence, setIntelligence] =
+    useState<InstitutionalCompanyIntelligence | null>(null)
   const [loadingMarket, setLoadingMarket] = useState(false)
 
   const loadMarket = useCallback(async () => {
     if (!ticker) return
+
     setLoadingMarket(true)
     setMarketError(null)
 
@@ -63,6 +68,7 @@ function AnalyseInner() {
       setMarket(payload.snapshot)
       setExternalContext(payload.context ?? null)
       setIntelligence(payload.intelligence ?? null)
+
       setMarketError(
         payload.warning ??
           (payload.context?.warnings?.length
@@ -89,6 +95,7 @@ function AnalyseInner() {
 
   const result = useMemo(() => {
     if (!ticker) return null
+
     return analyse(
       ticker,
       portfolio,
@@ -114,6 +121,7 @@ function AnalyseInner() {
 
   const logRecommendation = useCallback(() => {
     if (!report) return
+
     const instrument = getInstrument(report.ticker)
 
     const record: RecommendationRecord = {
@@ -146,6 +154,7 @@ function AnalyseInner() {
 
     addRecommendation(record)
     setLogged(true)
+
     toast.success(`Logged ${report.recommendation} for ${report.ticker}`, {
       description: "Saved to recommendation history for outcome tracking.",
     })
@@ -158,14 +167,17 @@ function AnalyseInner() {
           Analyse an Instrument
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Multi-source company intelligence, financial health and a portfolio-aware DIOS decision report.
+          Multi-source company intelligence, financial health and a
+          portfolio-aware DIOS decision report.
         </p>
       </div>
 
       <div className="flex flex-col gap-3">
         <TickerSearch onSelect={select} />
+
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-muted-foreground">Quick pick:</span>
+
           {SUGGESTIONS.map((suggestion) => (
             <button
               key={suggestion}
@@ -175,6 +187,7 @@ function AnalyseInner() {
               {suggestion}
             </button>
           ))}
+
           <span className="ml-auto text-xs text-muted-foreground">
             {recommendations.length} recommendations logged
           </span>
@@ -185,14 +198,18 @@ function AnalyseInner() {
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs">
           <div className="flex items-center gap-2 text-muted-foreground">
             {loadingMarket && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+
             <span>
               {loadingMarket
                 ? `Building multi-source analysis for ${ticker}…`
                 : market?.isLive
-                  ? `Live price via ${market.provider}; institutional intelligence ${intelligence ? "connected" : "limited"}`
+                  ? `Live price via ${market.provider}; institutional intelligence ${
+                      intelligence ? "connected" : "limited"
+                    }`
                   : marketError || "DIOS model fallback price in use"}
             </span>
           </div>
+
           <Button
             size="sm"
             variant="outline"
@@ -200,7 +217,9 @@ function AnalyseInner() {
             disabled={loadingMarket}
           >
             <RefreshCw
-              className={`h-3.5 w-3.5 ${loadingMarket ? "animate-spin" : ""}`}
+              className={`h-3.5 w-3.5 ${
+                loadingMarket ? "animate-spin" : ""
+              }`}
             />
             Refresh analysis
           </Button>
@@ -211,6 +230,15 @@ function AnalyseInner() {
         <Panel title="Not found">
           <p className="p-4 text-sm text-muted-foreground">{result.error}</p>
         </Panel>
+      )}
+
+      {report && (
+        <AnalysisReportActions
+          report={report}
+          intelligence={intelligence}
+          snapshot={market}
+          context={externalContext}
+        />
       )}
 
       {intelligence && (
@@ -233,6 +261,7 @@ function AnalyseInner() {
               {logged ? "Logged to history" : "Log recommendation"}
             </Button>
           </div>
+
           <AnalysisReportView
             report={report}
             weights={settings.weights}
