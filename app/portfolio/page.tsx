@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fetchLiveAnalysisReport } from "@/lib/dios/live-analysis"
+import { deriveHoldingsFromTransactions } from "@/lib/dios/portfolio-engine"
 import type { AnalysisReport } from "@/lib/dios/types"
 import {
   Dialog,
@@ -55,6 +56,7 @@ export default function PortfolioPage() {
     upsertHolding,
     recommendations,
     settings,
+    transactions,
   } = useDios()
 
   const [liveDecisions, setLiveDecisions] = useState<Record<string, AnalysisReport>>({})
@@ -77,6 +79,22 @@ export default function PortfolioPage() {
 
   const biggestLoser = useMemo(
     () => [...portfolio.positions].sort((a, b) => a.unrealisedPL - b.unrealisedPL)[0],
+    [portfolio.positions],
+  )
+
+
+  const realisedPL = useMemo(() => {
+    const { realisedByTicker } = deriveHoldingsFromTransactions(transactions)
+    return Object.values(realisedByTicker).reduce((sum, value) => sum + value, 0)
+  }, [transactions])
+
+  const todayWinner = useMemo(
+    () => [...portfolio.positions].sort((a, b) => b.dayChangeValue - a.dayChangeValue)[0],
+    [portfolio.positions],
+  )
+
+  const todayLoser = useMemo(
+    () => [...portfolio.positions].sort((a, b) => a.dayChangeValue - b.dayChangeValue)[0],
     [portfolio.positions],
   )
 
@@ -165,7 +183,7 @@ export default function PortfolioPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Portfolio</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            What your holdings are worth now, what you paid, and the exact open profit or loss.
+            What your holdings are worth today, what you invested, your realised and unrealised results, and today's movement.
           </p>
         </div>
 
@@ -201,30 +219,41 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
         <StatCard
-          label="Current Portfolio Value"
+          label="Portfolio Value Today"
           value={fmtCurrency(portfolio.investedValue, "USD", 0)}
         />
         <StatCard
-          label="Total Cost Basis"
+          label="Amount Invested"
           value={fmtCurrency(portfolio.costBasis, "USD", 0)}
         />
         <StatCard
-          label="Open P/L"
+          label="Unrealised P/L"
           value={`${fmtCurrency(portfolio.totalPL, "USD", 0)} (${portfolio.totalPLPct >= 0 ? "+" : ""}${portfolio.totalPLPct.toFixed(2)}%)`}
           accent={portfolio.totalPL >= 0 ? "positive" : "negative"}
         />
         <StatCard
-          label="Today's Change"
+          label="Realised P/L"
+          value={fmtCurrency(realisedPL, "USD", 0)}
+          accent={realisedPL >= 0 ? "positive" : "negative"}
+        />
+        <StatCard
+          label="Today's Gain/Loss"
           value={`${fmtCurrency(portfolio.dayChangeValue, "USD", 0)} (${portfolio.dayChangePct >= 0 ? "+" : ""}${portfolio.dayChangePct.toFixed(2)}%)`}
           accent={portfolio.dayChangeValue >= 0 ? "positive" : "negative"}
         />
       </div>
 
+      <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+        <strong className="text-foreground">How to read this:</strong>{" "}
+        Portfolio Value Today is the live value of your open holdings. Amount Invested is the cost basis of those holdings.
+        Unrealised P/L is not locked in; Realised P/L comes from recorded completed sales. Today&apos;s Gain/Loss is only the current market session.
+      </div>
+
       <Panel
         title="Holdings"
-        description="Bought @ is your weighted-average entry price. Current is the latest market price."
+        description="Bought @ is your weighted-average entry price. Today shows the current session move; Open P/L shows performance since purchase."
       >
         <div className="overflow-x-auto">
           <Table>
@@ -236,6 +265,8 @@ export default function PortfolioPage() {
                 <TableHead className="text-right">Bought @</TableHead>
                 <TableHead className="text-right">Current</TableHead>
                 <TableHead className="text-right">Current Value</TableHead>
+                <TableHead className="text-right">Today $</TableHead>
+                <TableHead className="text-right">Today %</TableHead>
                 <TableHead className="text-right">Open P/L</TableHead>
                 <TableHead className="text-right">Return</TableHead>
                 <TableHead className="text-right">Weight</TableHead>
@@ -282,6 +313,18 @@ export default function PortfolioPage() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums font-medium">
                       {fmtCurrency(position.marketValue, "USD", 0)}
+                    </TableCell>
+                    <TableCell className={`text-right tabular-nums font-medium ${
+                      position.dayChangeValue >= 0 ? "text-positive" : "text-negative"
+                    }`}>
+                      {position.dayChangeValue >= 0 ? "+" : ""}
+                      {fmtCurrency(position.dayChangeValue, "USD", 0)}
+                    </TableCell>
+                    <TableCell className={`text-right tabular-nums ${
+                      position.dayChangePct >= 0 ? "text-positive" : "text-negative"
+                    }`}>
+                      {position.dayChangePct >= 0 ? "+" : ""}
+                      {position.dayChangePct.toFixed(2)}%
                     </TableCell>
                     <TableCell className={`text-right tabular-nums font-medium ${
                       position.unrealisedPL >= 0 ? "text-positive" : "text-negative"
@@ -334,17 +377,29 @@ export default function PortfolioPage() {
         </div>
       </Panel>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <InsightCard
-          label="Largest winner"
-          value={biggestWinner ? `${biggestWinner.ticker} ${fmtCurrency(biggestWinner.unrealisedPL, "USD", 0)}` : "—"}
-          detail={biggestWinner ? `${biggestWinner.unrealisedPLPct >= 0 ? "+" : ""}${biggestWinner.unrealisedPLPct.toFixed(2)}% from average buy price` : "No position data"}
+          label="Today's winner"
+          value={todayWinner ? `${todayWinner.ticker} ${todayWinner.dayChangeValue >= 0 ? "+" : ""}${fmtCurrency(todayWinner.dayChangeValue, "USD", 0)}` : "—"}
+          detail={todayWinner ? `${todayWinner.dayChangePct >= 0 ? "+" : ""}${todayWinner.dayChangePct.toFixed(2)}% today` : "No position data"}
           tone="positive"
         />
         <InsightCard
-          label="Largest loser"
+          label="Today's loser"
+          value={todayLoser ? `${todayLoser.ticker} ${fmtCurrency(todayLoser.dayChangeValue, "USD", 0)}` : "—"}
+          detail={todayLoser ? `${todayLoser.dayChangePct.toFixed(2)}% today` : "No position data"}
+          tone="negative"
+        />
+        <InsightCard
+          label="Largest open winner"
+          value={biggestWinner ? `${biggestWinner.ticker} ${fmtCurrency(biggestWinner.unrealisedPL, "USD", 0)}` : "—"}
+          detail={biggestWinner ? `${biggestWinner.unrealisedPLPct >= 0 ? "+" : ""}${biggestWinner.unrealisedPLPct.toFixed(2)}% since purchase` : "No position data"}
+          tone="positive"
+        />
+        <InsightCard
+          label="Largest open loser"
           value={biggestLoser ? `${biggestLoser.ticker} ${fmtCurrency(biggestLoser.unrealisedPL, "USD", 0)}` : "—"}
-          detail={biggestLoser ? `${biggestLoser.unrealisedPLPct.toFixed(2)}% from average buy price` : "No position data"}
+          detail={biggestLoser ? `${biggestLoser.unrealisedPLPct.toFixed(2)}% since purchase` : "No position data"}
           tone="negative"
         />
         <InsightCard
