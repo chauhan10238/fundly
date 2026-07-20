@@ -88,6 +88,79 @@ export default function PortfolioPage() {
     return Object.values(realisedByTicker).reduce((sum, value) => sum + value, 0)
   }, [transactions])
 
+
+  const executionAverages = useMemo(() => {
+    const map = new Map<
+      string,
+      { quantity: number; averageExecutionPrice: number }
+    >()
+
+    const ordered = [...transactions].sort((a, b) =>
+      a.date.localeCompare(b.date),
+    )
+
+    for (const transaction of ordered) {
+      if (transaction.type !== "Buy" && transaction.type !== "Sell") continue
+
+      const ticker = transaction.ticker.trim().toUpperCase()
+      const current = map.get(ticker) ?? {
+        quantity: 0,
+        averageExecutionPrice: 0,
+      }
+
+      if (transaction.type === "Buy") {
+        const nextQuantity = current.quantity + transaction.quantity
+        const nextExecutionValue =
+          current.averageExecutionPrice * current.quantity +
+          transaction.price * transaction.quantity
+
+        current.averageExecutionPrice =
+          nextQuantity > 0 ? nextExecutionValue / nextQuantity : 0
+        current.quantity = nextQuantity
+      } else {
+        const soldQuantity = Math.min(transaction.quantity, current.quantity)
+        const beforeQuantity = current.quantity
+        current.quantity = Math.max(0, current.quantity - soldQuantity)
+        if (current.quantity === 0) {
+          current.averageExecutionPrice = 0
+        }
+      }
+
+      map.set(ticker, current)
+    }
+
+    return map
+  }, [transactions])
+
+  const performanceSummary = useMemo(() => {
+    let amountInvested = 0
+    let unrealisedPL = 0
+
+    for (const position of portfolio.positions) {
+      const execution = executionAverages.get(position.ticker)
+      const quantityMatches =
+        execution &&
+        Math.abs(execution.quantity - position.quantity) <=
+          Math.max(0.001, position.quantity * 0.001)
+
+      const boughtAt =
+        quantityMatches && execution.averageExecutionPrice > 0
+          ? execution.averageExecutionPrice
+          : position.avgCost
+
+      const positionCost = boughtAt * position.quantity
+      amountInvested += positionCost
+      unrealisedPL += position.marketValue - positionCost
+    }
+
+    return {
+      amountInvested,
+      unrealisedPL,
+      unrealisedPLPct:
+        amountInvested > 0 ? (unrealisedPL / amountInvested) * 100 : 0,
+    }
+  }, [portfolio.positions, executionAverages])
+
   const todayWinner = useMemo(
     () => [...portfolio.positions].sort((a, b) => b.dayChangeValue - a.dayChangeValue)[0],
     [portfolio.positions],
@@ -226,12 +299,12 @@ export default function PortfolioPage() {
         />
         <StatCard
           label="Amount Invested"
-          value={fmtCurrency(portfolio.costBasis, "USD", 0)}
+          value={fmtCurrency(performanceSummary.amountInvested, "USD", 0)}
         />
         <StatCard
           label="Unrealised P/L"
-          value={`${fmtCurrency(portfolio.totalPL, "USD", 0)} (${portfolio.totalPLPct >= 0 ? "+" : ""}${portfolio.totalPLPct.toFixed(2)}%)`}
-          accent={portfolio.totalPL >= 0 ? "positive" : "negative"}
+          value={`${fmtCurrency(performanceSummary.unrealisedPL, "USD", 0)} (${performanceSummary.unrealisedPLPct >= 0 ? "+" : ""}${performanceSummary.unrealisedPLPct.toFixed(2)}%)`}
+          accent={performanceSummary.unrealisedPL >= 0 ? "positive" : "negative"}
         />
         <StatCard
           label="Realised P/L"
@@ -247,13 +320,14 @@ export default function PortfolioPage() {
 
       <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
         <strong className="text-foreground">How to read this:</strong>{" "}
-        Portfolio Value Today is the live value of your open holdings. Amount Invested is the cost basis of those holdings.
-        Unrealised P/L is not locked in; Realised P/L comes from recorded completed sales. Today&apos;s Gain/Loss is only the current market session.
+        Bought @ is the weighted-average execution price from your Stake or DIOS transactions.
+        Brokerage and FX fees are not included in Amount Invested, Open P/L or Return.
+        Today&apos;s Gain/Loss is only the current market session.
       </div>
 
       <Panel
         title="Holdings"
-        description="Bought @ is your weighted-average entry price. Today shows the current session move; Open P/L shows performance since purchase."
+        description="Bought @ is the weighted-average execution price. Brokerage and FX fees are excluded from performance calculations."
       >
         <div className="overflow-x-auto">
           <Table>
@@ -284,6 +358,21 @@ export default function PortfolioPage() {
                 const decision =
                   liveDecisions[position.ticker] ??
                   savedDecisions.get(position.ticker)
+                const execution = executionAverages.get(position.ticker)
+                const quantityMatches =
+                  execution &&
+                  Math.abs(execution.quantity - position.quantity) <=
+                    Math.max(0.001, position.quantity * 0.001)
+                const boughtAt =
+                  quantityMatches && execution.averageExecutionPrice > 0
+                    ? execution.averageExecutionPrice
+                    : position.avgCost
+                const displayCostBasis = boughtAt * position.quantity
+                const displayOpenPL = position.marketValue - displayCostBasis
+                const displayReturnPct =
+                  displayCostBasis > 0
+                    ? (displayOpenPL / displayCostBasis) * 100
+                    : 0
 
                 return (
                   <TableRow key={position.ticker}>
@@ -303,7 +392,7 @@ export default function PortfolioPage() {
                       {formatQty(position.quantity)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {fmtCurrency(position.avgCost)}
+                      {fmtCurrency(boughtAt)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       <div>{fmtCurrency(position.price)}</div>
@@ -327,15 +416,15 @@ export default function PortfolioPage() {
                       {position.dayChangePct.toFixed(2)}%
                     </TableCell>
                     <TableCell className={`text-right tabular-nums font-medium ${
-                      position.unrealisedPL >= 0 ? "text-positive" : "text-negative"
+                      displayOpenPL >= 0 ? "text-positive" : "text-negative"
                     }`}>
-                      {fmtCurrency(position.unrealisedPL, "USD", 0)}
+                      {fmtCurrency(displayOpenPL, "USD", 0)}
                     </TableCell>
                     <TableCell className={`text-right tabular-nums ${
-                      position.unrealisedPLPct >= 0 ? "text-positive" : "text-negative"
+                      displayReturnPct >= 0 ? "text-positive" : "text-negative"
                     }`}>
-                      {position.unrealisedPLPct >= 0 ? "+" : ""}
-                      {position.unrealisedPLPct.toFixed(2)}%
+                      {displayReturnPct >= 0 ? "+" : ""}
+                      {displayReturnPct.toFixed(2)}%
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {position.weight.toFixed(1)}%

@@ -322,15 +322,15 @@ export function deriveHoldingsFromTransactions(transactions: Transaction[]): {
     }
     if (t.type === "Buy") {
       const newQty = pos.quantity + t.quantity
-      const newCost = pos.avgCost * pos.quantity + t.price * t.quantity + fees
+      const newCost = pos.avgCost * pos.quantity + t.price * t.quantity
       pos.avgCost = newQty ? newCost / newQty : 0
       pos.quantity = newQty
-      cashDelta -= t.price * t.quantity + fees
+      cashDelta -= t.price * t.quantity
     } else if (t.type === "Sell") {
       const soldQuantity = Math.min(t.quantity, pos.quantity)
-      pos.realisedPL += (t.price - pos.avgCost) * soldQuantity - fees
+      pos.realisedPL += (t.price - pos.avgCost) * soldQuantity
       pos.quantity -= soldQuantity
-      cashDelta += t.price * soldQuantity - fees
+      cashDelta += t.price * soldQuantity
 
       const closeTolerance = Math.max(MIN_POSITION_QTY, (pos.quantity + soldQuantity) * 0.001)
       if (pos.quantity <= closeTolerance) pos.quantity = 0
