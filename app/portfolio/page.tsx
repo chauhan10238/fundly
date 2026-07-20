@@ -1,17 +1,24 @@
 "use client"
 
+import { useMemo, useState } from "react"
 import Link from "next/link"
-import { useState } from "react"
-import { RefreshCw, RotateCcw, Trash2, Wifi, WifiOff } from "lucide-react"
+import { Plus, RefreshCw, Trash2, ArrowUpRight } from "lucide-react"
 import { toast } from "sonner"
 import { useDios } from "@/components/dios/store"
-import { fmtCompact, fmtCurrency, fmtPct } from "@/lib/format"
-import { DeltaText, Panel, StatCard } from "@/components/dios/ui-bits"
-import { AllocationDonut } from "@/components/dios/allocation-donut"
-import { AddHoldingDialog } from "@/components/dios/holding-dialog"
+import { fmtCurrency } from "@/lib/format"
+import { Panel, StatCard } from "@/components/dios/ui-bits"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import type { Allocation } from "@/lib/dios/portfolio-engine"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import {
   Table,
   TableBody,
@@ -21,278 +28,318 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
+function formatQty(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 6,
+  }).format(value)
+}
+
+function healthLabel(pct: number) {
+  if (pct >= 10) return { label: "Strong performer", className: "text-positive bg-positive/10" }
+  if (pct >= 0) return { label: "Healthy", className: "text-positive bg-positive/10" }
+  if (pct >= -5) return { label: "Watch", className: "text-warning-foreground bg-warning/10" }
+  if (pct >= -15) return { label: "Under pressure", className: "text-warning-foreground bg-warning/10" }
+  return { label: "Deep review", className: "text-negative bg-negative/10" }
+}
+
 export default function PortfolioPage() {
   const {
     portfolio,
-    removeHolding,
-    cash,
-    resetPortfolio,
     quoteStatus,
     quoteError,
     quotesRefreshedAt,
-    unavailableQuotes,
     refreshQuotes,
+    removeHolding,
+    upsertHolding,
   } = useDios()
-  const { positions, totalValue, totalPL, totalPLPct, exposure } = portfolio
-  const [confirm, setConfirm] = useState<string | null>(null)
 
-  function handleRemove(ticker: string) {
-    if (confirm === ticker) {
-      removeHolding(ticker)
-      toast.success(`Removed ${ticker}`)
-      setConfirm(null)
-    } else {
-      setConfirm(ticker)
-      setTimeout(() => setConfirm((c) => (c === ticker ? null : c)), 2500)
-    }
-  }
+  const biggestWinner = useMemo(
+    () => [...portfolio.positions].sort((a, b) => b.unrealisedPL - a.unrealisedPL)[0],
+    [portfolio.positions],
+  )
+
+  const biggestLoser = useMemo(
+    () => [...portfolio.positions].sort((a, b) => a.unrealisedPL - b.unrealisedPL)[0],
+    [portfolio.positions],
+  )
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-balance">Portfolio</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Portfolio</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Positions, performance and multi-dimensional exposure with ETF look-through.
+            What your holdings are worth now, what you paid, and the exact open profit or loss.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            disabled={quoteStatus === "loading"}
-            onClick={() => void refreshQuotes()}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${quoteStatus === "loading" ? "animate-spin" : ""}`} />
+
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => void refreshQuotes()}>
+            <RefreshCw className="h-4 w-4" />
             Refresh prices
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              resetPortfolio()
-              toast.success("Portfolio reset to the starting Stake snapshot")
-            }}
-          >
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Reset starting data
-          </Button>
-          <AddHoldingDialog />
+          <AddHoldingDialog onAdd={upsertHolding} />
         </div>
       </div>
 
-      <MarketDataStatus
-        status={quoteStatus}
-        error={quoteError}
-        refreshedAt={quotesRefreshedAt}
-        unavailable={unavailableQuotes}
-      />
+      <div className={`rounded-lg border p-4 text-sm ${
+        quoteStatus === "live"
+          ? "border-positive/40 bg-positive/10"
+          : quoteStatus === "error"
+            ? "border-negative/40 bg-negative/10"
+            : "border-warning/40 bg-warning/10"
+      }`}>
+        <div className="font-medium">
+          {quoteStatus === "live" ? "Live market prices connected" : quoteStatus === "error" ? "Price refresh issue" : "Refreshing market prices"}
+        </div>
+        <div className="mt-1 text-muted-foreground">
+          Average buy prices come from your DIOS holdings and imported Stake transactions.
+          {quotesRefreshedAt ? ` Last refreshed ${new Date(quotesRefreshedAt).toLocaleString()}.` : ""}
+          {quoteError ? ` ${quoteError}` : ""}
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Total Value" value={fmtCurrency(totalValue, "USD", 0)} sub={<span>Incl. {fmtCompact(cash)} cash</span>} />
         <StatCard
-          label="Invested"
+          label="Current Portfolio Value"
           value={fmtCurrency(portfolio.investedValue, "USD", 0)}
-          sub={<span>{positions.length} positions</span>}
         />
         <StatCard
-          label="Unrealised P/L"
-          value={fmtCurrency(totalPL, "USD", 0)}
-          accent={totalPL >= 0 ? "positive" : "negative"}
-          sub={<DeltaText value={totalPLPct} />}
+          label="Total Cost Basis"
+          value={fmtCurrency(portfolio.costBasis, "USD", 0)}
         />
         <StatCard
-          label="Day Change"
-          value={fmtCurrency(portfolio.dayChangeValue, "USD", 0)}
+          label="Open P/L"
+          value={`${fmtCurrency(portfolio.totalPL, "USD", 0)} (${portfolio.totalPLPct >= 0 ? "+" : ""}${portfolio.totalPLPct.toFixed(2)}%)`}
+          accent={portfolio.totalPL >= 0 ? "positive" : "negative"}
+        />
+        <StatCard
+          label="Today's Change"
+          value={`${fmtCurrency(portfolio.dayChangeValue, "USD", 0)} (${portfolio.dayChangePct >= 0 ? "+" : ""}${portfolio.dayChangePct.toFixed(2)}%)`}
           accent={portfolio.dayChangeValue >= 0 ? "positive" : "negative"}
-          sub={<DeltaText value={portfolio.dayChangePct} />}
         />
       </div>
 
-      <Panel title="Holdings" description="Weighted-average cost basis. Click a ticker to analyse.">
+      <Panel
+        title="Holdings"
+        description="Bought @ is your weighted-average entry price. Current is the latest market price."
+      >
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Ticker</TableHead>
-                <TableHead className="hidden md:table-cell">Sector</TableHead>
+                <TableHead>Sector</TableHead>
                 <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Avg cost</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead className="text-right">Value</TableHead>
+                <TableHead className="text-right">Bought @</TableHead>
+                <TableHead className="text-right">Current</TableHead>
+                <TableHead className="text-right">Current Value</TableHead>
+                <TableHead className="text-right">Open P/L</TableHead>
+                <TableHead className="text-right">Return</TableHead>
                 <TableHead className="text-right">Weight</TableHead>
-                <TableHead className="text-right">Day</TableHead>
-                <TableHead className="text-right">Unreal. P/L</TableHead>
+                <TableHead>Health</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
+
             <TableBody>
-              {positions.map((p) => (
-                <TableRow key={p.ticker}>
-                  <TableCell>
-                    <Link href={`/analyse?ticker=${p.ticker}`} className="font-mono font-semibold hover:underline">
-                      {p.ticker}
-                    </Link>
-                    <span className="ml-2 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">
-                      {p.instrument.type === "etf" ? "ETF" : "Stock"}
-                    </span>
-                  </TableCell>
-                  <TableCell className="hidden text-sm text-muted-foreground md:table-cell">{p.instrument.sector}</TableCell>
-                  <TableCell className="text-right tabular-nums">{p.quantity.toLocaleString(undefined, { maximumFractionDigits: 4 })}</TableCell>
-                  <TableCell className="text-right tabular-nums">{fmtCurrency(p.avgCost)}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    <div>{fmtCurrency(p.price)}</div>
-                    <div className={`text-[10px] font-medium uppercase tracking-wide ${p.priceSource === "live" ? "text-positive" : "text-amber-600"}`}>
-                      {p.priceSource === "live" ? "Live" : "Demo fallback"}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums font-medium">{fmtCurrency(p.marketValue, "USD", 0)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{fmtPct(p.weight)}</TableCell>
-                  <TableCell className="text-right"><DeltaText value={p.dayChangePct} /></TableCell>
-                  <TableCell className="text-right">
-                    <div><DeltaText value={p.unrealisedPLPct} /></div>
-                    <div className="text-xs text-muted-foreground tabular-nums">{fmtCurrency(p.unrealisedPL, "USD", 0)}</div>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant={confirm === p.ticker ? "destructive" : "ghost"}
-                      size="icon-sm"
-                      onClick={() => handleRemove(p.ticker)}
-                      aria-label={`Remove ${p.ticker}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {portfolio.positions.map((position) => {
+                const health = healthLabel(position.unrealisedPLPct)
+
+                return (
+                  <TableRow key={position.ticker}>
+                    <TableCell>
+                      <Link
+                        href={`/portfolio/${encodeURIComponent(position.ticker)}`}
+                        className="inline-flex items-center gap-1 font-mono font-semibold hover:underline"
+                      >
+                        {position.ticker}
+                        <ArrowUpRight className="h-3 w-3" />
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {position.instrument.sector}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatQty(position.quantity)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {fmtCurrency(position.avgCost)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <div>{fmtCurrency(position.price)}</div>
+                      <div className="text-[10px] uppercase text-positive">
+                        {position.priceSource}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums font-medium">
+                      {fmtCurrency(position.marketValue, "USD", 0)}
+                    </TableCell>
+                    <TableCell className={`text-right tabular-nums font-medium ${
+                      position.unrealisedPL >= 0 ? "text-positive" : "text-negative"
+                    }`}>
+                      {fmtCurrency(position.unrealisedPL, "USD", 0)}
+                    </TableCell>
+                    <TableCell className={`text-right tabular-nums ${
+                      position.unrealisedPLPct >= 0 ? "text-positive" : "text-negative"
+                    }`}>
+                      {position.unrealisedPLPct >= 0 ? "+" : ""}
+                      {position.unrealisedPLPct.toFixed(2)}%
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {position.weight.toFixed(1)}%
+                    </TableCell>
+                    <TableCell>
+                      <span className={`rounded px-2 py-1 text-xs ${health.className}`}>
+                        {health.label}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => {
+                          removeHolding(position.ticker)
+                          toast.success(`${position.ticker} removed`)
+                        }}
+                        aria-label={`Remove ${position.ticker}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </div>
       </Panel>
 
-      <Panel title="Exposure analysis" description="Diversification across multiple dimensions, including look-through into ETF underlyings.">
-        <Tabs defaultValue="sector" className="p-4">
-          <TabsList className="flex-wrap">
-            <TabsTrigger value="sector">Sector</TabsTrigger>
-            <TabsTrigger value="type">Type</TabsTrigger>
-            <TabsTrigger value="country">Country</TabsTrigger>
-            <TabsTrigger value="currency">Currency</TabsTrigger>
-            <TabsTrigger value="theme">Theme</TabsTrigger>
-            <TabsTrigger value="lookThrough">Look-through</TabsTrigger>
-          </TabsList>
-          <TabsContent value="sector" className="pt-4">
-            <AllocationDonut data={exposure.sector} />
-          </TabsContent>
-          <TabsContent value="type" className="pt-4">
-            <AllocationDonut data={exposure.type} />
-          </TabsContent>
-          <TabsContent value="country" className="pt-4">
-            <AllocationDonut data={exposure.country} />
-          </TabsContent>
-          <TabsContent value="currency" className="pt-4">
-            <AllocationDonut data={exposure.currency} />
-          </TabsContent>
-          <TabsContent value="theme" className="pt-4">
-            <ExposureBars data={exposure.theme} />
-          </TabsContent>
-          <TabsContent value="lookThrough" className="pt-4">
-            <p className="mb-3 text-xs text-muted-foreground text-pretty">
-              True company-level exposure combining direct stock holdings with decomposed ETF constituents.
-            </p>
-            <ExposureBars data={exposure.lookThrough} />
-          </TabsContent>
-        </Tabs>
-      </Panel>
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <ConcentrationCard label="Semiconductor exposure" pct={exposure.semiconductor} threshold={25} />
-        <ConcentrationCard label="Energy exposure" pct={exposure.energy} threshold={20} />
-        <ConcentrationCard label="Gold / hard assets" pct={exposure.gold} threshold={20} />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <InsightCard
+          label="Largest winner"
+          value={biggestWinner ? `${biggestWinner.ticker} ${fmtCurrency(biggestWinner.unrealisedPL, "USD", 0)}` : "—"}
+          detail={biggestWinner ? `${biggestWinner.unrealisedPLPct >= 0 ? "+" : ""}${biggestWinner.unrealisedPLPct.toFixed(2)}% from average buy price` : "No position data"}
+        />
+        <InsightCard
+          label="Largest loser"
+          value={biggestLoser ? `${biggestLoser.ticker} ${fmtCurrency(biggestLoser.unrealisedPL, "USD", 0)}` : "—"}
+          detail={biggestLoser ? `${biggestLoser.unrealisedPLPct.toFixed(2)}% from average buy price` : "No position data"}
+        />
+        <InsightCard
+          label="Biggest position"
+          value={portfolio.largestPosition ? `${portfolio.largestPosition.ticker} ${portfolio.largestPosition.weight.toFixed(1)}%` : "—"}
+          detail={portfolio.largestSector ? `${portfolio.largestSector.label} is the largest sector at ${portfolio.largestSector.pct.toFixed(1)}%` : "No exposure data"}
+        />
       </div>
     </div>
   )
 }
 
-
-function MarketDataStatus({
-  status,
-  error,
-  refreshedAt,
-  unavailable,
+function InsightCard({
+  label,
+  value,
+  detail,
 }: {
-  status: "idle" | "loading" | "live" | "partial" | "error"
-  error: string | null
-  refreshedAt: string | null
-  unavailable: string[]
+  label: string
+  value: string
+  detail: string
 }) {
-  const live = status === "live" || status === "partial"
-  const updated = refreshedAt
-    ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "medium" }).format(new Date(refreshedAt))
-    : null
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="mt-2 text-lg font-semibold">{value}</div>
+      <div className="mt-1 text-sm text-muted-foreground">{detail}</div>
+    </div>
+  )
+}
 
-  if (status === "error") {
-    return (
-      <div className="flex items-start gap-3 rounded-lg border border-red-300/60 bg-red-50 px-4 py-3 text-sm text-red-950 dark:border-red-500/30 dark:bg-red-950/30 dark:text-red-100">
-        <WifiOff className="mt-0.5 h-4 w-4 shrink-0" />
-        <div>
-          <p className="font-medium">Live price connection failed</p>
-          <p className="mt-0.5 text-xs opacity-80">{error ?? "The app is using demo fallback prices."}</p>
-        </div>
-      </div>
-    )
+function AddHoldingDialog({
+  onAdd,
+}: {
+  onAdd: (holding: { ticker: string; quantity: number; avgCost: number }) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [ticker, setTicker] = useState("")
+  const [quantity, setQuantity] = useState("")
+  const [avgCost, setAvgCost] = useState("")
+
+  function submit() {
+    const symbol = ticker.trim().toUpperCase()
+    const qty = Number(quantity)
+    const cost = Number(avgCost)
+
+    if (!symbol || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(cost) || cost <= 0) {
+      toast.error("Enter a ticker, quantity and average buy price")
+      return
+    }
+
+    onAdd({ ticker: symbol, quantity: qty, avgCost: cost })
+    toast.success(`${symbol} holding saved`)
+    setOpen(false)
+    setTicker("")
+    setQuantity("")
+    setAvgCost("")
   }
 
   return (
-    <div className={`flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ${live ? "border-emerald-300/60 bg-emerald-50 text-emerald-950 dark:border-emerald-500/30 dark:bg-emerald-950/30 dark:text-emerald-100" : "border-amber-300/60 bg-amber-50 text-amber-950 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-100"}`}>
-      {live ? <Wifi className="mt-0.5 h-4 w-4 shrink-0" /> : <RefreshCw className={`mt-0.5 h-4 w-4 shrink-0 ${status === "loading" ? "animate-spin" : ""}`} />}
-      <div>
-        <p className="font-medium">
-          {status === "loading" ? "Loading live market prices…" : live ? "Live market prices connected" : "Waiting for live market prices"}
-        </p>
-        <p className="mt-0.5 text-xs opacity-80">
-          Holdings are seeded from your Stake snapshot. Average costs remain approximate until reconciled with an official statement.
-          {updated ? ` Last refreshed ${updated}.` : ""}
-          {unavailable.length ? ` Demo fallback is being used for: ${unavailable.join(", ")}.` : ""}
-        </p>
-      </div>
-    </div>
-  )
-}
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button>
+            <Plus className="h-4 w-4" />
+            Add holding
+          </Button>
+        }
+      />
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add or update holding</DialogTitle>
+          <DialogDescription>
+            Enter the quantity and weighted-average price paid.
+          </DialogDescription>
+        </DialogHeader>
 
-function ExposureBars({ data }: { data: Allocation[] }) {
-  const max = Math.max(...data.map((d) => d.pct), 1)
-  return (
-    <ul className="space-y-2.5">
-      {data.map((d) => (
-        <li key={d.label} className="grid grid-cols-[10rem_1fr_auto] items-center gap-3">
-          <span className="truncate text-sm">{d.label}</span>
-          <div className="h-2 overflow-hidden rounded-full bg-border">
-            <div className="h-full rounded-full bg-primary" style={{ width: `${(d.pct / max) * 100}%` }} />
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="holding-ticker">Ticker</Label>
+            <Input
+              id="holding-ticker"
+              value={ticker}
+              onChange={(event) => setTicker(event.target.value.toUpperCase())}
+              placeholder="GOOG"
+              className="font-mono"
+            />
           </div>
-          <span className="text-right font-mono text-sm tabular-nums text-muted-foreground">{fmtPct(d.pct)}</span>
-        </li>
-      ))}
-    </ul>
-  )
-}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="holding-qty">Quantity</Label>
+              <Input
+                id="holding-qty"
+                type="number"
+                step="any"
+                value={quantity}
+                onChange={(event) => setQuantity(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="holding-cost">Average buy price</Label>
+              <Input
+                id="holding-cost"
+                type="number"
+                step="any"
+                value={avgCost}
+                onChange={(event) => setAvgCost(event.target.value)}
+              />
+            </div>
+          </div>
+        </div>
 
-function ConcentrationCard({ label, pct, threshold }: { label: string; pct: number; threshold: number }) {
-  const over = pct > threshold
-  return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">{label}</span>
-        <span className={`font-mono text-sm font-bold tabular-nums ${over ? "text-negative" : "text-foreground"}`}>
-          {fmtPct(pct)}
-        </span>
-      </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-border">
-        <div
-          className={`h-full rounded-full ${over ? "bg-negative" : "bg-positive"}`}
-          style={{ width: `${Math.min(pct, 100)}%` }}
-        />
-      </div>
-      <p className="mt-1.5 text-xs text-muted-foreground">
-        {over ? `Above ${threshold}% comfort threshold` : `Within ${threshold}% threshold`}
-      </p>
-    </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={submit}>Save holding</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

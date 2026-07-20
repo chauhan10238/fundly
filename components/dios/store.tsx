@@ -98,7 +98,7 @@ function cashDelta(t: Omit<Transaction, "id">): number {
 function initialState(): PersistedStore {
   return {
     holdings: SEED_HOLDINGS.map(normalizeHolding),
-    cash: SEED_CASH,
+    cash: 0,
     transactions: SEED_TRANSACTIONS,
     settings: DEFAULT_SETTINGS,
     recommendations: SEED_RECOMMENDATIONS,
@@ -121,7 +121,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
         const parsed = JSON.parse(raw) as Partial<PersistedStore>
         setState((current) => ({
           holdings: Array.isArray(parsed.holdings) ? parsed.holdings.map(normalizeHolding).filter((h) => h.quantity > 0) : current.holdings,
-          cash: typeof parsed.cash === "number" ? parsed.cash : current.cash,
+          cash: 0,
           transactions: Array.isArray(parsed.transactions) ? parsed.transactions : current.transactions,
           settings: parsed.settings ? { ...current.settings, ...parsed.settings, weights: { ...current.settings.weights, ...parsed.settings.weights } } : current.settings,
           recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : current.recommendations,
@@ -197,8 +197,8 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   }, [hydrated, refreshQuotes])
 
   const portfolio = useMemo(
-    () => buildPortfolio(state.holdings, state.cash, state.settings, liveQuotes),
-    [state.holdings, state.cash, state.settings, liveQuotes],
+    () => buildPortfolio(state.holdings, 0, state.settings, liveQuotes),
+    [state.holdings, state.settings, liveQuotes],
   )
 
   const upsertHolding = useCallback((holding: Holding) => {
@@ -216,8 +216,8 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
     setState((prev) => ({ ...prev, holdings: prev.holdings.filter((h) => h.ticker !== ticker.trim().toUpperCase()) }))
   }, [])
 
-  const addCash = useCallback((amount: number) => setState((prev) => ({ ...prev, cash: prev.cash + amount })), [])
-  const withdrawCash = useCallback((amount: number) => setState((prev) => ({ ...prev, cash: Math.max(0, prev.cash - amount) })), [])
+  const addCash = useCallback((_amount: number) => setState((prev) => ({ ...prev, cash: 0 })), [])
+  const withdrawCash = useCallback((_amount: number) => setState((prev) => ({ ...prev, cash: 0 })), [])
 
   const addTransaction = useCallback((transaction: Omit<Transaction, "id">) => {
     const t = { ...transaction, ticker: transaction.ticker.trim().toUpperCase() }
@@ -227,7 +227,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
       holdings: (getInstrument(t.ticker) || t.type === "Buy" || t.type === "Sell")
         ? applyTradeToHoldings(prev.holdings, t)
         : prev.holdings,
-      cash: prev.cash + cashDelta(t),
+      cash: 0,
     }))
   }, [])
 
@@ -237,7 +237,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       transactions: [...normalized.map((t) => ({ ...t, id: nextId() })), ...prev.transactions],
       holdings: normalized.reduce((acc, t) => applyTradeToHoldings(acc, t), prev.holdings),
-      cash: normalized.reduce((acc, t) => acc + cashDelta(t), prev.cash),
+      cash: 0,
     }))
     return normalized.length
   }, [])
