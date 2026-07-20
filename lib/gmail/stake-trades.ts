@@ -47,7 +47,12 @@ function htmlToText(html: string): string {
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
     .replace(/&#39;/gi, "'")
-    .replace(/&quot;/gi, '"');
+    .replace(/&quot;/gi, '"')
+    .replace(/&#40;/gi, "(")
+    .replace(/&#41;/gi, ")")
+    .replace(/&#91;/gi, "[")
+    .replace(/&#93;/gi, "]")
+    .replace(/&#124;/gi, "|");
 }
 
 function collectBodies(part?: gmail_v1.Schema$MessagePart): {
@@ -111,8 +116,8 @@ function parseTicker(subject: string, text: string): string | null {
       /^\s*([A-Z][A-Z0-9.\-]{0,9})\s+order/i,
     ]) ??
     firstMatch(text, [
-      /\bTicker\s*[:|]\s*([A-Z][A-Z0-9.\-]{0,9})\b/i,
-      /\bSymbol\s*[:|]\s*([A-Z][A-Z0-9.\-]{0,9})\b/i,
+      /\bTicker\s*(?:[:|]\s*|\n)\s*([A-Z][A-Z0-9.\-]{0,9})\b/i,
+      /\bSymbol\s*(?:[:|]\s*|\n)\s*([A-Z][A-Z0-9.\-]{0,9})\b/i,
       /\bYour\s+([A-Z][A-Z0-9.\-]{0,9})\s+order\s+has\s+been\s+filled\b/i,
     ]);
 
@@ -121,10 +126,10 @@ function parseTicker(subject: string, text: string): string | null {
 
 function parseSide(text: string): "Buy" | "Sell" | null {
   const raw = firstMatch(text, [
+    /\bYour filled\s+[A-Z][A-Z0-9.\-]{0,9}\s+(?:MARKET|LIMIT|STOP|STOP LIMIT|TRAILING STOP)?\s*(BUY|SELL)\s+order\b/i,
     /\b(?:MARKET|LIMIT|STOP|STOP LIMIT|TRAILING STOP)?\s*(BUY|SELL)\s+order\b/i,
-    /\bSide\s*[:|]\s*(BUY|SELL)\b/i,
-    /\bAction\s*[:|]\s*(BUY|SELL)\b/i,
-    /\b(BUY|SELL)\s+(?:filled|executed)\b/i,
+    /\bSide\s*(?:[:|]\s*|\n)\s*(BUY|SELL)\b/i,
+    /\bAction\s*(?:[:|]\s*|\n)\s*(BUY|SELL)\b/i,
   ]);
 
   if (!raw) return null;
@@ -133,46 +138,65 @@ function parseSide(text: string): "Buy" | "Sell" | null {
 
 function parseQuantity(text: string): number | null {
   const raw = firstMatch(text, [
-    /\b(?:Filled quantity|Quantity filled|Quantity|Qty|Shares)\s*[:|]\s*([\d,.]+)\b/i,
+    // Current Stake format:
+    // Shares
+    // 2 of 2
+    /\bShares\s*(?:[:|]\s*|\n)\s*([\d,.]+)\s+of\s+[\d,.]+\b/i,
+    /\bShares\s+([\d,.]+)\s+of\s+[\d,.]+\b/i,
+
+    // Other possible Stake templates.
+    /\b(?:Filled quantity|Quantity filled|Quantity|Qty)\s*(?:[:|]\s*|\n)\s*([\d,.]+)\b/i,
     /\b([\d,.]+)\s+shares?\s+(?:filled|executed|at|@)\b/i,
     /\bfilled\s+([\d,.]+)\s+shares?\b/i,
   ]);
+
   return numberFrom(raw);
 }
 
 function parsePrice(text: string): number | null {
   const raw = firstMatch(text, [
-    /\b(?:Average fill price|Average price|Filled price|Execution price|Price)\s*[:|]\s*(?:USD|US\$|\$)?\s*([\d,.]+)\b/i,
+    // Current Stake format:
+    // Effective price
+    // US$344.00
+    /\bEffective price\s*(?:[:|]\s*|\n)\s*(?:USD|US\$|\$)?\s*([\d,.]+)\b/i,
+    /\bEffective price\s+(?:USD|US\$|\$)?\s*([\d,.]+)\b/i,
+
+    // Other possible templates.
+    /\b(?:Average fill price|Average price|Filled price|Execution price|Price)\s*(?:[:|]\s*|\n)\s*(?:USD|US\$|\$)?\s*([\d,.]+)\b/i,
     /\b[\d,.]+\s+shares?\s+(?:at|@)\s*(?:USD|US\$|\$)?\s*([\d,.]+)\b/i,
     /\bfilled\s+(?:at|@)\s*(?:USD|US\$|\$)?\s*([\d,.]+)\b/i,
   ]);
+
   return numberFrom(raw);
 }
 
-function parseFee(text: string, label: "brokerage" | "fx"): number {
-  const patterns =
-    label === "brokerage"
-      ? [
-          /\b(?:Brokerage|Commission|Trading fee|Broker fee)\s*[:|]\s*(?:USD|US\$|\$)?\s*([\d,.]+)/i,
-        ]
-      : [
-          /\b(?:FX fee|Foreign exchange fee|Currency conversion fee)\s*[:|]\s*(?:USD|US\$|\$)?\s*([\d,.]+)/i,
-        ];
+function parseMoneyLabel(text: string, labels: string[]): number {
+  const escaped = labels.map((label) =>
+    label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+  );
+  const pattern = new RegExp(
+    `\\b(?:${escaped.join("|")})\\s*(?:[:|]\\s*|\\n)\\s*(?:USD|US\\$|\\$)?\\s*([\\d,.]+)`,
+    "i",
+  );
 
-  return numberFrom(firstMatch(text, patterns)) ?? 0;
+  return numberFrom(firstMatch(text, [pattern])) ?? 0;
 }
 
 function parseOrderType(text: string): string | null {
   const raw = firstMatch(text, [
-    /\bYour filled\s+([A-Z ]+?)\s+(?:BUY|SELL)\s+order\b/i,
-    /\bOrder type\s*[:|]\s*([A-Z ]+)\b/i,
+    /\bYour filled\s+[A-Z][A-Z0-9.\-]{0,9}\s+([A-Z ]+?)\s+(?:BUY|SELL)\s+order\b/i,
+    /\bOrder type\s*(?:[:|]\s*|\n)\s*([A-Z ]+)\b/i,
   ]);
+
   return raw ? raw.replace(/\s+/g, " ").trim().toUpperCase() : null;
 }
 
 function toIsoDate(headerDate: string, internalDate?: string | null): string {
   const internal = internalDate ? Number(internalDate) : NaN;
-  const parsed = Number.isFinite(internal) ? new Date(internal) : new Date(headerDate);
+  const parsed = Number.isFinite(internal)
+    ? new Date(internal)
+    : new Date(headerDate);
+
   return Number.isNaN(parsed.getTime())
     ? new Date().toISOString().slice(0, 10)
     : parsed.toISOString().slice(0, 10);
@@ -201,6 +225,7 @@ function parseMessage(message: gmail_v1.Schema$Message): ParsedStakeTrade {
   const subject = header(headers, "Subject") || "(No subject)";
   const emailDate = header(headers, "Date");
   const bodies = collectBodies(message.payload);
+
   const body = cleanText(
     bodies.plain.join("\n") ||
       bodies.html.map(htmlToText).join("\n") ||
@@ -212,8 +237,26 @@ function parseMessage(message: gmail_v1.Schema$Message): ParsedStakeTrade {
   const side = parseSide(body);
   const quantity = parseQuantity(body);
   const price = parsePrice(body);
-  const brokerageFee = parseFee(body, "brokerage");
-  const fxFee = parseFee(body, "fx");
+
+  const brokerage = parseMoneyLabel(body, [
+    "Brokerage",
+    "Commission",
+    "Trading fee",
+    "Broker fee",
+  ]);
+
+  const regulatoryFees = parseMoneyLabel(body, [
+    "Regulatory fees",
+    "Regulatory fee",
+  ]);
+
+  const fxFee = parseMoneyLabel(body, [
+    "FX fee",
+    "Foreign exchange fee",
+    "Currency conversion fee",
+  ]);
+
+  const brokerageFee = brokerage + regulatoryFees;
   const orderType = parseOrderType(body);
   const tradeDate = toIsoDate(emailDate, message.internalDate);
 
@@ -247,7 +290,7 @@ function parseMessage(message: gmail_v1.Schema$Message): ParsedStakeTrade {
     orderType,
     status: issues.length === 0 ? "Ready" : "Needs Review",
     fingerprint,
-    preview: cleanText(body).slice(0, 500),
+    preview: body.slice(0, 700),
     issues,
   };
 }
@@ -270,11 +313,13 @@ export async function listParsedStakeTrades(
   const parsed = await Promise.all(
     messages.map(async ({ id }) => {
       if (!id) return null;
+
       const result = await gmail.users.messages.get({
         userId: "me",
         id,
         format: "full",
       });
+
       return parseMessage(result.data);
     }),
   );
