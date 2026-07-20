@@ -1,20 +1,27 @@
 "use client"
 
-import { Suspense, useCallback, useEffect, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { BookmarkPlus, Check, Loader2, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { useDios } from "@/components/dios/store"
-import { fetchLiveAnalysisReport } from "@/lib/dios/live-analysis"
+import { analyse } from "@/lib/dios/analyse"
 import { TickerSearch } from "@/components/dios/ticker-search"
 import { AnalysisReportView } from "@/components/dios/analysis-report"
+import { InstitutionalIntelligenceView } from "@/components/dios/institutional-intelligence"
 import { Panel } from "@/components/dios/ui-bits"
 import { Button } from "@/components/ui/button"
-import type { AnalysisReport, ExternalAnalysisContext, MarketSnapshot, RecommendationRecord } from "@/lib/dios/types"
+import type {
+  AnalysisReport,
+  ExternalAnalysisContext,
+  MarketSnapshot,
+  RecommendationRecord,
+} from "@/lib/dios/types"
+import type { InstitutionalCompanyIntelligence } from "@/lib/data-providers"
 import { MACRO } from "@/lib/dios/macro"
 import { getInstrument } from "@/lib/dios/universe"
 
-const SUGGESTIONS = ["NVDA", "GLD", "VOO", "INTC", "SMH", "TSM", "QQQ", "SCHD"]
+const SUGGESTIONS = ["NVDA", "AAPL", "GOOG", "GLD", "VOO", "TSM", "QQQ", "SCHD"]
 
 function AnalyseInner() {
   const router = useRouter()
@@ -25,72 +32,90 @@ function AnalyseInner() {
   const [market, setMarket] = useState<MarketSnapshot | null>(null)
   const [marketError, setMarketError] = useState<string | null>(null)
   const [externalContext, setExternalContext] = useState<ExternalAnalysisContext | null>(null)
+  const [intelligence, setIntelligence] = useState<InstitutionalCompanyIntelligence | null>(null)
   const [loadingMarket, setLoadingMarket] = useState(false)
-  const [report, setReport] = useState<AnalysisReport | null>(null)
 
   const loadMarket = useCallback(async () => {
-    if (!ticker) {
-      setReport(null)
-      setMarket(null)
-      setExternalContext(null)
-      return
-    }
-
+    if (!ticker) return
     setLoadingMarket(true)
     setMarketError(null)
 
     try {
-      const result = await fetchLiveAnalysisReport(
-        ticker,
-        portfolio,
-        settings,
+      const response = await fetch(
+        `/api/analysis?ticker=${encodeURIComponent(ticker)}`,
+        { cache: "no-store" },
       )
 
-      setReport(result.report)
-      setMarket(result.snapshot)
-      setExternalContext(result.context)
-      setMarketError(result.warning)
+      const payload = (await response.json()) as {
+        snapshot?: MarketSnapshot
+        context?: ExternalAnalysisContext
+        intelligence?: InstitutionalCompanyIntelligence
+        error?: string
+        warning?: string
+      }
+
+      if (!response.ok || !payload.snapshot) {
+        throw new Error(
+          payload.error || `Analysis request failed (${response.status})`,
+        )
+      }
+
+      setMarket(payload.snapshot)
+      setExternalContext(payload.context ?? null)
+      setIntelligence(payload.intelligence ?? null)
+      setMarketError(
+        payload.warning ??
+          (payload.context?.warnings?.length
+            ? payload.context.warnings.join(" ")
+            : null),
+      )
     } catch (error) {
-      setReport(null)
       setMarket(null)
       setExternalContext(null)
+      setIntelligence(null)
       setMarketError(
-        error instanceof Error ? error.message : "Unable to retrieve analysis",
+        error instanceof Error
+          ? error.message
+          : "Unable to retrieve market data",
       )
     } finally {
       setLoadingMarket(false)
     }
-  }, [ticker, portfolio, settings])
+  }, [ticker])
 
   useEffect(() => {
     void loadMarket()
-    const refresh = () => {
-      if (document.visibilityState === "visible") void loadMarket()
-    }
-    const timer = window.setInterval(refresh, 10_000)
-    document.addEventListener("visibilitychange", refresh)
-    return () => {
-      window.clearInterval(timer)
-      document.removeEventListener("visibilitychange", refresh)
-    }
   }, [loadMarket])
 
+  const result = useMemo(() => {
+    if (!ticker) return null
+    return analyse(
+      ticker,
+      portfolio,
+      settings,
+      market ?? undefined,
+      externalContext ?? undefined,
+    )
+  }, [ticker, portfolio, settings, market, externalContext])
 
   useEffect(() => {
     setLogged(false)
   }, [ticker])
 
   const select = useCallback(
-    (t: string) => {
-      router.push(`/analyse?ticker=${t}`)
+    (value: string) => {
+      router.push(`/analyse?ticker=${value}`)
     },
     [router],
   )
 
+  const report =
+    result && !("error" in result) ? (result as AnalysisReport) : null
 
   const logRecommendation = useCallback(() => {
     if (!report) return
-    const inst = getInstrument(report.ticker)
+    const instrument = getInstrument(report.ticker)
+
     const record: RecommendationRecord = {
       id: `rec-${Date.now()}`,
       datetime: new Date().toISOString(),
@@ -106,10 +131,19 @@ function AnalyseInner() {
       scenarios: report.scenarios,
       modelVersion: report.modelVersion,
       scoringVersion: report.scoringVersion,
-      sector: externalContext?.instrument?.sector ?? inst?.sector ?? "—",
+      sector:
+        externalContext?.instrument?.sector ?? instrument?.sector ?? "—",
       macroRegime: MACRO.regime,
-      outcomes: { d1: null, w1: null, m1: null, m3: null, m6: null, m12: null },
+      outcomes: {
+        d1: null,
+        w1: null,
+        m1: null,
+        m3: null,
+        m6: null,
+        m12: null,
+      },
     }
+
     addRecommendation(record)
     setLogged(true)
     toast.success(`Logged ${report.recommendation} for ${report.ticker}`, {
@@ -120,9 +154,11 @@ function AnalyseInner() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">Analyse an Instrument</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-balance">
+          Analyse an Instrument
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Institutional-style, fully-sourced decision report scored across twelve factors and mapped to your portfolio.
+          Multi-source company intelligence, financial health and a portfolio-aware DIOS decision report.
         </p>
       </div>
 
@@ -130,16 +166,18 @@ function AnalyseInner() {
         <TickerSearch onSelect={select} />
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-muted-foreground">Quick pick:</span>
-          {SUGGESTIONS.map((t) => (
+          {SUGGESTIONS.map((suggestion) => (
             <button
-              key={t}
-              onClick={() => select(t)}
+              key={suggestion}
+              onClick={() => select(suggestion)}
               className="rounded-md border border-border bg-card px-2 py-1 font-mono text-xs font-medium transition-colors hover:bg-muted"
             >
-              {t}
+              {suggestion}
             </button>
           ))}
-          <span className="ml-auto text-xs text-muted-foreground">{recommendations.length} recommendations logged</span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {recommendations.length} recommendations logged
+          </span>
         </div>
       </div>
 
@@ -149,43 +187,68 @@ function AnalyseInner() {
             {loadingMarket && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             <span>
               {loadingMarket
-                ? `Retrieving current market data for ${ticker}…`
-                : market
-                  ? `${market.isLive ? "Latest market price" : "Latest available price"} via ${market.provider} · quote ${new Date(market.refreshedAt).toLocaleTimeString()}`
-                  : marketError || "Current market price unavailable"}
+                ? `Building multi-source analysis for ${ticker}…`
+                : market?.isLive
+                  ? `Live price via ${market.provider}; institutional intelligence ${intelligence ? "connected" : "limited"}`
+                  : marketError || "DIOS model fallback price in use"}
             </span>
           </div>
-          <Button size="sm" variant="outline" onClick={() => void loadMarket()} disabled={loadingMarket}>
-            <RefreshCw className={`h-3.5 w-3.5 ${loadingMarket ? "animate-spin" : ""}`} />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void loadMarket()}
+            disabled={loadingMarket}
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${loadingMarket ? "animate-spin" : ""}`}
+            />
             Refresh analysis
           </Button>
         </div>
       )}
 
-      {ticker && !loadingMarket && !report && marketError && (
-        <Panel title="Analysis unavailable">
-          <p className="p-4 text-sm text-muted-foreground">{marketError}</p>
+      {result && "error" in result && (
+        <Panel title="Not found">
+          <p className="p-4 text-sm text-muted-foreground">{result.error}</p>
         </Panel>
+      )}
+
+      {intelligence && (
+        <InstitutionalIntelligenceView intelligence={intelligence} />
       )}
 
       {report && (
         <>
           <div className="flex justify-end">
-            <Button onClick={logRecommendation} disabled={logged} variant={logged ? "outline" : "default"}>
-              {logged ? <Check className="h-4 w-4" /> : <BookmarkPlus className="h-4 w-4" />}
+            <Button
+              onClick={logRecommendation}
+              disabled={logged}
+              variant={logged ? "outline" : "default"}
+            >
+              {logged ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <BookmarkPlus className="h-4 w-4" />
+              )}
               {logged ? "Logged to history" : "Log recommendation"}
             </Button>
           </div>
-          <AnalysisReportView report={report} weights={settings.weights} />
+          <AnalysisReportView
+            report={report}
+            weights={settings.weights}
+          />
         </>
       )}
 
-      {!ticker && (
-        <Panel title="Start an analysis" description="Search for any supported US-listed stock or ETF above.">
+      {!result && (
+        <Panel
+          title="Start an analysis"
+          description="Search for any supported US-listed stock or ETF above."
+        >
           <p className="p-4 text-sm text-muted-foreground text-pretty">
-            DIOS scores each instrument across macro, geopolitics, earnings, fundamentals, valuation, quality, flows,
-            technicals, portfolio fit, timing, psychology and opportunity cost — then explains why to act (or wait),
-            models bull/base/bear scenarios, and maps the position against your current holdings.
+            DIOS retrieves live prices, SEC fundamentals, earnings, company
+            news and source verification, then maps the result to your current
+            portfolio and its twelve-factor decision engine.
           </p>
         </Panel>
       )}
@@ -195,7 +258,11 @@ function AnalyseInner() {
 
 export default function AnalysePage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+    <Suspense
+      fallback={
+        <div className="p-6 text-sm text-muted-foreground">Loading…</div>
+      }
+    >
       <AnalyseInner />
     </Suspense>
   )
