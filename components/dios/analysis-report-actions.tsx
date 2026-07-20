@@ -1,7 +1,6 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { pdf } from "@react-pdf/renderer"
 import { Check, Copy, Download, Loader2, Share2 } from "lucide-react"
 import { toast } from "sonner"
 import type {
@@ -12,7 +11,6 @@ import type {
 import type { InstitutionalCompanyIntelligence } from "@/lib/data-providers"
 import { Button } from "@/components/ui/button"
 import { buildShareableReport } from "@/lib/reports/build-report"
-import { DiosReportPdf } from "./report-pdf"
 
 export function AnalysisReportActions(props: {
   report: AnalysisReport
@@ -37,24 +35,11 @@ export function AnalysisReportActions(props: {
   )
 
   async function downloadPdf() {
-    setDownloading(true)
     try {
-      const blob = await pdf(<DiosReportPdf report={reportData} />).toBlob()
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement("a")
-      anchor.href = url
-      anchor.download = `DIOS-${reportData.ticker}-Analysis-${reportData.generatedAt.slice(0, 10)}.pdf`
-      document.body.appendChild(anchor)
-      anchor.click()
-      anchor.remove()
-      URL.revokeObjectURL(url)
-      toast.success("PDF report downloaded")
+      window.print()
+      toast.success("Print dialog opened. Choose 'Save as PDF' to download.")
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Unable to create PDF report",
-      )
-    } finally {
-      setDownloading(false)
+      toast.error(error instanceof Error ? error.message : "Unable to open print dialog")
     }
   }
 
