@@ -100,15 +100,6 @@ export default function StakeSyncClient() {
 
       const data = (await response.json()) as ApiResponse;
       setResult(data);
-
-      if (data.connected) {
-        const readyIds = new Set(
-          data.trades
-            .filter((trade) => trade.status === "Ready")
-            .map((trade) => trade.messageId),
-        );
-        setSelected(readyIds);
-      }
     } catch {
       setResult({
         connected: false,
@@ -123,17 +114,6 @@ export default function StakeSyncClient() {
   useEffect(() => {
     void scan();
   }, []);
-
-  useEffect(() => {
-    if (!result) return;
-    setSelected(
-      new Set(
-        decorated
-          .filter((trade) => trade.status === "Ready" && !trade.duplicate)
-          .map((trade) => trade.messageId),
-      ),
-    );
-  }, [decorated, result]);
 
   function importSelected() {
     const chosen = importable.filter((trade) => selected.has(trade.messageId));
@@ -191,6 +171,18 @@ export default function StakeSyncClient() {
     selected.has(trade.messageId),
   ).length;
 
+  const allImportableSelected =
+    importable.length > 0 && selectedCount === importable.length;
+
+  function toggleSelectAll(checked: boolean) {
+    if (!checked) {
+      setSelected(new Set());
+      return;
+    }
+
+    setSelected(new Set(importable.map((trade) => trade.messageId)));
+  }
+
   return (
     <div className="space-y-4">
       <section className="rounded-lg border border-border bg-card p-5">
@@ -243,8 +235,8 @@ export default function StakeSyncClient() {
         <div className="border-b border-border px-5 py-4">
           <h3 className="font-semibold">Detected Stake trades</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Ready trades can be imported. Incomplete confirmations remain
-            unselected and must be reviewed.
+            All trades are unselected by default. Select individual trades or use
+            Select all. Incomplete confirmations cannot be imported.
           </p>
         </div>
 
@@ -252,7 +244,19 @@ export default function StakeSyncClient() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-10">Import</TableHead>
+                <TableHead className="w-24">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs font-medium">
+                    <input
+                      type="checkbox"
+                      checked={allImportableSelected}
+                      disabled={importable.length === 0}
+                      onChange={(event) => toggleSelectAll(event.target.checked)}
+                      aria-label="Select all importable Stake trades"
+                      className="h-4 w-4 rounded border-border accent-primary disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    Select all
+                  </label>
+                </TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Ticker</TableHead>
                 <TableHead>Side</TableHead>

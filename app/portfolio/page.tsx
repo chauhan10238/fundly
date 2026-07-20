@@ -51,6 +51,7 @@ export default function PortfolioPage() {
     refreshQuotes,
     removeHolding,
     upsertHolding,
+    recommendations,
   } = useDios()
 
   const biggestWinner = useMemo(
@@ -62,6 +63,22 @@ export default function PortfolioPage() {
     () => [...portfolio.positions].sort((a, b) => a.unrealisedPL - b.unrealisedPL)[0],
     [portfolio.positions],
   )
+
+
+  const latestDecisions = useMemo(() => {
+    const map = new Map<string, (typeof recommendations)[number]>()
+    const ordered = [...recommendations].sort((a, b) =>
+      b.datetime.localeCompare(a.datetime),
+    )
+
+    for (const recommendation of ordered) {
+      if (!map.has(recommendation.ticker)) {
+        map.set(recommendation.ticker, recommendation)
+      }
+    }
+
+    return map
+  }, [recommendations])
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -138,6 +155,9 @@ export default function PortfolioPage() {
                 <TableHead className="text-right">Return</TableHead>
                 <TableHead className="text-right">Weight</TableHead>
                 <TableHead>Health</TableHead>
+                <TableHead>Decision</TableHead>
+                <TableHead className="text-right">Score</TableHead>
+                <TableHead className="text-right">Confidence</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -145,6 +165,7 @@ export default function PortfolioPage() {
             <TableBody>
               {portfolio.positions.map((position) => {
                 const health = healthLabel(position.unrealisedPLPct)
+                const decision = latestDecisions.get(position.ticker)
 
                 return (
                   <TableRow key={position.ticker}>
@@ -195,6 +216,26 @@ export default function PortfolioPage() {
                       </span>
                     </TableCell>
                     <TableCell>
+                      {decision ? (
+                        <span className={`rounded px-2 py-1 text-xs font-medium ${decisionClass(decision.recommendation)}`}>
+                          {decision.recommendation}
+                        </span>
+                      ) : (
+                        <Link
+                          href={`/analyse?ticker=${encodeURIComponent(position.ticker)}`}
+                          className="text-xs font-medium text-primary hover:underline"
+                        >
+                          Run analysis
+                        </Link>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {decision ? `${decision.overallScore}/100` : "—"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {decision ? `${decision.confidence}%` : "—"}
+                    </TableCell>
+                    <TableCell>
                       <Button
                         variant="ghost"
                         size="icon-sm"
@@ -220,17 +261,133 @@ export default function PortfolioPage() {
           label="Largest winner"
           value={biggestWinner ? `${biggestWinner.ticker} ${fmtCurrency(biggestWinner.unrealisedPL, "USD", 0)}` : "—"}
           detail={biggestWinner ? `${biggestWinner.unrealisedPLPct >= 0 ? "+" : ""}${biggestWinner.unrealisedPLPct.toFixed(2)}% from average buy price` : "No position data"}
+          tone="positive"
         />
         <InsightCard
           label="Largest loser"
           value={biggestLoser ? `${biggestLoser.ticker} ${fmtCurrency(biggestLoser.unrealisedPL, "USD", 0)}` : "—"}
           detail={biggestLoser ? `${biggestLoser.unrealisedPLPct.toFixed(2)}% from average buy price` : "No position data"}
+          tone="negative"
         />
         <InsightCard
           label="Biggest position"
           value={portfolio.largestPosition ? `${portfolio.largestPosition.ticker} ${portfolio.largestPosition.weight.toFixed(1)}%` : "—"}
           detail={portfolio.largestSector ? `${portfolio.largestSector.label} is the largest sector at ${portfolio.largestSector.pct.toFixed(1)}%` : "No exposure data"}
+          tone="position"
         />
+      </div>
+
+      <section className="rounded-lg border border-border bg-card">
+        <div className="border-b border-border px-5 py-4">
+          <h2 className="font-semibold">Exposure analysis</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Diversification across sectors, countries, instrument types, currencies and themes.
+          </p>
+        </div>
+
+        <div className="grid gap-6 p-5 lg:grid-cols-2">
+          <ExposureList title="Sector exposure" items={portfolio.exposure.sector} />
+          <ExposureList title="Country exposure" items={portfolio.exposure.country} />
+          <ExposureList title="Instrument type" items={portfolio.exposure.type} />
+          <ExposureList title="Theme exposure" items={portfolio.exposure.theme} />
+        </div>
+
+        <div className="grid gap-3 border-t border-border p-5 md:grid-cols-3">
+          <ExposureThreshold
+            label="Semiconductor exposure"
+            value={portfolio.exposure.semiconductor}
+            threshold={25}
+          />
+          <ExposureThreshold
+            label="Energy exposure"
+            value={portfolio.exposure.energy}
+            threshold={20}
+          />
+          <ExposureThreshold
+            label="Gold / hard assets"
+            value={portfolio.exposure.gold}
+            threshold={20}
+          />
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function decisionClass(recommendation: string) {
+  if (recommendation === "Strong Buy" || recommendation === "Buy") {
+    return "bg-positive/10 text-positive"
+  }
+  if (recommendation === "Buy Watch" || recommendation === "Start Small") {
+    return "bg-primary/10 text-primary"
+  }
+  if (recommendation === "Reduce" || recommendation === "Sell" || recommendation === "Avoid") {
+    return "bg-negative/10 text-negative"
+  }
+  return "bg-muted text-muted-foreground"
+}
+
+function ExposureList({
+  title,
+  items,
+}: {
+  title: string
+  items: Array<{ label: string; value: number; pct: number }>
+}) {
+  return (
+    <div>
+      <h3 className="text-sm font-semibold">{title}</h3>
+      <div className="mt-3 space-y-3">
+        {items.slice(0, 8).map((item) => (
+          <div key={item.label}>
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span>{item.label}</span>
+              <span className="font-mono">{item.pct.toFixed(1)}%</span>
+            </div>
+            <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{ width: `${Math.min(item.pct, 100)}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ExposureThreshold({
+  label,
+  value,
+  threshold,
+}: {
+  label: string
+  value: number
+  threshold: number
+}) {
+  const above = value > threshold
+
+  return (
+    <div className={`rounded-lg border p-4 ${
+      above
+        ? "border-negative/30 bg-negative/5"
+        : "border-positive/30 bg-positive/5"
+    }`}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-medium">{label}</span>
+        <span className={above ? "font-mono text-negative" : "font-mono text-positive"}>
+          {value.toFixed(1)}%
+        </span>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+        <div
+          className={above ? "h-full rounded-full bg-negative" : "h-full rounded-full bg-positive"}
+          style={{ width: `${Math.min(value, 100)}%` }}
+        />
+      </div>
+      <div className="mt-2 text-xs text-muted-foreground">
+        {above ? `Above ${threshold}% comfort threshold` : `Within ${threshold}% threshold`}
       </div>
     </div>
   )
@@ -240,15 +397,35 @@ function InsightCard({
   label,
   value,
   detail,
+  tone,
 }: {
   label: string
   value: string
   detail: string
+  tone?: "positive" | "negative" | "position"
 }) {
+  const className =
+    tone === "positive"
+      ? "border-positive/30 bg-positive/5"
+      : tone === "negative"
+        ? "border-negative/30 bg-negative/5"
+        : tone === "position"
+          ? "border-primary/30 bg-primary/5"
+          : "border-border bg-card"
+
+  const valueClass =
+    tone === "positive"
+      ? "text-positive"
+      : tone === "negative"
+        ? "text-negative"
+        : tone === "position"
+          ? "text-primary"
+          : ""
+
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className={`rounded-lg border p-4 ${className}`}>
       <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="mt-2 text-lg font-semibold">{value}</div>
+      <div className={`mt-2 text-lg font-semibold ${valueClass}`}>{value}</div>
       <div className="mt-1 text-sm text-muted-foreground">{detail}</div>
     </div>
   )
