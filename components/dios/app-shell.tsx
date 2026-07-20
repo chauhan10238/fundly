@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   TrendingUp,
+  RefreshCw,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MACRO } from "@/lib/dios/macro"
@@ -28,6 +29,7 @@ const NAV = [
   { href: "/scan", label: "Daily Scan", icon: Radar },
   { href: "/earnings", label: "Earnings", icon: CalendarClock },
   { href: "/history", label: "Rec. History", icon: History },
+  { href: "/stake-sync", label: "Stake Sync", icon: RefreshCw },
   { href: "/settings", label: "Settings", icon: Settings },
 ]
 
