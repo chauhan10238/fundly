@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { Plus, RefreshCw, Trash2, ArrowUpRight } from "lucide-react"
+import { Plus, RefreshCw, Trash2, ArrowUpRight, ArrowDownUp } from "lucide-react"
 import { toast } from "sonner"
 import { useDios } from "@/components/dios/store"
 import { fmtCurrency } from "@/lib/format"
@@ -45,6 +45,40 @@ function healthLabel(pct: number) {
   return { label: "Deep review", className: "text-negative bg-negative/10" }
 }
 
+type PortfolioSort =
+  | "weight"
+  | "today-desc"
+  | "today-asc"
+  | "return-desc"
+  | "return-asc"
+
+function getDailyMovement(position: {
+  price: number
+  quantity: number
+  marketValue: number
+  [key: string]: unknown
+}) {
+  const dayChangeValue =
+    typeof position.dayChangeValue === "number"
+      ? position.dayChangeValue
+      : typeof position.previousClose === "number" && position.previousClose > 0
+        ? (position.price - position.previousClose) * position.quantity
+        : typeof position.change === "number"
+          ? position.change * position.quantity
+          : 0
+
+  const dayChangePct =
+    typeof position.dayChangePct === "number"
+      ? position.dayChangePct
+      : typeof position.changesPercentage === "number"
+        ? position.changesPercentage
+        : typeof position.previousClose === "number" && position.previousClose > 0
+          ? ((position.price - position.previousClose) / position.previousClose) * 100
+          : 0
+
+  return { dayChangeValue, dayChangePct }
+}
+
 export default function PortfolioPage() {
   const {
     portfolio,
@@ -61,6 +95,7 @@ export default function PortfolioPage() {
 
   const [liveDecisions, setLiveDecisions] = useState<Record<string, AnalysisReport>>({})
   const [decisionStatus, setDecisionStatus] = useState<"loading" | "live" | "partial">("loading")
+  const [sortBy, setSortBy] = useState<PortfolioSort>("weight")
   const portfolioRef = useRef(portfolio)
   const settingsRef = useRef(settings)
 
@@ -174,6 +209,41 @@ export default function PortfolioPage() {
         amountInvested > 0 ? (unrealisedPL / amountInvested) * 100 : 0,
     }
   }, [portfolio.positions, executionAverages])
+
+  const sortedPositions = useMemo(() => {
+    const positions = [...portfolio.positions]
+
+    return positions.sort((a, b) => {
+      const aDaily = getDailyMovement(a)
+      const bDaily = getDailyMovement(b)
+
+      switch (sortBy) {
+        case "today-desc":
+          return bDaily.dayChangeValue - aDaily.dayChangeValue
+        case "today-asc":
+          return aDaily.dayChangeValue - bDaily.dayChangeValue
+        case "return-desc":
+          return b.unrealisedPLPct - a.unrealisedPLPct
+        case "return-asc":
+          return a.unrealisedPLPct - b.unrealisedPLPct
+        case "weight":
+        default:
+          return b.weight - a.weight
+      }
+    })
+  }, [portfolio.positions, sortBy])
+
+  const dailyAttribution = useMemo(() => {
+    const rows = portfolio.positions.map((position) => ({
+      ticker: position.ticker,
+      ...getDailyMovement(position),
+    }))
+
+    return {
+      best: [...rows].sort((a, b) => b.dayChangeValue - a.dayChangeValue)[0],
+      worst: [...rows].sort((a, b) => a.dayChangeValue - b.dayChangeValue)[0],
+    }
+  }, [portfolio.positions])
 
   const savedDecisions = useMemo(() => {
     const map = new Map<string, (typeof recommendations)[number]>()
@@ -325,17 +395,40 @@ export default function PortfolioPage() {
       <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
         <strong className="text-foreground">How to read this:</strong>{" "}
         Bought @ follows Stake&apos;s average-cost method and includes brokerage and FX fees.
+        Today&apos;s movement compares the current live price with the previous market close.
         Since Buy P/L is calculated as (current live price − Bought @) × quantity.
         A positive number is profit; a negative number is loss.
       </div>
 
-      <Panel
-        title="Holdings"
-        description="Since Buy P/L compares the current live price with your Stake-style average buy cost."
-      >
-        <div className="overflow-x-auto">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-semibold">Holdings</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Daily movement uses the previous market close; Since Buy uses your Stake-style average cost.
+          </p>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <ArrowDownUp className="h-4 w-4" />
+          Sort
+          <select
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value as PortfolioSort)}
+            className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+          >
+            <option value="weight">Largest position</option>
+            <option value="today-desc">Today: best first</option>
+            <option value="today-asc">Today: worst first</option>
+            <option value="return-desc">Since buy: best first</option>
+            <option value="return-asc">Since buy: worst first</option>
+          </select>
+        </label>
+      </div>
+
+      <Panel>
+        <div className="max-h-[640px] overflow-auto">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 z-10 bg-card">
               <TableRow>
                 <TableHead>Ticker</TableHead>
                 <TableHead>Sector</TableHead>
@@ -343,6 +436,8 @@ export default function PortfolioPage() {
                 <TableHead className="text-right">Bought @</TableHead>
                 <TableHead className="text-right">Current</TableHead>
                 <TableHead className="text-right">Current Value</TableHead>
+                <TableHead className="text-right">Today $</TableHead>
+                <TableHead className="text-right">Today %</TableHead>
                 <TableHead className="text-right">Since Buy P/L</TableHead>
                 <TableHead className="text-right">Since Buy %</TableHead>
                 <TableHead className="text-right">Weight</TableHead>
@@ -355,7 +450,7 @@ export default function PortfolioPage() {
             </TableHeader>
 
             <TableBody>
-              {portfolio.positions.map((position) => {
+              {sortedPositions.map((position) => {
                 const health = healthLabel(position.unrealisedPLPct)
                 const decision =
                   liveDecisions[position.ticker] ??
@@ -379,6 +474,8 @@ export default function PortfolioPage() {
                   displayCostBasis > 0
                     ? (displayOpenPL / displayCostBasis) * 100
                     : 0
+                const { dayChangeValue, dayChangePct } =
+                  getDailyMovement(position)
 
                 return (
                   <TableRow key={position.ticker}>
@@ -414,6 +511,18 @@ export default function PortfolioPage() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums font-medium">
                       {fmtCurrency(position.marketValue, "USD", 0)}
+                    </TableCell>
+                    <TableCell className={`text-right tabular-nums font-medium ${
+                      dayChangeValue >= 0 ? "text-positive" : "text-negative"
+                    }`}>
+                      {dayChangeValue >= 0 ? "+" : ""}
+                      {fmtCurrency(dayChangeValue, "USD", 0)}
+                    </TableCell>
+                    <TableCell className={`text-right tabular-nums ${
+                      dayChangePct >= 0 ? "text-positive" : "text-negative"
+                    }`}>
+                      {dayChangePct >= 0 ? "+" : ""}
+                      {dayChangePct.toFixed(2)}%
                     </TableCell>
                     <TableCell className={`text-right tabular-nums font-medium ${
                       displayOpenPL >= 0 ? "text-positive" : "text-negative"
@@ -466,6 +575,41 @@ export default function PortfolioPage() {
           </Table>
         </div>
       </Panel>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <InsightCard
+          label="Best contributor today"
+          value={
+            dailyAttribution.best
+              ? `${dailyAttribution.best.ticker} ${
+                  dailyAttribution.best.dayChangeValue >= 0 ? "+" : ""
+                }${fmtCurrency(dailyAttribution.best.dayChangeValue, "USD", 0)}`
+              : "—"
+          }
+          detail={
+            dailyAttribution.best
+              ? `${dailyAttribution.best.dayChangePct >= 0 ? "+" : ""}${dailyAttribution.best.dayChangePct.toFixed(2)}% today`
+              : "No daily movement data"
+          }
+          tone="positive"
+        />
+        <InsightCard
+          label="Biggest drag today"
+          value={
+            dailyAttribution.worst
+              ? `${dailyAttribution.worst.ticker} ${
+                  dailyAttribution.worst.dayChangeValue >= 0 ? "+" : ""
+                }${fmtCurrency(dailyAttribution.worst.dayChangeValue, "USD", 0)}`
+              : "—"
+          }
+          detail={
+            dailyAttribution.worst
+              ? `${dailyAttribution.worst.dayChangePct >= 0 ? "+" : ""}${dailyAttribution.worst.dayChangePct.toFixed(2)}% today`
+              : "No daily movement data"
+          }
+          tone="negative"
+        />
+      </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <InsightCard
