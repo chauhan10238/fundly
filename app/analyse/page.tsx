@@ -1,11 +1,11 @@
 "use client"
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
+import { Suspense, useCallback, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { BookmarkPlus, Check, Loader2, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { useDios } from "@/components/dios/store"
-import { analyse } from "@/lib/dios/analyse"
+import { fetchLiveAnalysisReport } from "@/lib/dios/live-analysis"
 import { TickerSearch } from "@/components/dios/ticker-search"
 import { AnalysisReportView } from "@/components/dios/analysis-report"
 import { Panel } from "@/components/dios/ui-bits"
@@ -26,26 +26,41 @@ function AnalyseInner() {
   const [marketError, setMarketError] = useState<string | null>(null)
   const [externalContext, setExternalContext] = useState<ExternalAnalysisContext | null>(null)
   const [loadingMarket, setLoadingMarket] = useState(false)
+  const [report, setReport] = useState<AnalysisReport | null>(null)
 
   const loadMarket = useCallback(async () => {
-    if (!ticker) return
-    setLoadingMarket(true)
-    setMarketError(null)
-    try {
-      const response = await fetch(`/api/analysis?ticker=${encodeURIComponent(ticker)}`, { cache: "no-store" })
-      const payload = await response.json() as { snapshot?: MarketSnapshot; context?: ExternalAnalysisContext; error?: string; warning?: string }
-      if (!response.ok || !payload.snapshot) throw new Error(payload.error || `Analysis request failed (${response.status})`)
-      setMarket(payload.snapshot)
-      setExternalContext(payload.context ?? null)
-      setMarketError(payload.warning ?? (payload.context?.warnings?.length ? payload.context.warnings.join(" ") : null))
-    } catch (error) {
+    if (!ticker) {
+      setReport(null)
       setMarket(null)
       setExternalContext(null)
-      setMarketError(error instanceof Error ? error.message : "Unable to retrieve market data")
+      return
+    }
+
+    setLoadingMarket(true)
+    setMarketError(null)
+
+    try {
+      const result = await fetchLiveAnalysisReport(
+        ticker,
+        portfolio,
+        settings,
+      )
+
+      setReport(result.report)
+      setMarket(result.snapshot)
+      setExternalContext(result.context)
+      setMarketError(result.warning)
+    } catch (error) {
+      setReport(null)
+      setMarket(null)
+      setExternalContext(null)
+      setMarketError(
+        error instanceof Error ? error.message : "Unable to retrieve analysis",
+      )
     } finally {
       setLoadingMarket(false)
     }
-  }, [ticker])
+  }, [ticker, portfolio, settings])
 
   useEffect(() => {
     void loadMarket()
@@ -60,10 +75,6 @@ function AnalyseInner() {
     }
   }, [loadMarket])
 
-  const result = useMemo(() => {
-    if (!ticker) return null
-    return analyse(ticker, portfolio, settings, market ?? undefined, externalContext ?? undefined)
-  }, [ticker, portfolio, settings, market, externalContext])
 
   useEffect(() => {
     setLogged(false)
@@ -76,7 +87,6 @@ function AnalyseInner() {
     [router],
   )
 
-  const report = result && !("error" in result) ? (result as AnalysisReport) : null
 
   const logRecommendation = useCallback(() => {
     if (!report) return
@@ -152,9 +162,9 @@ function AnalyseInner() {
         </div>
       )}
 
-      {result && "error" in result && (
-        <Panel title="Not found">
-          <p className="p-4 text-sm text-muted-foreground">{result.error}</p>
+      {ticker && !loadingMarket && !report && marketError && (
+        <Panel title="Analysis unavailable">
+          <p className="p-4 text-sm text-muted-foreground">{marketError}</p>
         </Panel>
       )}
 
@@ -170,7 +180,7 @@ function AnalyseInner() {
         </>
       )}
 
-      {!result && (
+      {!ticker && (
         <Panel title="Start an analysis" description="Search for any supported US-listed stock or ETF above.">
           <p className="p-4 text-sm text-muted-foreground text-pretty">
             DIOS scores each instrument across macro, geopolitics, earnings, fundamentals, valuation, quality, flows,

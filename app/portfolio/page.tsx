@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Plus, RefreshCw, Trash2, ArrowUpRight } from "lucide-react"
 import { toast } from "sonner"
@@ -10,6 +10,8 @@ import { Panel, StatCard } from "@/components/dios/ui-bits"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { fetchLiveAnalysisReport } from "@/lib/dios/live-analysis"
+import type { AnalysisReport } from "@/lib/dios/types"
 import {
   Dialog,
   DialogContent,
@@ -52,7 +54,21 @@ export default function PortfolioPage() {
     removeHolding,
     upsertHolding,
     recommendations,
+    settings,
   } = useDios()
+
+  const [liveDecisions, setLiveDecisions] = useState<Record<string, AnalysisReport>>({})
+  const [decisionStatus, setDecisionStatus] = useState<"loading" | "live" | "partial">("loading")
+  const portfolioRef = useRef(portfolio)
+  const settingsRef = useRef(settings)
+
+  useEffect(() => {
+    portfolioRef.current = portfolio
+  }, [portfolio])
+
+  useEffect(() => {
+    settingsRef.current = settings
+  }, [settings])
 
   const biggestWinner = useMemo(
     () => [...portfolio.positions].sort((a, b) => b.unrealisedPL - a.unrealisedPL)[0],
@@ -64,8 +80,7 @@ export default function PortfolioPage() {
     [portfolio.positions],
   )
 
-
-  const latestDecisions = useMemo(() => {
+  const savedDecisions = useMemo(() => {
     const map = new Map<string, (typeof recommendations)[number]>()
     const ordered = [...recommendations].sort((a, b) =>
       b.datetime.localeCompare(a.datetime),
@@ -79,6 +94,70 @@ export default function PortfolioPage() {
 
     return map
   }, [recommendations])
+
+  const tickerKey = useMemo(
+    () => portfolio.positions.map((position) => position.ticker).sort().join(","),
+    [portfolio.positions],
+  )
+
+  const refreshDecisions = useCallback(async () => {
+    const currentPortfolio = portfolioRef.current
+    const currentSettings = settingsRef.current
+    const tickers = currentPortfolio.positions.map((position) => position.ticker)
+
+    if (tickers.length === 0) {
+      setLiveDecisions({})
+      setDecisionStatus("live")
+      return
+    }
+
+    setDecisionStatus("loading")
+
+    const results = await Promise.all(
+      tickers.map(async (ticker) => {
+        try {
+          const result = await fetchLiveAnalysisReport(
+            ticker,
+            currentPortfolio,
+            currentSettings,
+          )
+          return [ticker, result.report] as const
+        } catch {
+          return null
+        }
+      }),
+    )
+
+    const valid = results.filter(
+      (item): item is readonly [string, AnalysisReport] => item !== null,
+    )
+
+    setLiveDecisions(Object.fromEntries(valid))
+    setDecisionStatus(valid.length === tickers.length ? "live" : "partial")
+  }, [])
+
+  useEffect(() => {
+    void refreshDecisions()
+
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void refreshDecisions()
+      }
+    }, 60_000)
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void refreshDecisions()
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibility)
+
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
+  }, [refreshDecisions, tickerKey])
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -111,6 +190,12 @@ export default function PortfolioPage() {
         </div>
         <div className="mt-1 text-muted-foreground">
           Average buy prices come from your DIOS holdings and imported Stake transactions.
+          Decisions use the same DIOS engine and live context as the Analyse page.
+          {decisionStatus === "loading"
+            ? " Updating portfolio decisions…"
+            : decisionStatus === "partial"
+              ? " Some decisions are using the latest saved fallback."
+              : ""}
           {quotesRefreshedAt ? ` Last refreshed ${new Date(quotesRefreshedAt).toLocaleString()}.` : ""}
           {quoteError ? ` ${quoteError}` : ""}
         </div>
@@ -165,7 +250,9 @@ export default function PortfolioPage() {
             <TableBody>
               {portfolio.positions.map((position) => {
                 const health = healthLabel(position.unrealisedPLPct)
-                const decision = latestDecisions.get(position.ticker)
+                const decision =
+                  liveDecisions[position.ticker] ??
+                  savedDecisions.get(position.ticker)
 
                 return (
                   <TableRow key={position.ticker}>
@@ -216,24 +303,15 @@ export default function PortfolioPage() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      {decision ? (
-                        <span className={`rounded px-2 py-1 text-xs font-medium ${decisionClass(decision.recommendation)}`}>
-                          {decision.recommendation}
-                        </span>
-                      ) : (
-                        <Link
-                          href={`/analyse?ticker=${encodeURIComponent(position.ticker)}`}
-                          className="text-xs font-medium text-primary hover:underline"
-                        >
-                          Run analysis
-                        </Link>
-                      )}
+                      <span className={`rounded px-2 py-1 text-xs font-medium ${decisionClass(decision?.recommendation ?? "No Action")}`}>
+                        {decision?.recommendation ?? "No Action"}
+                      </span>
+                    </TableCell>
+                    <TableCell className={`text-right tabular-nums font-medium ${scoreClass(decision?.overallScore ?? 0)}`}>
+                      {decision ? `${decision.overallScore}/100` : "0/100"}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {decision ? `${decision.overallScore}/100` : "—"}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {decision ? `${decision.confidence}%` : "—"}
+                      {decision ? `${decision.confidence}%` : "0%"}
                     </TableCell>
                     <TableCell>
                       <Button
@@ -321,10 +399,20 @@ function decisionClass(recommendation: string) {
   if (recommendation === "Buy Watch" || recommendation === "Start Small") {
     return "bg-primary/10 text-primary"
   }
-  if (recommendation === "Reduce" || recommendation === "Sell" || recommendation === "Avoid") {
+  if (recommendation === "Reduce") {
+    return "bg-warning/10 text-warning-foreground"
+  }
+  if (recommendation === "Sell" || recommendation === "Avoid") {
     return "bg-negative/10 text-negative"
   }
   return "bg-muted text-muted-foreground"
+}
+
+function scoreClass(score: number) {
+  if (score >= 80) return "text-positive"
+  if (score >= 65) return "text-primary"
+  if (score >= 45) return "text-warning-foreground"
+  return "text-negative"
 }
 
 function ExposureList({
