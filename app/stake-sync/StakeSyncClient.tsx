@@ -5,7 +5,6 @@ import { CheckCircle2, RefreshCw, AlertTriangle, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useDios } from "@/components/dios/store";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -271,10 +270,12 @@ export default function StakeSyncClient() {
                 return (
                   <TableRow key={trade.messageId}>
                     <TableCell>
-                      <Checkbox
+                      <input
+                        type="checkbox"
                         checked={selected.has(trade.messageId)}
                         disabled={!canImport}
-                        onCheckedChange={(checked) => {
+                        onChange={(event) => {
+                          const checked = event.target.checked;
                           setSelected((current) => {
                             const next = new Set(current);
                             if (checked) next.add(trade.messageId);
@@ -283,6 +284,7 @@ export default function StakeSyncClient() {
                           });
                         }}
                         aria-label={`Select ${trade.ticker ?? "trade"}`}
+                        className="h-4 w-4 cursor-pointer rounded border-border accent-primary disabled:cursor-not-allowed disabled:opacity-50"
                       />
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-sm">
