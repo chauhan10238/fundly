@@ -59,14 +59,20 @@ function applyTradeToHoldings(holdings: Holding[], t: Omit<Transaction, "id">): 
   const ticker = t.ticker.trim().toUpperCase()
   const next = holdings.map((h) => ({ ...h }))
   const idx = next.findIndex((h) => h.ticker === ticker)
+  const fees = (t.brokerageFee ?? 0) + (t.fxFee ?? 0)
+
   if (t.type === "Buy") {
     if (idx === -1) {
-      next.push({ ticker, quantity: t.quantity, avgCost: t.price })
+      next.push({
+        ticker,
+        quantity: t.quantity,
+        avgCost: t.price + fees / Math.max(t.quantity, 1),
+      })
     } else {
       const h = next[idx]
       const newQty = h.quantity + t.quantity
       h.avgCost = newQty
-        ? (h.avgCost * h.quantity + t.price * t.quantity) / newQty
+        ? (h.avgCost * h.quantity + t.price * t.quantity + fees) / newQty
         : 0
       h.quantity = newQty
     }
