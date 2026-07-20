@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 type StakeEmail = {
   messageId: string;
@@ -20,6 +21,9 @@ type ApiResponse = {
 };
 
 export default function StakeSyncClient() {
+  const searchParams = useSearchParams();
+  const oauthError = searchParams.get("error");
+
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -60,7 +64,19 @@ export default function StakeSyncClient() {
           DIOS will request read-only Gmail access and search only for messages
           sent by notifications@hellostake.com.
         </p>
-        {result?.error ? <p role="alert">{result.error}</p> : null}
+
+        {oauthError ? (
+          <p role="alert" style={errorStyle}>
+            {oauthError}
+          </p>
+        ) : null}
+
+        {result?.error ? (
+          <p role="alert" style={errorStyle}>
+            {result.error}
+          </p>
+        ) : null}
+
         <a href="/api/auth/google" style={primaryButtonStyle}>
           Connect Gmail
         </a>
@@ -104,7 +120,7 @@ export default function StakeSyncClient() {
         </div>
 
         {result.error ? (
-          <p role="alert" style={{ marginBottom: 0 }}>
+          <p role="alert" style={errorStyle}>
             {result.error}
           </p>
         ) : null}
@@ -155,6 +171,15 @@ const primaryButtonStyle: React.CSSProperties = {
   borderRadius: 8,
   padding: "10px 14px",
   textDecoration: "none",
-  background: "currentColor",
-  color: "Canvas",
+  background: "#152a46",
+  color: "#ffffff",
+  fontWeight: 600,
+};
+
+const errorStyle: React.CSSProperties = {
+  border: "1px solid #d14343",
+  borderRadius: 8,
+  padding: 12,
+  background: "#fff3f3",
+  color: "#8a1f1f",
 };

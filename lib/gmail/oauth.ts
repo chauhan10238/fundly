@@ -32,16 +32,21 @@ export async function getGoogleAccountEmail(accessToken: string): Promise<string
   const client = createOAuthClient();
   client.setCredentials({ access_token: accessToken });
 
-  const oauth2 = google.oauth2({
-    version: "v2",
+  // Gmail profile works with gmail.readonly. The previous implementation called
+  // Google OAuth userinfo, which requires an additional identity/email scope.
+  const gmail = google.gmail({
+    version: "v1",
     auth: client,
   });
 
-  const response = await oauth2.userinfo.get();
-  const email = response.data.email?.toLowerCase();
+  const response = await gmail.users.getProfile({
+    userId: "me",
+  });
+
+  const email = response.data.emailAddress?.toLowerCase();
 
   if (!email) {
-    throw new Error("Google account email was not returned");
+    throw new Error("Gmail account email was not returned");
   }
 
   return email;
