@@ -175,16 +175,6 @@ export default function PortfolioPage() {
     }
   }, [portfolio.positions, executionAverages])
 
-  const todayWinner = useMemo(
-    () => [...portfolio.positions].sort((a, b) => b.dayChangeValue - a.dayChangeValue)[0],
-    [portfolio.positions],
-  )
-
-  const todayLoser = useMemo(
-    () => [...portfolio.positions].sort((a, b) => a.dayChangeValue - b.dayChangeValue)[0],
-    [portfolio.positions],
-  )
-
   const savedDecisions = useMemo(() => {
     const map = new Map<string, (typeof recommendations)[number]>()
     const ordered = [...recommendations].sort((a, b) =>
@@ -335,13 +325,13 @@ export default function PortfolioPage() {
       <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
         <strong className="text-foreground">How to read this:</strong>{" "}
         Bought @ follows Stake&apos;s average-cost method and includes brokerage and FX fees.
-        Today P/L shows only how much each holding gained or lost during the current market session.
-        Open P/L shows performance since purchase.
+        Since Buy P/L is calculated as (current live price − Bought @) × quantity.
+        A positive number is profit; a negative number is loss.
       </div>
 
       <Panel
         title="Holdings"
-        description="Bought @ includes brokerage and FX fees, matching Stake average cost. Today P/L is only today’s gain or loss."
+        description="Since Buy P/L compares the current live price with your Stake-style average buy cost."
       >
         <div className="overflow-x-auto">
           <Table>
@@ -353,10 +343,8 @@ export default function PortfolioPage() {
                 <TableHead className="text-right">Bought @</TableHead>
                 <TableHead className="text-right">Current</TableHead>
                 <TableHead className="text-right">Current Value</TableHead>
-                <TableHead className="text-right">Today P/L</TableHead>
-                <TableHead className="text-right">Today %</TableHead>
-                <TableHead className="text-right">Open P/L</TableHead>
-                <TableHead className="text-right">Return</TableHead>
+                <TableHead className="text-right">Since Buy P/L</TableHead>
+                <TableHead className="text-right">Since Buy %</TableHead>
                 <TableHead className="text-right">Weight</TableHead>
                 <TableHead>Health</TableHead>
                 <TableHead>Decision</TableHead>
@@ -428,23 +416,9 @@ export default function PortfolioPage() {
                       {fmtCurrency(position.marketValue, "USD", 0)}
                     </TableCell>
                     <TableCell className={`text-right tabular-nums font-medium ${
-                      position.dayChangeValue >= 0 ? "text-positive" : "text-negative"
-                    }`}>
-                      {position.dayChangeValue >= 0 ? "+" : ""}
-                      {fmtCurrency(position.dayChangeValue, "USD", 0)}
-                      <div className="text-[10px] font-normal text-muted-foreground">
-                        {position.dayChangeValue >= 0 ? "gained today" : "lost today"}
-                      </div>
-                    </TableCell>
-                    <TableCell className={`text-right tabular-nums ${
-                      position.dayChangePct >= 0 ? "text-positive" : "text-negative"
-                    }`}>
-                      {position.dayChangePct >= 0 ? "+" : ""}
-                      {position.dayChangePct.toFixed(2)}%
-                    </TableCell>
-                    <TableCell className={`text-right tabular-nums font-medium ${
                       displayOpenPL >= 0 ? "text-positive" : "text-negative"
                     }`}>
+                      {displayOpenPL >= 0 ? "+" : ""}
                       {fmtCurrency(displayOpenPL, "USD", 0)}
                     </TableCell>
                     <TableCell className={`text-right tabular-nums ${
@@ -493,27 +467,15 @@ export default function PortfolioPage() {
         </div>
       </Panel>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-3">
         <InsightCard
-          label="Best performer today"
-          value={todayWinner ? `${todayWinner.ticker} ${todayWinner.dayChangeValue >= 0 ? "+" : ""}${fmtCurrency(todayWinner.dayChangeValue, "USD", 0)}` : "—"}
-          detail={todayWinner ? `${todayWinner.dayChangePct >= 0 ? "+" : ""}${todayWinner.dayChangePct.toFixed(2)}% today` : "No position data"}
-          tone="positive"
-        />
-        <InsightCard
-          label="Largest loss today"
-          value={todayLoser ? `${todayLoser.ticker} ${fmtCurrency(todayLoser.dayChangeValue, "USD", 0)}` : "—"}
-          detail={todayLoser ? `${todayLoser.dayChangePct.toFixed(2)}% today` : "No position data"}
-          tone="negative"
-        />
-        <InsightCard
-          label="Largest open winner"
+          label="Largest profit since buy"
           value={biggestWinner ? `${biggestWinner.ticker} ${fmtCurrency(biggestWinner.unrealisedPL, "USD", 0)}` : "—"}
           detail={biggestWinner ? `${biggestWinner.unrealisedPLPct >= 0 ? "+" : ""}${biggestWinner.unrealisedPLPct.toFixed(2)}% since purchase` : "No position data"}
           tone="positive"
         />
         <InsightCard
-          label="Largest open loser"
+          label="Largest loss since buy"
           value={biggestLoser ? `${biggestLoser.ticker} ${fmtCurrency(biggestLoser.unrealisedPL, "USD", 0)}` : "—"}
           detail={biggestLoser ? `${biggestLoser.unrealisedPLPct.toFixed(2)}% since purchase` : "No position data"}
           tone="negative"
