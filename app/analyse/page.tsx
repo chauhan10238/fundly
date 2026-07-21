@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { BookmarkPlus, Check, Loader2, RefreshCw } from "lucide-react"
+import { BookmarkPlus, BrainCircuit, Check, Loader2, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { useDios } from "@/components/dios/store"
 import { analyse } from "@/lib/dios/analyse"
@@ -38,9 +38,11 @@ function AnalyseInner() {
   const [intelligence, setIntelligence] =
     useState<InstitutionalCompanyIntelligence | null>(null)
   const [loadingMarket, setLoadingMarket] = useState(false)
+  const [runningAnalysis, setRunningAnalysis] = useState(false)
+  const [analysisVersion, setAnalysisVersion] = useState(0)
 
-  const loadMarket = useCallback(async () => {
-    if (!ticker) return
+  const loadMarket = useCallback(async (): Promise<boolean> => {
+    if (!ticker) return false
 
     setLoadingMarket(true)
     setMarketError(null)
@@ -75,6 +77,8 @@ function AnalyseInner() {
             ? payload.context.warnings.join(" ")
             : null),
       )
+
+      return true
     } catch (error) {
       setMarket(null)
       setExternalContext(null)
@@ -84,10 +88,37 @@ function AnalyseInner() {
           ? error.message
           : "Unable to retrieve market data",
       )
+
+      return false
     } finally {
       setLoadingMarket(false)
     }
   }, [ticker])
+
+  const runDiosAnalysis = useCallback(async () => {
+    if (!ticker || runningAnalysis) return
+
+    setRunningAnalysis(true)
+
+    try {
+      const success = await loadMarket()
+
+      if (!success) {
+        toast.error(`Unable to run DIOS analysis for ${ticker}`)
+        return
+      }
+
+      setAnalysisVersion((version) => version + 1)
+      setLogged(false)
+
+      toast.success(`DIOS analysis completed for ${ticker}`, {
+        description:
+          "Market data, institutional intelligence, portfolio impact and decision score have been refreshed.",
+      })
+    } finally {
+      setRunningAnalysis(false)
+    }
+  }, [ticker, runningAnalysis, loadMarket])
 
   useEffect(() => {
     void loadMarket()
@@ -103,7 +134,7 @@ function AnalyseInner() {
       market ?? undefined,
       externalContext ?? undefined,
     )
-  }, [ticker, portfolio, settings, market, externalContext])
+  }, [ticker, portfolio, settings, market, externalContext, analysisVersion])
 
   useEffect(() => {
     setLogged(false)
@@ -210,19 +241,48 @@ function AnalyseInner() {
             </span>
           </div>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => void loadMarket()}
-            disabled={loadingMarket}
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${
-                loadingMarket ? "animate-spin" : ""
-              }`}
-            />
-            Refresh analysis
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void loadMarket()}
+              disabled={loadingMarket || runningAnalysis}
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${
+                  loadingMarket && !runningAnalysis ? "animate-spin" : ""
+                }`}
+              />
+              Refresh market data
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={() => void runDiosAnalysis()}
+              disabled={loadingMarket || runningAnalysis}
+            >
+              {runningAnalysis ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <BrainCircuit className="h-3.5 w-3.5" />
+              )}
+              {runningAnalysis ? "Running DIOS…" : "Run DIOS Analysis"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {runningAnalysis && (
+        <div className="rounded-md border border-primary/30 bg-primary/5 px-4 py-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            Running full DIOS analysis for {ticker}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Refreshing market data, fundamentals, SEC filings, earnings, news,
+            institutional intelligence, portfolio impact and the final DIOS
+            recommendation.
+          </p>
         </div>
       )}
 
