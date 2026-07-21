@@ -1,13 +1,12 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { buildPortfolio, type LiveQuote, type LiveQuoteMap, type PortfolioSummary } from "@/lib/dios/portfolio-engine"
 import { getInstrument } from "@/lib/dios/universe"
 import { DEFAULT_SETTINGS } from "@/lib/dios/macro"
 import { SEED_CASH, SEED_HOLDINGS, SEED_RECOMMENDATIONS, SEED_TRANSACTIONS } from "@/lib/dios/seed"
 import type { Holding, RecommendationRecord, Settings, Transaction } from "@/lib/dios/types"
 
-const STORAGE_KEY = "dios-portfolio-v1"
 const MIN_POSITION_QTY = 0.001
 
 interface PersistedStore {
@@ -119,31 +118,147 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   const [quoteError, setQuoteError] = useState<string | null>(null)
   const [quotesRefreshedAt, setQuotesRefreshedAt] = useState<string | null>(null)
   const [unavailableQuotes, setUnavailableQuotes] = useState<string[]>([])
+  const stateRef = useRef(state)
+  const hasLoadedRemoteState = useRef(false)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const saveRequestRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
+    stateRef.current = state
+  }, [state])
+
+  const loadRemoteStore = useCallback(async (silent = false) => {
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<PersistedStore>
+      const response = await fetch("/api/store", {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+        },
+      })
+
+      const payload = await response.json() as {
+        data?: Partial<PersistedStore> | null
+        error?: string
+      }
+
+      if (!response.ok) {
+        throw new Error(payload.error || `Store request failed with status ${response.status}`)
+      }
+
+      if (payload.data) {
+        const remote = payload.data
+
         setState((current) => ({
-          holdings: Array.isArray(parsed.holdings) ? parsed.holdings.map(normalizeHolding).filter((h) => h.quantity > 0) : current.holdings,
-          cash: 0,
-          transactions: Array.isArray(parsed.transactions) ? parsed.transactions : current.transactions,
-          settings: parsed.settings ? { ...current.settings, ...parsed.settings, weights: { ...current.settings.weights, ...parsed.settings.weights } } : current.settings,
-          recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : current.recommendations,
+          holdings: Array.isArray(remote.holdings)
+            ? remote.holdings
+                .map(normalizeHolding)
+                .filter((holding) => holding.quantity > 0)
+            : current.holdings,
+          cash: Number(remote.cash) || 0,
+          transactions: Array.isArray(remote.transactions)
+            ? remote.transactions
+            : current.transactions,
+          settings: remote.settings
+            ? {
+                ...current.settings,
+                ...remote.settings,
+                weights: {
+                  ...current.settings.weights,
+                  ...remote.settings.weights,
+                },
+              }
+            : current.settings,
+          recommendations: Array.isArray(remote.recommendations)
+            ? remote.recommendations
+            : current.recommendations,
         }))
       }
-    } catch {
-      // Corrupt local storage should never block the app; fall back to seed data.
+    } catch (error) {
+      if (!silent) {
+        console.error(
+          "Unable to load the DIOS portfolio from Vercel Blob:",
+          error,
+        )
+      }
     } finally {
+      hasLoadedRemoteState.current = true
       setHydrated(true)
     }
   }, [])
 
   useEffect(() => {
-    if (!hydrated) return
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    void loadRemoteStore()
+  }, [loadRemoteStore])
+
+  useEffect(() => {
+    if (!hydrated || !hasLoadedRemoteState.current) return
+
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+    }
+
+    saveTimerRef.current = setTimeout(async () => {
+      saveRequestRef.current?.abort()
+
+      const controller = new AbortController()
+      saveRequestRef.current = controller
+
+      try {
+        const response = await fetch("/api/store", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(stateRef.current),
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null) as {
+            error?: string
+          } | null
+
+          throw new Error(
+            payload?.error || `Store save failed with status ${response.status}`,
+          )
+        }
+      } catch (error) {
+        if (
+          !(error instanceof DOMException && error.name === "AbortError")
+        ) {
+          console.error(
+            "Unable to save the DIOS portfolio to Vercel Blob:",
+            error,
+          )
+        }
+      }
+    }, 1500)
+
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+      }
+    }
   }, [state, hydrated])
+
+  useEffect(() => {
+    if (!hydrated) return
+
+    const refreshFromRemote = () => {
+      if (document.visibilityState === "visible") {
+        void loadRemoteStore(true)
+      }
+    }
+
+    window.addEventListener("focus", refreshFromRemote)
+    document.addEventListener("visibilitychange", refreshFromRemote)
+
+    return () => {
+      window.removeEventListener("focus", refreshFromRemote)
+      document.removeEventListener("visibilitychange", refreshFromRemote)
+    }
+  }, [hydrated, loadRemoteStore])
 
   const refreshQuotes = useCallback(async () => {
     const symbols = Array.from(new Set(state.holdings.map((h) => h.ticker.trim().toUpperCase()).filter(Boolean)))

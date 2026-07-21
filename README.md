@@ -1,46 +1,39 @@
-# fundly
+# DIOS Vercel Blob persistence
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+## Files
 
-## Built with v0
+Copy these files into your project:
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+- `app/api/store/route.ts`
+- `components/dios/store.tsx`
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_KfGqorqLzIJjQAtJoBWl55cRg4Wy)
-
-## Getting Started
-
-First, run the development server:
+## Install
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
+npm install @vercel/blob@latest
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Private Blob stores require `@vercel/blob` 2.3 or newer.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Vercel setup
 
-## Learn More
+1. Open the DIOS project in Vercel.
+2. Open **Storage**.
+3. Select **Create Database** and choose **Blob**.
+4. Create a **Private** Blob store.
+5. Connect it to the DIOS project and enable it for Production, Preview, and Development as required.
+6. Confirm Vercel created `BLOB_READ_WRITE_TOKEN`.
+7. Redeploy the project.
 
-To learn more, take a look at the following resources:
+## Behaviour
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+- The browser loads the portfolio from `/api/store`.
+- The store is saved to `dios/portfolio-store.json`.
+- Changes are saved 1.5 seconds after the last update.
+- Returning to the tab or focusing the browser reloads the latest remote state.
+- No portfolio data is read from or written to `localStorage`.
+- The first browser with existing Stake data must run Stake Sync once after this change. That data is then saved remotely and becomes available on every machine.
 
-## Live portfolio prices
+## Security
 
-DIOS 1.2 retrieves current holding prices through a server-side route.
-
-1. Create an FMP API key.
-2. In Vercel, add `FMP_API_KEY` under Project Settings → Environment Variables.
-3. Apply it to Production and Preview.
-4. Redeploy the project.
-5. Open Portfolio and select **Refresh prices**.
-
-The API key is read only in `app/api/quotes/route.ts` and is never sent to the browser.
-When a quote is unavailable, DIOS clearly labels the affected position as a demo fallback.
+The API route contains portfolio information and permits updates. Protect the DIOS deployment with Vercel Authentication/Deployment Protection or your own application login before using it on a public production URL.
