@@ -27,7 +27,7 @@ function config() {
   return { token, owner, repo, branch }
 }
 
-function githubHeaders(token: string) {
+function headers(token: string) {
   return {
     Accept: "application/vnd.github+json",
     Authorization: `Bearer ${token}`,
@@ -36,63 +36,57 @@ function githubHeaders(token: string) {
   }
 }
 
-function contentUrl(owner: string, repo: string, branch: string) {
+function getUrl(owner: string, repo: string, branch: string) {
   return `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${DATA_PATH}?ref=${encodeURIComponent(branch)}`
 }
 
-function decodeBase64(value: string) {
+function putUrl(owner: string, repo: string) {
+  return `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${DATA_PATH}`
+}
+
+function decode(value: string) {
   return Buffer.from(value.replace(/\n/g, ""), "base64").toString("utf8")
 }
 
-function encodeBase64(value: string) {
+function encode(value: string) {
   return Buffer.from(value, "utf8").toString("base64")
 }
 
-async function readGitHubFile() {
+async function readFile() {
   const { token, owner, repo, branch } = config()
-  const response = await fetch(contentUrl(owner, repo, branch), {
+  const response = await fetch(getUrl(owner, repo, branch), {
     method: "GET",
-    headers: githubHeaders(token),
+    headers: headers(token),
     cache: "no-store",
   })
 
-  if (response.status === 404) {
-    return { data: null, sha: null }
-  }
+  if (response.status === 404) return { data: null, sha: null }
 
   const payload = (await response.json()) as GitHubContent
-
   if (!response.ok) {
     throw new Error(payload.message || `GitHub read failed (${response.status})`)
   }
-
   if (!payload.content || payload.encoding !== "base64") {
     throw new Error("GitHub returned an invalid portfolio file.")
   }
 
   return {
-    data: JSON.parse(decodeBase64(payload.content)) as unknown,
+    data: JSON.parse(decode(payload.content)) as unknown,
     sha: payload.sha ?? null,
   }
 }
 
 export async function GET() {
   try {
-    const result = await readGitHubFile()
-
+    const result = await readFile()
     return NextResponse.json(
-      { data: result.data },
-      { headers: { "Cache-Control": "private, no-store, max-age=0" } },
+      { data: result.data, sha: result.sha },
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } },
     )
   } catch (error) {
-    console.error("DIOS GitHub store GET failed:", error)
+    console.error("DIOS cloud GET failed:", error)
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to read the DIOS cloud store.",
-      },
+      { error: error instanceof Error ? error.message : "Unable to read cloud data." },
       { status: 500 },
     )
   }
@@ -100,36 +94,49 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json()
+    const body = (await request.json()) as {
+      data?: unknown
+      baseSha?: string | null
+    }
 
-    if (!data || typeof data !== "object" || Array.isArray(data)) {
-      return NextResponse.json(
-        { error: "The portfolio payload must be a JSON object." },
-        { status: 400 },
-      )
+    if (!body.data || typeof body.data !== "object" || Array.isArray(body.data)) {
+      return NextResponse.json({ error: "Invalid portfolio payload." }, { status: 400 })
     }
 
     const { token, owner, repo, branch } = config()
-    const current = await readGitHubFile()
+    const current = await readFile()
 
-    const response = await fetch(
-      `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${DATA_PATH}`,
-      {
-        method: "PUT",
-        headers: githubHeaders(token),
-        body: JSON.stringify({
-          message: current.sha
-            ? "Update DIOS portfolio cloud data"
-            : "Create DIOS portfolio cloud data",
-          content: encodeBase64(JSON.stringify(data, null, 2)),
-          branch,
-          ...(current.sha ? { sha: current.sha } : {}),
-        }),
-        cache: "no-store",
-      },
-    )
+    // Reject stale browser writes instead of silently overwriting newer cloud data.
+    if (body.baseSha && current.sha && body.baseSha !== current.sha) {
+      return NextResponse.json(
+        {
+          error: "Cloud data changed in another browser. Reloading is required.",
+          conflict: true,
+          sha: current.sha,
+          data: current.data,
+        },
+        { status: 409 },
+      )
+    }
 
-    const payload = (await response.json()) as GitHubContent
+    const response = await fetch(putUrl(owner, repo), {
+      method: "PUT",
+      headers: headers(token),
+      body: JSON.stringify({
+        message: current.sha
+          ? "Update DIOS portfolio cloud data"
+          : "Create DIOS portfolio cloud data",
+        content: encode(JSON.stringify(body.data, null, 2)),
+        branch,
+        ...(current.sha ? { sha: current.sha } : {}),
+      }),
+      cache: "no-store",
+    })
+
+    const payload = (await response.json()) as {
+      content?: { sha?: string }
+      message?: string
+    }
 
     if (!response.ok) {
       throw new Error(payload.message || `GitHub save failed (${response.status})`)
@@ -137,17 +144,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
+      sha: payload.content?.sha ?? null,
       savedAt: new Date().toISOString(),
     })
   } catch (error) {
-    console.error("DIOS GitHub store POST failed:", error)
+    console.error("DIOS cloud POST failed:", error)
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to save the DIOS cloud store.",
-      },
+      { error: error instanceof Error ? error.message : "Unable to save cloud data." },
       { status: 500 },
     )
   }

@@ -106,7 +106,9 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   const [quotesRefreshedAt, setQuotesRefreshedAt] = useState<string | null>(null)
   const [unavailableQuotes, setUnavailableQuotes] = useState<string[]>([])
   const stateRef = useRef(state)
-  const hasLoadedRemoteState = useRef(false)
+  const cloudReadyRef = useRef(false)
+  const remoteShaRef = useRef<string | null>(null)
+  const suppressNextSaveRef = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveRequestRef = useRef<AbortController | null>(null)
 
@@ -114,9 +116,33 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
     stateRef.current = state
   }, [state])
 
+  const applyRemoteState = useCallback((remote: Partial<PersistedStore>) => {
+    suppressNextSaveRef.current = true
+    setState((current) => ({
+      holdings: Array.isArray(remote.holdings)
+        ? remote.holdings.map(normalizeHolding).filter((holding) => holding.quantity > 0)
+        : current.holdings,
+      cash: Number(remote.cash) || 0,
+      transactions: Array.isArray(remote.transactions) ? remote.transactions : current.transactions,
+      settings: remote.settings
+        ? {
+            ...current.settings,
+            ...remote.settings,
+            weights: {
+              ...current.settings.weights,
+              ...remote.settings.weights,
+            },
+          }
+        : current.settings,
+      recommendations: Array.isArray(remote.recommendations)
+        ? remote.recommendations
+        : current.recommendations,
+    }))
+  }, [])
+
   const loadRemoteStore = useCallback(async (silent = false) => {
     try {
-      const response = await fetch("/api/store", {
+      const response = await fetch(`/api/store?t=${Date.now()}`, {
         method: "GET",
         cache: "no-store",
         headers: { Accept: "application/json" },
@@ -124,6 +150,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
 
       const payload = await response.json() as {
         data?: Partial<PersistedStore> | null
+        sha?: string | null
         error?: string
       }
 
@@ -131,43 +158,31 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
         throw new Error(payload.error || `Store request failed with status ${response.status}`)
       }
 
-      if (payload.data) {
-        const remote = payload.data
-        setState((current) => ({
-          holdings: Array.isArray(remote.holdings)
-            ? remote.holdings.map(normalizeHolding).filter((holding) => holding.quantity > 0)
-            : current.holdings,
-          cash: Number(remote.cash) || 0,
-          transactions: Array.isArray(remote.transactions) ? remote.transactions : current.transactions,
-          settings: remote.settings
-            ? {
-                ...current.settings,
-                ...remote.settings,
-                weights: {
-                  ...current.settings.weights,
-                  ...remote.settings.weights,
-                },
-              }
-            : current.settings,
-          recommendations: Array.isArray(remote.recommendations)
-            ? remote.recommendations
-            : current.recommendations,
-        }))
-      }
+      remoteShaRef.current = payload.sha ?? null
+      if (payload.data) applyRemoteState(payload.data)
+
+      // Saving is enabled only after a successful cloud read.
+      cloudReadyRef.current = true
     } catch (error) {
+      cloudReadyRef.current = false
       if (!silent) console.error("Unable to load the DIOS portfolio from GitHub:", error)
     } finally {
-      hasLoadedRemoteState.current = true
       setHydrated(true)
     }
-  }, [])
+  }, [applyRemoteState])
 
   useEffect(() => {
     void loadRemoteStore()
   }, [loadRemoteStore])
 
   useEffect(() => {
-    if (!hydrated || !hasLoadedRemoteState.current) return
+    if (!hydrated || !cloudReadyRef.current) return
+
+    // A cloud refresh updates React state. Do not write that same state back.
+    if (suppressNextSaveRef.current) {
+      suppressNextSaveRef.current = false
+      return
+    }
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
 
@@ -180,14 +195,32 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
         const response = await fetch("/api/store", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(stateRef.current),
+          body: JSON.stringify({
+            data: stateRef.current,
+            baseSha: remoteShaRef.current,
+          }),
           signal: controller.signal,
         })
 
+        const payload = await response.json().catch(() => null) as {
+          error?: string
+          conflict?: boolean
+          sha?: string | null
+          data?: Partial<PersistedStore>
+        } | null
+
+        if (response.status === 409 && payload?.conflict) {
+          remoteShaRef.current = payload.sha ?? null
+          if (payload.data) applyRemoteState(payload.data)
+          console.warn("DIOS cloud data changed elsewhere; this browser reloaded the latest version.")
+          return
+        }
+
         if (!response.ok) {
-          const payload = await response.json().catch(() => null) as { error?: string } | null
           throw new Error(payload?.error || `Store save failed with status ${response.status}`)
         }
+
+        remoteShaRef.current = payload?.sha ?? remoteShaRef.current
       } catch (error) {
         if (!(error instanceof DOMException && error.name === "AbortError")) {
           console.error("Unable to save the DIOS portfolio to GitHub:", error)
@@ -198,7 +231,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
-  }, [state, hydrated])
+  }, [state, hydrated, applyRemoteState])
 
   useEffect(() => {
     if (!hydrated) return

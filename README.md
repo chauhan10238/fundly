@@ -1,39 +1,19 @@
-# DIOS Vercel Blob persistence
+# DIOS GitHub Cloud v2
 
-## Files
-
-Copy these files into your project:
+Replace these two files:
 
 - `app/api/store/route.ts`
 - `components/dios/store.tsx`
 
-## Install
+This version fixes cross-browser divergence by:
 
-```bash
-npm install @vercel/blob@latest
-```
+- refusing to auto-save until the first cloud read succeeds;
+- preventing a cloud refresh from being written straight back;
+- tracking the GitHub file SHA;
+- rejecting stale writes from an older browser;
+- reloading the newest cloud data when a conflict occurs;
+- bypassing browser and CDN cache on cloud reads.
 
-Private Blob stores require `@vercel/blob` 2.3 or newer.
+After committing, redeploy Vercel and hard-refresh both browsers.
 
-## Vercel setup
-
-1. Open the DIOS project in Vercel.
-2. Open **Storage**.
-3. Select **Create Database** and choose **Blob**.
-4. Create a **Private** Blob store.
-5. Connect it to the DIOS project and enable it for Production, Preview, and Development as required.
-6. Confirm Vercel created `BLOB_READ_WRITE_TOKEN`.
-7. Redeploy the project.
-
-## Behaviour
-
-- The browser loads the portfolio from `/api/store`.
-- The store is saved to `dios/portfolio-store.json`.
-- Changes are saved 1.5 seconds after the last update.
-- Returning to the tab or focusing the browser reloads the latest remote state.
-- No portfolio data is read from or written to `localStorage`.
-- The first browser with existing Stake data must run Stake Sync once after this change. That data is then saved remotely and becomes available on every machine.
-
-## Security
-
-The API route contains portfolio information and permits updates. Protect the DIOS deployment with Vercel Authentication/Deployment Protection or your own application login before using it on a public production URL.
+Also verify that `GITHUB_BRANCH` points to an existing branch.
