@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { buildPortfolio, type LiveQuote, type LiveQuoteMap, type PortfolioSummary } from "@/lib/dios/portfolio-engine"
 import { getInstrument } from "@/lib/dios/universe"
 import { DEFAULT_SETTINGS } from "@/lib/dios/macro"
-import { SEED_CASH, SEED_HOLDINGS, SEED_RECOMMENDATIONS, SEED_TRANSACTIONS } from "@/lib/dios/seed"
+import { SEED_HOLDINGS, SEED_RECOMMENDATIONS, SEED_TRANSACTIONS } from "@/lib/dios/seed"
 import type { Holding, RecommendationRecord, Settings, Transaction } from "@/lib/dios/types"
 
 const MIN_POSITION_QTY = 0.001
@@ -87,19 +87,6 @@ function applyTradeToHoldings(holdings: Holding[], t: Omit<Transaction, "id">): 
   return next.sort((a, b) => a.ticker.localeCompare(b.ticker))
 }
 
-function cashDelta(t: Omit<Transaction, "id">): number {
-  const fees = (t.brokerageFee ?? 0) + (t.fxFee ?? 0)
-  switch (t.type) {
-    case "Buy": return -(t.price * t.quantity + fees)
-    case "Sell": return t.price * t.quantity - fees
-    case "Dividend": return t.quantity * t.price - fees
-    case "Deposit": return t.quantity * (t.price || 1) - fees
-    case "Withdrawal": return -(t.quantity * (t.price || 1) + fees)
-    case "Fee": return -(t.quantity || fees)
-    default: return 0
-  }
-}
-
 function initialState(): PersistedStore {
   return {
     holdings: SEED_HOLDINGS.map(normalizeHolding),
@@ -132,9 +119,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch("/api/store", {
         method: "GET",
         cache: "no-store",
-        headers: {
-          Accept: "application/json",
-        },
+        headers: { Accept: "application/json" },
       })
 
       const payload = await response.json() as {
@@ -148,17 +133,12 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
 
       if (payload.data) {
         const remote = payload.data
-
         setState((current) => ({
           holdings: Array.isArray(remote.holdings)
-            ? remote.holdings
-                .map(normalizeHolding)
-                .filter((holding) => holding.quantity > 0)
+            ? remote.holdings.map(normalizeHolding).filter((holding) => holding.quantity > 0)
             : current.holdings,
           cash: Number(remote.cash) || 0,
-          transactions: Array.isArray(remote.transactions)
-            ? remote.transactions
-            : current.transactions,
+          transactions: Array.isArray(remote.transactions) ? remote.transactions : current.transactions,
           settings: remote.settings
             ? {
                 ...current.settings,
@@ -175,12 +155,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
         }))
       }
     } catch (error) {
-      if (!silent) {
-        console.error(
-          "Unable to load the DIOS portfolio from Vercel Blob:",
-          error,
-        )
-      }
+      if (!silent) console.error("Unable to load the DIOS portfolio from GitHub:", error)
     } finally {
       hasLoadedRemoteState.current = true
       setHydrated(true)
@@ -194,51 +169,34 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!hydrated || !hasLoadedRemoteState.current) return
 
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current)
-    }
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
 
     saveTimerRef.current = setTimeout(async () => {
       saveRequestRef.current?.abort()
-
       const controller = new AbortController()
       saveRequestRef.current = controller
 
       try {
         const response = await fetch("/api/store", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(stateRef.current),
           signal: controller.signal,
         })
 
         if (!response.ok) {
-          const payload = await response.json().catch(() => null) as {
-            error?: string
-          } | null
-
-          throw new Error(
-            payload?.error || `Store save failed with status ${response.status}`,
-          )
+          const payload = await response.json().catch(() => null) as { error?: string } | null
+          throw new Error(payload?.error || `Store save failed with status ${response.status}`)
         }
       } catch (error) {
-        if (
-          !(error instanceof DOMException && error.name === "AbortError")
-        ) {
-          console.error(
-            "Unable to save the DIOS portfolio to Vercel Blob:",
-            error,
-          )
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          console.error("Unable to save the DIOS portfolio to GitHub:", error)
         }
       }
-    }, 1500)
+    }, 2000)
 
     return () => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current)
-      }
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
   }, [state, hydrated])
 
@@ -246,9 +204,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated) return
 
     const refreshFromRemote = () => {
-      if (document.visibilityState === "visible") {
-        void loadRemoteStore(true)
-      }
+      if (document.visibilityState === "visible") void loadRemoteStore(true)
     }
 
     window.addEventListener("focus", refreshFromRemote)
@@ -261,7 +217,10 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   }, [hydrated, loadRemoteStore])
 
   const refreshQuotes = useCallback(async () => {
-    const symbols = Array.from(new Set(state.holdings.map((h) => h.ticker.trim().toUpperCase()).filter(Boolean)))
+    const symbols = Array.from(
+      new Set(state.holdings.map((h) => h.ticker.trim().toUpperCase()).filter(Boolean)),
+    )
+
     if (symbols.length === 0) {
       setLiveQuotes({})
       setQuoteStatus("idle")
@@ -275,9 +234,10 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
     setQuoteError(null)
 
     try {
-      const response = await fetch(`/api/quotes?symbols=${encodeURIComponent(symbols.join(","))}`, {
-        cache: "no-store",
-      })
+      const response = await fetch(
+        `/api/quotes?symbols=${encodeURIComponent(symbols.join(","))}`,
+        { cache: "no-store" },
+      )
       const payload = await response.json() as {
         quotes?: LiveQuote[]
         unavailable?: string[]
@@ -311,6 +271,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
     }
     const interval = window.setInterval(refresh, 10_000)
     document.addEventListener("visibilitychange", refresh)
+
     return () => {
       window.clearInterval(interval)
       document.removeEventListener("visibilitychange", refresh)
@@ -329,62 +290,125 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
       const holdings = [...prev.holdings]
       if (idx === -1) holdings.push(h)
       else holdings[idx] = h
-      return { ...prev, holdings: holdings.filter((x) => x.quantity > 0).sort((a, b) => a.ticker.localeCompare(b.ticker)) }
+      return {
+        ...prev,
+        holdings: holdings
+          .filter((x) => x.quantity > 0)
+          .sort((a, b) => a.ticker.localeCompare(b.ticker)),
+      }
     })
   }, [])
 
   const removeHolding = useCallback((ticker: string) => {
-    setState((prev) => ({ ...prev, holdings: prev.holdings.filter((h) => h.ticker !== ticker.trim().toUpperCase()) }))
+    setState((prev) => ({
+      ...prev,
+      holdings: prev.holdings.filter(
+        (h) => h.ticker !== ticker.trim().toUpperCase(),
+      ),
+    }))
   }, [])
 
-  const addCash = useCallback((_amount: number) => setState((prev) => ({ ...prev, cash: 0 })), [])
-  const withdrawCash = useCallback((_amount: number) => setState((prev) => ({ ...prev, cash: 0 })), [])
+  const addCash = useCallback((_amount: number) => {
+    setState((prev) => ({ ...prev, cash: 0 }))
+  }, [])
+
+  const withdrawCash = useCallback((_amount: number) => {
+    setState((prev) => ({ ...prev, cash: 0 }))
+  }, [])
 
   const addTransaction = useCallback((transaction: Omit<Transaction, "id">) => {
     const t = { ...transaction, ticker: transaction.ticker.trim().toUpperCase() }
     setState((prev) => ({
       ...prev,
       transactions: [{ ...t, id: nextId() }, ...prev.transactions],
-      holdings: (getInstrument(t.ticker) || t.type === "Buy" || t.type === "Sell")
-        ? applyTradeToHoldings(prev.holdings, t)
-        : prev.holdings,
+      holdings:
+        getInstrument(t.ticker) || t.type === "Buy" || t.type === "Sell"
+          ? applyTradeToHoldings(prev.holdings, t)
+          : prev.holdings,
       cash: 0,
     }))
   }, [])
 
   const addTransactions = useCallback((batch: Omit<Transaction, "id">[]) => {
-    const normalized = batch.map((t) => ({ ...t, ticker: t.ticker.trim().toUpperCase() }))
+    const normalized = batch.map((t) => ({
+      ...t,
+      ticker: t.ticker.trim().toUpperCase(),
+    }))
+
     setState((prev) => ({
       ...prev,
-      transactions: [...normalized.map((t) => ({ ...t, id: nextId() })), ...prev.transactions],
-      holdings: normalized.reduce((acc, t) => applyTradeToHoldings(acc, t), prev.holdings),
+      transactions: [
+        ...normalized.map((t) => ({ ...t, id: nextId() })),
+        ...prev.transactions,
+      ],
+      holdings: normalized.reduce(
+        (acc, t) => applyTradeToHoldings(acc, t),
+        prev.holdings,
+      ),
       cash: 0,
     }))
+
     return normalized.length
   }, [])
 
   const removeTransaction = useCallback((id: string) => {
-    setState((prev) => ({ ...prev, transactions: prev.transactions.filter((t) => t.id !== id) }))
+    setState((prev) => ({
+      ...prev,
+      transactions: prev.transactions.filter((t) => t.id !== id),
+    }))
   }, [])
 
   const updateSettings = useCallback((patch: Partial<Settings>) => {
     setState((prev) => ({
       ...prev,
-      settings: { ...prev.settings, ...patch, weights: { ...prev.settings.weights, ...(patch.weights ?? {}) } },
+      settings: {
+        ...prev.settings,
+        ...patch,
+        weights: {
+          ...prev.settings.weights,
+          ...(patch.weights ?? {}),
+        },
+      },
     }))
   }, [])
 
-  const resetSettings = useCallback(() => setState((prev) => ({ ...prev, settings: DEFAULT_SETTINGS })), [])
-  const addRecommendation = useCallback((r: RecommendationRecord) => setState((prev) => ({ ...prev, recommendations: [r, ...prev.recommendations] })), [])
+  const resetSettings = useCallback(() => {
+    setState((prev) => ({ ...prev, settings: DEFAULT_SETTINGS }))
+  }, [])
+
+  const addRecommendation = useCallback((r: RecommendationRecord) => {
+    setState((prev) => ({
+      ...prev,
+      recommendations: [r, ...prev.recommendations],
+    }))
+  }, [])
+
   const resetPortfolio = useCallback(() => setState(initialState()), [])
 
   return (
-    <StoreContext.Provider value={{
-      ...state, portfolio, hydrated, quoteStatus, quoteError, quotesRefreshedAt,
-      unavailableQuotes, refreshQuotes, upsertHolding, removeHolding, addCash, withdrawCash,
-      addTransaction, addTransactions, removeTransaction, updateSettings, resetSettings,
-      addRecommendation, resetPortfolio,
-    }}>
+    <StoreContext.Provider
+      value={{
+        ...state,
+        portfolio,
+        hydrated,
+        quoteStatus,
+        quoteError,
+        quotesRefreshedAt,
+        unavailableQuotes,
+        refreshQuotes,
+        upsertHolding,
+        removeHolding,
+        addCash,
+        withdrawCash,
+        addTransaction,
+        addTransactions,
+        removeTransaction,
+        updateSettings,
+        resetSettings,
+        addRecommendation,
+        resetPortfolio,
+      }}
+    >
       {children}
     </StoreContext.Provider>
   )
