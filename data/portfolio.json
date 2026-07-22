@@ -1,0 +1,678 @@
+{
+  "holdings": [
+    {
+      "ticker": "VT",
+      "quantity": 20.8111,
+      "avgCost": 144.01
+    },
+    {
+      "ticker": "GLD",
+      "quantity": 0.9113,
+      "avgCost": 421
+    },
+    {
+      "ticker": "MLPX",
+      "quantity": 4.0446,
+      "avgCost": 75.16
+    },
+    {
+      "ticker": "TSM",
+      "quantity": 3.8206,
+      "avgCost": 443
+    },
+    {
+      "ticker": "AMD",
+      "quantity": 0.5288,
+      "avgCost": 550.37
+    },
+    {
+      "ticker": "INTC",
+      "quantity": 14.9978,
+      "avgCost": 128.2
+    }
+  ],
+  "cash": 0,
+  "transactions": [
+    {
+      "id": "t1",
+      "date": "2025-06-02",
+      "ticker": "CASH",
+      "type": "Deposit",
+      "quantity": 40000,
+      "price": 1,
+      "currency": "USD",
+      "brokerageFee": 0,
+      "fxFee": 0,
+      "notes": "Initial funding"
+    },
+    {
+      "id": "t2",
+      "date": "2025-06-10",
+      "ticker": "VT",
+      "type": "Buy",
+      "quantity": 200,
+      "price": 101.2,
+      "currency": "USD",
+      "brokerageFee": 3,
+      "fxFee": 0,
+      "notes": "Core global allocation"
+    },
+    {
+      "id": "t3",
+      "date": "2025-07-15",
+      "ticker": "GLD",
+      "type": "Buy",
+      "quantity": 30,
+      "price": 198.4,
+      "currency": "USD",
+      "brokerageFee": 3,
+      "fxFee": 0,
+      "notes": "Inflation / safe-haven hedge"
+    },
+    {
+      "id": "t4",
+      "date": "2025-08-01",
+      "ticker": "MLPX",
+      "type": "Buy",
+      "quantity": 150,
+      "price": 47.9,
+      "currency": "USD",
+      "brokerageFee": 3,
+      "fxFee": 0,
+      "notes": "Energy income sleeve"
+    },
+    {
+      "id": "t5",
+      "date": "2025-09-12",
+      "ticker": "TSM",
+      "type": "Buy",
+      "quantity": 60,
+      "price": 149.6,
+      "currency": "USD",
+      "brokerageFee": 3,
+      "fxFee": 1.2,
+      "notes": "AI foundry exposure"
+    },
+    {
+      "id": "t6",
+      "date": "2025-10-20",
+      "ticker": "AMD",
+      "type": "Buy",
+      "quantity": 40,
+      "price": 156.3,
+      "currency": "USD",
+      "brokerageFee": 3,
+      "fxFee": 0.8,
+      "notes": "Data-center compute"
+    },
+    {
+      "id": "t7",
+      "date": "2025-11-05",
+      "ticker": "INTC",
+      "type": "Buy",
+      "quantity": 120,
+      "price": 33.8,
+      "currency": "USD",
+      "brokerageFee": 3,
+      "fxFee": 0,
+      "notes": "Turnaround / foundry optionality"
+    },
+    {
+      "id": "t8",
+      "date": "2025-12-18",
+      "ticker": "MLPX",
+      "type": "Dividend",
+      "quantity": 150,
+      "price": 0.62,
+      "currency": "USD",
+      "brokerageFee": 0,
+      "fxFee": 0,
+      "notes": "Quarterly distribution"
+    },
+    {
+      "id": "t9",
+      "date": "2026-01-22",
+      "ticker": "AMD",
+      "type": "Sell",
+      "quantity": 10,
+      "price": 168.5,
+      "currency": "USD",
+      "brokerageFee": 3,
+      "fxFee": 0.9,
+      "notes": "Trimmed on strength to manage weight"
+    }
+  ],
+  "settings": {
+    "currency": "USD",
+    "defaultHorizon": "3-5 years",
+    "maxStockWeight": 10,
+    "maxSectorEtfWeight": 15,
+    "maxSectorExposure": 35,
+    "maxLeveragedWeight": 3,
+    "minBuyScore": 65,
+    "minStrongBuyScore": 80,
+    "riskTolerance": "medium",
+    "dataRefreshMinutes": 60,
+    "marketDataProvider": "demo",
+    "weights": {
+      "macro": 12,
+      "geopolitics": 8,
+      "earnings": 13,
+      "fundamentals": 13,
+      "valuation": 10,
+      "quality": 10,
+      "flows": 8,
+      "technical": 8,
+      "portfolioFit": 10,
+      "timing": 4,
+      "psychology": 2,
+      "opportunityCost": 2
+    }
+  },
+  "recommendations": [
+    {
+      "id": "r1",
+      "datetime": "2025-08-14T10:15:00-04:00",
+      "ticker": "NVDA",
+      "type": "stock",
+      "priceAtRec": 124.46452375589898,
+      "overallScore": 86,
+      "recommendation": "Strong Buy",
+      "suggestedWeight": 6,
+      "confidence": 76.5,
+      "reasons": [
+        "NVIDIA Corporation scored 86/100 with supportive trend and macro.",
+        "Portfolio fit within limits at time of recommendation."
+      ],
+      "risks": [
+        "Sector concentration",
+        "Valuation sensitivity to guidance"
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 38,
+          "low": 0.3186,
+          "high": 0.4806,
+          "assumptions": [
+            "AI capex cycle extends with sustained data-center demand",
+            "Gross margins hold above prior peak on pricing power",
+            "Export-control disruption remains contained"
+          ]
+        },
+        "base": {
+          "probability": 45,
+          "low": 0.12599999999999997,
+          "high": 0.20599999999999996,
+          "assumptions": [
+            "In-line earnings delivery",
+            "Stable valuation multiple",
+            "No major macro shock"
+          ]
+        },
+        "bear": {
+          "probability": 17,
+          "low": -0.29700000000000004,
+          "high": -0.027000000000000003,
+          "assumptions": [
+            "AI capex digestion / inventory correction",
+            "Export controls tighten",
+            "Cyclical demand rolls over"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Technology",
+      "macroRegime": "Late-cycle expansion",
+      "outcomes": {
+        "d1": 1.2,
+        "w1": 3.4,
+        "m1": 8.1,
+        "m3": 19.2,
+        "m6": 31.5,
+        "m12": null
+      }
+    },
+    {
+      "id": "r2",
+      "datetime": "2025-09-03T11:02:00-04:00",
+      "ticker": "TSM",
+      "type": "stock",
+      "priceAtRec": 188.214755959621,
+      "overallScore": 81,
+      "recommendation": "Buy",
+      "suggestedWeight": 6,
+      "confidence": 75.25,
+      "reasons": [
+        "Taiwan Semiconductor Manufacturing scored 81/100 with supportive trend and macro.",
+        "Portfolio fit within limits at time of recommendation."
+      ],
+      "risks": [
+        "Sector concentration",
+        "Valuation sensitivity to guidance"
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 36,
+          "low": 0.23719999999999997,
+          "high": 0.35719999999999996,
+          "assumptions": [
+            "AI capex cycle extends with sustained data-center demand",
+            "Gross margins hold above prior peak on pricing power",
+            "Export-control disruption remains contained"
+          ]
+        },
+        "base": {
+          "probability": 45,
+          "low": 0.12719999999999998,
+          "high": 0.2072,
+          "assumptions": [
+            "In-line earnings delivery",
+            "Stable valuation multiple",
+            "No major macro shock"
+          ]
+        },
+        "bear": {
+          "probability": 19,
+          "low": -0.22,
+          "high": -0.02,
+          "assumptions": [
+            "AI capex digestion / inventory correction",
+            "Export controls tighten",
+            "Cyclical demand rolls over"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Technology",
+      "macroRegime": "Late-cycle expansion",
+      "outcomes": {
+        "d1": 0.6,
+        "w1": 2.1,
+        "m1": 5.5,
+        "m3": 14.8,
+        "m6": 22.3,
+        "m12": null
+      }
+    },
+    {
+      "id": "r3",
+      "datetime": "2025-09-28T09:45:00-04:00",
+      "ticker": "INTC",
+      "type": "stock",
+      "priceAtRec": 21.273631177745685,
+      "overallScore": 44,
+      "recommendation": "Avoid",
+      "suggestedWeight": 6,
+      "confidence": 66,
+      "reasons": [
+        "Intel Corporation scored 44/100 with supportive trend and macro.",
+        "Portfolio fit within limits at time of recommendation."
+      ],
+      "risks": [
+        "Sector concentration",
+        "Valuation sensitivity to guidance"
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 17,
+          "low": 0.25974,
+          "high": 0.42174000000000006,
+          "assumptions": [
+            "AI capex cycle extends with sustained data-center demand",
+            "Gross margins hold above prior peak on pricing power",
+            "Export-control disruption remains contained"
+          ]
+        },
+        "base": {
+          "probability": 51,
+          "low": 0.0824,
+          "high": 0.1624,
+          "assumptions": [
+            "In-line earnings delivery",
+            "Stable valuation multiple",
+            "No major macro shock"
+          ]
+        },
+        "bear": {
+          "probability": 32,
+          "low": -0.29700000000000004,
+          "high": -0.027000000000000003,
+          "assumptions": [
+            "AI capex digestion / inventory correction",
+            "Export controls tighten",
+            "Cyclical demand rolls over"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Technology",
+      "macroRegime": "Late-cycle expansion",
+      "outcomes": {
+        "d1": -0.9,
+        "w1": -2.8,
+        "m1": -6.4,
+        "m3": -11.2,
+        "m6": -14.7,
+        "m12": null
+      }
+    },
+    {
+      "id": "r4",
+      "datetime": "2025-10-11T14:20:00-04:00",
+      "ticker": "GLD",
+      "type": "etf",
+      "priceAtRec": 226.8086869863722,
+      "overallScore": 72,
+      "recommendation": "Buy",
+      "suggestedWeight": 12,
+      "confidence": 73,
+      "reasons": [
+        "SPDR Gold Shares scored 72/100 with supportive trend and macro.",
+        "Portfolio fit within limits at time of recommendation."
+      ],
+      "risks": [
+        "Sector concentration",
+        "Valuation sensitivity to guidance"
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 31,
+          "low": 0.1676,
+          "high": 0.2876,
+          "assumptions": [
+            "Real yields fall as easing continues",
+            "Central-bank and safe-haven demand persists",
+            "USD weakens further"
+          ]
+        },
+        "base": {
+          "probability": 47,
+          "low": 0.0576,
+          "high": 0.1376,
+          "assumptions": [
+            "In-line earnings delivery",
+            "Stable valuation multiple",
+            "No major macro shock"
+          ]
+        },
+        "bear": {
+          "probability": 22,
+          "low": -0.22,
+          "high": -0.02,
+          "assumptions": [
+            "Earnings miss and guidance cut",
+            "Multiple compression",
+            "Macro or liquidity shock"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Commodity",
+      "macroRegime": "Late-cycle expansion",
+      "outcomes": {
+        "d1": 0.4,
+        "w1": 1.6,
+        "m1": 4.2,
+        "m3": 9.9,
+        "m6": null,
+        "m12": null
+      }
+    },
+    {
+      "id": "r5",
+      "datetime": "2025-11-19T10:05:00-05:00",
+      "ticker": "SMH",
+      "type": "etf",
+      "priceAtRec": 246.6116127539343,
+      "overallScore": 78,
+      "recommendation": "Buy Watch",
+      "suggestedWeight": 12,
+      "confidence": 74.5,
+      "reasons": [
+        "VanEck Semiconductor ETF scored 78/100 with supportive trend and macro.",
+        "Portfolio fit within limits at time of recommendation."
+      ],
+      "risks": [
+        "Sector concentration",
+        "Valuation sensitivity to guidance"
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 34,
+          "low": 0.30078,
+          "high": 0.46278,
+          "assumptions": [
+            "AI capex cycle extends with sustained data-center demand",
+            "Gross margins hold above prior peak on pricing power",
+            "Export-control disruption remains contained"
+          ]
+        },
+        "base": {
+          "probability": 46,
+          "low": 0.11280000000000001,
+          "high": 0.19280000000000003,
+          "assumptions": [
+            "In-line earnings delivery",
+            "Stable valuation multiple",
+            "No major macro shock"
+          ]
+        },
+        "bear": {
+          "probability": 20,
+          "low": -0.29700000000000004,
+          "high": -0.027000000000000003,
+          "assumptions": [
+            "AI capex digestion / inventory correction",
+            "Export controls tighten",
+            "Cyclical demand rolls over"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Technology",
+      "macroRegime": "Late-cycle expansion",
+      "outcomes": {
+        "d1": 0.8,
+        "w1": 2.9,
+        "m1": 7.7,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      }
+    },
+    {
+      "id": "r6",
+      "datetime": "2025-12-05T13:30:00-05:00",
+      "ticker": "AMD",
+      "type": "stock",
+      "priceAtRec": 146.7889847988958,
+      "overallScore": 68,
+      "recommendation": "Start Small",
+      "suggestedWeight": 6,
+      "confidence": 72,
+      "reasons": [
+        "Advanced Micro Devices scored 68/100 with supportive trend and macro.",
+        "Portfolio fit within limits at time of recommendation."
+      ],
+      "risks": [
+        "Sector concentration",
+        "Valuation sensitivity to guidance"
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 29,
+          "low": 0.29322000000000004,
+          "high": 0.45522,
+          "assumptions": [
+            "AI capex cycle extends with sustained data-center demand",
+            "Gross margins hold above prior peak on pricing power",
+            "Export-control disruption remains contained"
+          ]
+        },
+        "base": {
+          "probability": 47,
+          "low": 0.10719999999999999,
+          "high": 0.18719999999999998,
+          "assumptions": [
+            "In-line earnings delivery",
+            "Stable valuation multiple",
+            "No major macro shock"
+          ]
+        },
+        "bear": {
+          "probability": 24,
+          "low": -0.29700000000000004,
+          "high": -0.027000000000000003,
+          "assumptions": [
+            "AI capex digestion / inventory correction",
+            "Export controls tighten",
+            "Cyclical demand rolls over"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Technology",
+      "macroRegime": "Late-cycle expansion",
+      "outcomes": {
+        "d1": -0.3,
+        "w1": 1.1,
+        "m1": 3.8,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      }
+    },
+    {
+      "id": "r7",
+      "datetime": "2026-01-15T09:50:00-05:00",
+      "ticker": "VOO",
+      "type": "etf",
+      "priceAtRec": 466.18988873446193,
+      "overallScore": 74,
+      "recommendation": "Buy",
+      "suggestedWeight": 12,
+      "confidence": 73.5,
+      "reasons": [
+        "Vanguard S&P 500 ETF scored 74/100 with supportive trend and macro.",
+        "Portfolio fit within limits at time of recommendation."
+      ],
+      "risks": [
+        "Sector concentration",
+        "Valuation sensitivity to guidance"
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 32,
+          "low": 0.14364,
+          "high": 0.22764,
+          "assumptions": [
+            "Broad earnings growth re-accelerates",
+            "Multiple expansion on soft-landing confidence",
+            "Breadth improves beyond mega-caps"
+          ]
+        },
+        "base": {
+          "probability": 46,
+          "low": 0.0952,
+          "high": 0.17520000000000002,
+          "assumptions": [
+            "Mid-single-digit earnings growth",
+            "Stable multiples",
+            "Dividends reinvested"
+          ]
+        },
+        "bear": {
+          "probability": 22,
+          "low": -0.154,
+          "high": -0.013999999999999999,
+          "assumptions": [
+            "Earnings miss and guidance cut",
+            "Multiple compression",
+            "Macro or liquidity shock"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Diversified",
+      "macroRegime": "Late-cycle expansion",
+      "outcomes": {
+        "d1": 0.3,
+        "w1": 1.4,
+        "m1": 2.6,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      }
+    },
+    {
+      "id": "r8",
+      "datetime": "2026-02-02T11:15:00-05:00",
+      "ticker": "MU",
+      "type": "stock",
+      "priceAtRec": 97.83806799466531,
+      "overallScore": 66,
+      "recommendation": "Start Small",
+      "suggestedWeight": 6,
+      "confidence": 71.5,
+      "reasons": [
+        "Micron Technology scored 66/100 with supportive trend and macro.",
+        "Portfolio fit within limits at time of recommendation."
+      ],
+      "risks": [
+        "Sector concentration",
+        "Valuation sensitivity to guidance"
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 28,
+          "low": 0.30294,
+          "high": 0.4649400000000001,
+          "assumptions": [
+            "AI capex cycle extends with sustained data-center demand",
+            "Gross margins hold above prior peak on pricing power",
+            "Export-control disruption remains contained"
+          ]
+        },
+        "base": {
+          "probability": 48,
+          "low": 0.1144,
+          "high": 0.19440000000000002,
+          "assumptions": [
+            "In-line earnings delivery",
+            "Stable valuation multiple",
+            "No major macro shock"
+          ]
+        },
+        "bear": {
+          "probability": 24,
+          "low": -0.29700000000000004,
+          "high": -0.027000000000000003,
+          "assumptions": [
+            "AI capex digestion / inventory correction",
+            "Export controls tighten",
+            "Cyclical demand rolls over"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Technology",
+      "macroRegime": "Late-cycle expansion",
+      "outcomes": {
+        "d1": 1.5,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      }
+    }
+  ]
+}
