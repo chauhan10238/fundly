@@ -1,14 +1,24 @@
 {
   "holdings": [
     {
-      "ticker": "VT",
-      "quantity": 20.8111,
-      "avgCost": 144.01
+      "ticker": "AMD",
+      "quantity": 0.5288,
+      "avgCost": 550.37
     },
     {
-      "ticker": "GLD",
-      "quantity": 0.9113,
-      "avgCost": 421
+      "ticker": "GOOG",
+      "quantity": 2,
+      "avgCost": 345.5
+    },
+    {
+      "ticker": "INTC",
+      "quantity": 14.9978,
+      "avgCost": 128.2
+    },
+    {
+      "ticker": "META",
+      "quantity": 1,
+      "avgCost": 650
     },
     {
       "ticker": "MLPX",
@@ -21,18 +31,49 @@
       "avgCost": 443
     },
     {
-      "ticker": "AMD",
-      "quantity": 0.5288,
-      "avgCost": 550.37
-    },
-    {
-      "ticker": "INTC",
-      "quantity": 14.9978,
-      "avgCost": 128.2
+      "ticker": "VT",
+      "quantity": 20.8111,
+      "avgCost": 144.01
     }
   ],
   "cash": 0,
   "transactions": [
+    {
+      "date": "2026-07-17",
+      "ticker": "GOOG",
+      "type": "Buy",
+      "quantity": 2,
+      "price": 344,
+      "currency": "USD",
+      "brokerageFee": 3,
+      "fxFee": 0,
+      "notes": "Stake Gmail import LIMIT [Stake:19f70433d397c66d] [FP:1f4c741269a0c9f691b3]",
+      "id": "t1784679955589-1001"
+    },
+    {
+      "date": "2026-07-17",
+      "ticker": "META",
+      "type": "Buy",
+      "quantity": 1,
+      "price": 647,
+      "currency": "USD",
+      "brokerageFee": 3,
+      "fxFee": 0,
+      "notes": "Stake Gmail import LIMIT [Stake:19f703442d28e417] [FP:9bb0dee10e6edf8daf9f]",
+      "id": "t1784679955589-1002"
+    },
+    {
+      "date": "2026-07-16",
+      "ticker": "GLD",
+      "type": "Sell",
+      "quantity": 0.9113392,
+      "price": 364.96,
+      "currency": "USD",
+      "brokerageFee": 3.02,
+      "fxFee": 0,
+      "notes": "Stake Gmail import STOP [Stake:19f6c35df00beacb] [FP:9b48d9ed302d69efa45f]",
+      "id": "t1784679955589-1003"
+    },
     {
       "id": "t1",
       "date": "2025-06-02",
