@@ -1,70 +1,167 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
-import {
-  AlertTriangle,
-  BarChart3,
-  CheckCircle2,
-  RefreshCw,
-  Shield,
-  Sparkles,
-  TrendingDown,
-  TrendingUp,
-} from "lucide-react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
+import { AlertTriangle, CheckCircle2, RefreshCw, Sparkles } from "lucide-react"
 import { useDios } from "@/components/dios/store"
 import { Button } from "@/components/ui/button"
 import { Panel, StatCard } from "@/components/dios/ui-bits"
-import type { DailyBriefResponse } from "@/lib/dios/daily-brief-types"
+import { fetchLiveAnalysisReport, type LiveAnalysisResult } from "@/lib/dios/live-analysis"
+import { buildIntelligenceView, getSourceFamilies, rankOpportunity } from "@/lib/dios/intelligence-view"
 
-function signed(value: number, digits = 2) {
-  return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}%`
+const ETF_UNIVERSE = [
+  "VOO", "QQQ", "VTI", "VT", "DIA", "IWM", "SCHD", "VIG", "VUG", "VTV",
+  "QUAL", "USMV", "AVUV", "SMH", "SOXX", "VGT", "XLK", "CIBR", "BOTZ", "ARKQ",
+  "XLE", "VDE", "XLF", "XLV", "XLI", "XLP", "XLU", "ITA", "PAVE", "VNQ",
+  "GLD", "SLV", "GDX", "COPX", "URA", "TLT", "IEF", "HYG", "LQD", "EFA",
+  "EEM", "INDA", "EWJ", "VGK", "IBIT",
+]
+
+type MarketItem = {
+  symbol: string
+  label: string
+  price: number
+  previousClose: number
+  changePercent: number
+  provider: string
 }
 
-function outlookClass(value: string) {
+async function mapWithConcurrency<T, R>(
+  values: T[],
+  limit: number,
+  worker: (value: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(values.length)
+  let cursor = 0
+  async function run() {
+    while (cursor < values.length) {
+      const index = cursor++
+      results[index] = await worker(values[index])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, values.length) }, run))
+  return results
+}
+
+function signed(value: number) {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`
+}
+
+function tone(value: string) {
   if (value === "Bullish") return "text-positive bg-positive/10"
   if (value === "Bearish") return "text-negative bg-negative/10"
-  return "text-warning-foreground bg-warning/10"
+  return "text-muted-foreground bg-muted"
 }
 
 export default function DailyBriefPage() {
-  const { portfolio } = useDios()
-  const [brief, setBrief] = useState<DailyBriefResponse | null>(null)
+  const { portfolio, settings, hydrated } = useDios()
+  const [market, setMarket] = useState<MarketItem[]>([])
+  const [holdingResults, setHoldingResults] = useState<LiveAnalysisResult[]>([])
+  const [opportunityResults, setOpportunityResults] = useState<LiveAnalysisResult[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null)
+
+  const heldSet = useMemo(
+    () => new Set(portfolio.positions.map((position) => position.ticker)),
+    [portfolio.positions],
+  )
 
   const refresh = useCallback(async () => {
+    if (!hydrated) return
     setLoading(true)
     setError(null)
+
     try {
-      const response = await fetch("/api/daily-brief", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-        body: JSON.stringify({
-          holdings: portfolio.positions.map((position) => ({
-            ticker: position.ticker,
-            weight: position.weight,
-            marketValue: position.marketValue,
-            dayChangeValue: position.dayChangeValue,
-            dayChangePct: position.dayChangePct,
-            unrealisedPL: position.unrealisedPL,
-            unrealisedPLPct: position.unrealisedPLPct,
-          })),
-        }),
-      })
-      const payload = await response.json()
-      if (!response.ok) throw new Error(payload.error || "Daily Brief failed")
-      setBrief(payload)
+      const marketPromise = fetch("/api/market-overview", { cache: "no-store" })
+        .then(async (response) => {
+          const payload = await response.json()
+          if (!response.ok) throw new Error(payload.error || "Market overview failed")
+          return Array.isArray(payload.items) ? payload.items as MarketItem[] : []
+        })
+        .catch(() => [] as MarketItem[])
+
+      const holdingTickers = portfolio.positions.map((position) => position.ticker)
+      const discovery = ETF_UNIVERSE.filter((ticker) => !heldSet.has(ticker)).slice(0, 30)
+
+      const [marketRows, holdings, candidates] = await Promise.all([
+        marketPromise,
+        mapWithConcurrency(holdingTickers, 5, (ticker) =>
+          fetchLiveAnalysisReport(ticker, portfolio, settings),
+        ),
+        mapWithConcurrency(discovery, 5, (ticker) =>
+          fetchLiveAnalysisReport(ticker, portfolio, settings),
+        ),
+      ])
+
+      setMarket(marketRows)
+      setHoldingResults(holdings)
+      setOpportunityResults(
+        candidates.sort((a, b) => rankOpportunity(b) - rankOpportunity(a)).slice(0, 10),
+      )
+      setGeneratedAt(new Date().toISOString())
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Daily Brief failed")
+      setError(cause instanceof Error ? cause.message : "Unable to build the Daily Brief")
     } finally {
       setLoading(false)
     }
-  }, [portfolio.positions])
+  }, [heldSet, hydrated, portfolio, settings])
 
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  const sourceFamilies = useMemo(() => {
+    const sources = new Set<string>()
+    for (const result of [...holdingResults, ...opportunityResults]) {
+      getSourceFamilies(result).forEach((source) => sources.add(source))
+    }
+    market.forEach((item) => sources.add(item.provider))
+    return [...sources]
+  }, [holdingResults, opportunityResults, market])
+
+  const holdingViews = holdingResults.map((result) => ({
+    result,
+    view: buildIntelligenceView(result),
+  }))
+  const opportunityViews = opportunityResults.map((result) => ({
+    result,
+    view: buildIntelligenceView(result),
+  }))
+
+  const averageScore = holdingResults.length
+    ? Math.round(holdingResults.reduce((sum, item) => sum + item.report.overallScore, 0) / holdingResults.length)
+    : 50
+  const averageQuality = holdingViews.length
+    ? Math.round(holdingViews.reduce((sum, item) => sum + item.view.dataQuality, 0) / holdingViews.length)
+    : 0
+  const largestWeight = portfolio.largestPosition?.weight ?? 0
+  const diversification = Math.max(0, Math.min(100, Math.round(100 - Math.max(0, largestWeight - 15) * 2.5)))
+  const highRiskCount = holdingResults.filter((item) => item.report.recommendation === "Reduce" || item.report.recommendation === "Sell" || item.report.recommendation === "Avoid").length
+  const riskScore = Math.min(100, Math.round(25 + highRiskCount * 15 + Math.max(0, largestWeight - 20)))
+  const healthScore = Math.round(averageScore * 0.55 + averageQuality * 0.2 + diversification * 0.15 + (100 - riskScore) * 0.1)
+
+  const sp = market.find((item) => item.symbol === "^GSPC")
+  const nasdaq = market.find((item) => item.symbol === "^IXIC")
+  const marketSummary = market.length
+    ? `S&P 500 ${sp ? signed(sp.changePercent) : "unavailable"}; Nasdaq ${nasdaq ? signed(nasdaq.changePercent) : "unavailable"}.`
+    : "Market overview unavailable; holdings analysis is still shown from the shared live engine."
+
+  const risks = [
+    ...portfolio.warnings.slice(0, 3).map((warning) => warning.detail),
+    ...holdingViews
+      .filter(({ view }) => view.outlook === "Bearish")
+      .slice(0, 3)
+      .map(({ result }) => `${result.report.ticker}: ${result.report.mainRisk}`),
+  ]
+  if (!risks.length) risks.push("No critical portfolio risk gate is currently triggered.")
+
+  const actions = holdingViews.slice(0, 8).map(({ result, view }) => {
+    if (view.outlook === "Bullish" && result.report.overallScore >= 70) return `Hold/add watch: ${result.report.ticker}; use staged entries rather than chasing.`
+    if (view.outlook === "Bearish") return `Review ${result.report.ticker}; avoid adding until trend and timing improve.`
+    return `Hold ${result.report.ticker}; no clear short-term edge.`
+  })
+  if (opportunityViews[0]) actions.push(`Top unheld ETF watch: ${opportunityViews[0].result.report.ticker} (${opportunityViews[0].result.report.overallScore}/100).`)
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -75,165 +172,87 @@ export default function DailyBriefPage() {
             <h1 className="text-2xl font-semibold tracking-tight">Daily Intelligence Brief</h1>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Market, portfolio, multi-timeframe outlook, risk and ranked ETF opportunities.
+            One shared intelligence engine for holdings, market outlook and ranked ETF opportunities.
           </p>
         </div>
-        <Button onClick={() => void refresh()} disabled={loading}>
+        <Button onClick={() => void refresh()} disabled={loading || !hydrated}>
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           {loading ? "Building brief…" : "Refresh brief"}
         </Button>
       </div>
 
-      {error && (
-        <div className="rounded-lg border border-negative/40 bg-negative/10 p-4 text-sm text-negative">
-          {error}
+      {error && <div className="rounded-lg border border-negative/40 bg-negative/10 p-4 text-sm text-negative">{error}</div>}
+
+      <div className={`rounded-lg border p-4 ${holdingResults.length ? "border-positive/30 bg-positive/5" : "border-warning/40 bg-warning/10"}`}>
+        <div className="font-medium">{holdingResults.length ? "Live shared-engine brief" : "Building live brief"}</div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          {generatedAt ? `Generated ${new Date(generatedAt).toLocaleString()}` : "Waiting for portfolio hydration"} · Sources: {sourceFamilies.join(", ") || "loading"}
         </div>
-      )}
+      </div>
 
-      {!brief && !error && (
-        <Panel title="Building Daily Brief">
-          <div className="flex items-center gap-2 p-5 text-sm text-muted-foreground">
-            <RefreshCw className="h-4 w-4 animate-spin" />
-            Analysing your holdings and ETF opportunity universe…
-          </div>
-        </Panel>
-      )}
-
-      {brief && (
-        <>
-          <div className={`rounded-lg border p-4 ${
-            brief.status === "live"
-              ? "border-positive/30 bg-positive/5"
-              : "border-warning/40 bg-warning/10"
-          }`}>
-            <div className="font-medium">
-              {brief.status === "live" ? "Live multi-source brief" : "Partial live brief"}
+      <Panel title="Overnight Market" description={marketSummary}>
+        <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+          {market.map((item) => (
+            <div key={item.symbol} className="rounded-lg border p-3">
+              <div className="text-xs text-muted-foreground">{item.label}</div>
+              <div className="mt-1 font-mono text-lg font-semibold">{item.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+              <div className={item.changePercent >= 0 ? "text-sm text-positive" : "text-sm text-negative"}>{signed(item.changePercent)}</div>
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Generated {new Date(brief.generatedAt).toLocaleString()} · Sources:{" "}
-              {brief.sourceSummary.sourceFamilies.join(", ") || "No source family returned"}
-            </div>
-          </div>
+          ))}
+          {!market.length && <div className="col-span-full text-sm text-muted-foreground">Market feed did not return data. This no longer blocks portfolio analysis.</div>}
+        </div>
+      </Panel>
 
-          <Panel title="Overnight Market" description={brief.market.summary}>
-            <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
-              {brief.market.items.slice(0, 10).map((item) => (
-                <div key={item.symbol} className="rounded-lg border border-border p-3">
-                  <div className="text-xs text-muted-foreground">{item.label}</div>
-                  <div className="mt-1 font-mono text-lg font-semibold">
-                    {item.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                  </div>
-                  <div className={`text-sm ${item.changePercent >= 0 ? "text-positive" : "text-negative"}`}>
-                    {signed(item.changePercent)}
-                  </div>
-                </div>
+      <div className="grid gap-4 md:grid-cols-4">
+        <StatCard label="Portfolio Health" value={`${healthScore}/100`} detail="Score, quality and risk" />
+        <StatCard label="Average Data Quality" value={`${averageQuality}%`} detail="Separate from direction" />
+        <StatCard label="Diversification" value={`${diversification}/100`} detail="Position concentration" />
+        <StatCard label="Risk Score" value={`${riskScore}/100`} detail="Higher means more risk" />
+      </div>
+
+      <Panel title="Holdings Intelligence" description="Every holding receives Bullish, Neutral or Bearish; data quality is shown separately.">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="border-b text-left text-xs text-muted-foreground">
+              <tr><th className="p-3">Ticker</th><th className="p-3 text-right">Score</th><th className="p-3">1–2 Day</th><th className="p-3 text-right">Probability</th><th className="p-3 text-right">Data Quality</th><th className="p-3">Action</th><th className="p-3">Main Driver</th></tr>
+            </thead>
+            <tbody>
+              {holdingViews.map(({ result, view }) => (
+                <tr key={result.report.ticker} className="border-b border-border/70">
+                  <td className="p-3"><Link href={`/analyse?ticker=${result.report.ticker}`} className="font-mono font-semibold text-primary">{result.report.ticker}</Link></td>
+                  <td className="p-3 text-right font-mono font-semibold">{result.report.overallScore}</td>
+                  <td className="p-3"><span className={`rounded px-2 py-1 text-xs ${tone(view.outlook)}`}>{view.label}</span></td>
+                  <td className="p-3 text-right">{view.probability}%</td>
+                  <td className="p-3 text-right"><div>{view.dataQuality}%</div><div className="text-[10px] text-muted-foreground">{view.availableSignals}/{view.totalSignals} checks</div></td>
+                  <td className="p-3">{result.report.recommendation}</td>
+                  <td className="max-w-sm p-3 text-muted-foreground">{result.report.whyToday[0] || result.report.strongestReasons[0] || "Composite model"}</td>
+                </tr>
               ))}
+              {!loading && !holdingViews.length && <tr><td colSpan={7} className="p-4 text-muted-foreground">No portfolio holdings were available after cloud hydration.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+
+      <Panel title="Top Ranked Unheld ETF Opportunities" description="The best available ETFs are always shown; Neutral entries are watchlist candidates, not automatic buys.">
+        <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-5">
+          {opportunityViews.map(({ result, view }, index) => (
+            <div key={result.report.ticker} className="rounded-lg border p-4">
+              <div className="flex items-center justify-between"><Link href={`/analyse?ticker=${result.report.ticker}`} className="font-mono text-lg font-semibold text-primary">{result.report.ticker}</Link><span className="text-xs text-muted-foreground">#{index + 1}</span></div>
+              <div className="mt-3 text-3xl font-semibold">{result.report.overallScore}</div>
+              <div className={`mt-2 inline-block rounded px-2 py-1 text-xs ${tone(view.outlook)}`}>{view.label}</div>
+              <div className="mt-2 text-xs">Probability {view.probability}% · Quality {view.dataQuality}%</div>
+              <div className="mt-3 text-xs text-muted-foreground">{result.report.whyToday[0] || result.report.strongestReasons[0] || "Composite ranking"}</div>
             </div>
-          </Panel>
+          ))}
+          {!loading && !opportunityViews.length && <div className="col-span-full text-sm text-muted-foreground">ETF providers did not return candidates. Refresh after checking provider status.</div>}
+        </div>
+      </Panel>
 
-          <div className="grid gap-4 md:grid-cols-4">
-            <StatCard label="Portfolio Health" value={`${brief.portfolio.healthScore}/100`} detail="Combined quality and risk" />
-            <StatCard label="Market Alignment" value={`${brief.portfolio.marketAlignment}/100`} detail={brief.market.regime} />
-            <StatCard label="Diversification" value={`${brief.portfolio.diversification}/100`} detail="Position concentration" />
-            <StatCard label="Risk Score" value={`${brief.portfolio.riskScore}/100`} detail="Higher means more risk" />
-          </div>
-
-          <Panel title="Holdings Intelligence" description="Today, 1–3 day and 1–4 week views are kept separate.">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="border-b border-border text-left text-xs text-muted-foreground">
-                  <tr>
-                    <th className="p-3">Ticker</th>
-                    <th className="p-3 text-right">Score</th>
-                    <th className="p-3">Today</th>
-                    <th className="p-3">1–3 Days</th>
-                    <th className="p-3">1–4 Weeks</th>
-                    <th className="p-3">Risk</th>
-                    <th className="p-3 text-right">Data Quality</th>
-                    <th className="p-3">Main Driver</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {brief.portfolio.holdings.map((item) => (
-                    <tr key={item.ticker} className="border-b border-border/70">
-                      <td className="p-3 font-mono font-semibold">{item.ticker}</td>
-                      <td className="p-3 text-right font-mono font-semibold">{item.score}</td>
-                      <td className="p-3"><span className={`rounded px-2 py-1 text-xs ${outlookClass(item.todayBias)}`}>{item.todayBias}</span></td>
-                      <td className="p-3"><span className={`rounded px-2 py-1 text-xs ${outlookClass(item.shortOutlook)}`}>{item.shortOutlook}</span></td>
-                      <td className="p-3"><span className={`rounded px-2 py-1 text-xs ${outlookClass(item.mediumOutlook)}`}>{item.mediumOutlook}</span></td>
-                      <td className="p-3">{item.risk}</td>
-                      <td className="p-3 text-right">
-                        <div className="font-mono">{item.dataQuality}%</div>
-                        <div className="text-[10px] text-muted-foreground">{item.availableSignals}/{item.totalSignals} checks</div>
-                      </td>
-                      <td className="max-w-xs p-3 text-muted-foreground">{item.reasons[0] || "Price and score model"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Panel>
-
-          <Panel title="High-Scoring ETF Opportunities" description="Ranked by score, confidence and data quality; not artificially boosted.">
-            <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
-              {brief.opportunities.length ? brief.opportunities.map((item, index) => (
-                <div key={item.ticker} className="rounded-lg border border-border p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="font-mono text-lg font-semibold">{item.ticker}</div>
-                    <div className="text-xs text-muted-foreground">#{index + 1}</div>
-                  </div>
-                  <div className="mt-3 flex items-end gap-2">
-                    <div className="text-3xl font-semibold">{item.score}</div>
-                    <div className="pb-1 text-xs text-muted-foreground">DIOS score</div>
-                  </div>
-                  <div className="mt-2 text-xs">
-                    Confidence {item.confidence}% · Quality {item.dataQuality}%
-                  </div>
-                  <div className="mt-3 text-sm text-muted-foreground">
-                    {item.reasons[0] || "Positive composite signal"}
-                  </div>
-                </div>
-              )) : (
-                <div className="col-span-full p-3 text-sm text-muted-foreground">
-                  No ETF cleared the bullish quality gate today. The system will not manufacture opportunities.
-                </div>
-              )}
-            </div>
-          </Panel>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Panel title="Portfolio Risks">
-              <div className="space-y-3 p-4">
-                {brief.risks.map((risk) => (
-                  <div key={risk} className="flex gap-2 text-sm">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-foreground" />
-                    <span>{risk}</span>
-                  </div>
-                ))}
-              </div>
-            </Panel>
-
-            <Panel title="Today's Actions">
-              <div className="space-y-3 p-4">
-                {brief.actions.map((action) => (
-                  <div key={action} className="flex gap-2 text-sm">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-positive" />
-                    <span>{action}</span>
-                  </div>
-                ))}
-              </div>
-            </Panel>
-          </div>
-
-          {brief.warnings.length > 0 && (
-            <Panel title="Data Warnings">
-              <div className="space-y-2 p-4 text-sm text-muted-foreground">
-                {brief.warnings.map((warning) => <div key={warning}>• {warning}</div>)}
-              </div>
-            </Panel>
-          )}
-        </>
-      )}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel title="Portfolio Risks"><div className="space-y-3 p-4">{risks.map((risk) => <div key={risk} className="flex gap-2 text-sm"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-foreground" /><span>{risk}</span></div>)}</div></Panel>
+        <Panel title="Today's Actions"><div className="space-y-3 p-4">{actions.map((action) => <div key={action} className="flex gap-2 text-sm"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-positive" /><span>{action}</span></div>)}</div></Panel>
+      </div>
     </div>
   )
 }

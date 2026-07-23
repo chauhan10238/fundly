@@ -7,7 +7,6 @@ import {
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
-  CircleHelp,
   RefreshCw,
   ShieldCheck,
   TrendingUp,
@@ -15,16 +14,16 @@ import {
 import { useDios } from "@/components/dios/store"
 import { fetchLiveAnalysisReport } from "@/lib/dios/live-analysis"
 import type { AnalysisReport, ExternalAnalysisContext } from "@/lib/dios/types"
+import { buildIntelligenceView, getSourceFamilies, rankOpportunity } from "@/lib/dios/intelligence-view"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
 const DISCOVERY_UNIVERSE = [
-  "VOO", "QQQ", "VT", "VTI", "SCHD", "VIG", "AVUV", "IWM",
-  "SMH", "SOXX", "VGT", "XLK", "XLE", "VDE", "XLF", "XLV",
-  "GLD", "TLT", "USMV", "QUAL",
+  "VOO", "QQQ", "VT", "VTI", "DIA", "SCHD", "VIG", "VUG", "VTV", "QUAL", "USMV", "AVUV", "IWM",
+  "SMH", "SOXX", "VGT", "XLK", "CIBR", "BOTZ", "ARKQ", "XLE", "VDE", "XLF", "XLV", "XLI", "XLP", "XLU",
+  "ITA", "PAVE", "VNQ", "GLD", "SLV", "GDX", "COPX", "URA", "TLT", "IEF", "HYG", "LQD", "EFA", "EEM", "INDA", "EWJ", "VGK", "IBIT",
 ]
-
 type LiveItem = {
   report: AnalysisReport
   context: ExternalAnalysisContext | null
@@ -32,138 +31,56 @@ type LiveItem = {
   source: "live" | "fallback"
 }
 
-type OutlookState =
-  | "Bullish"
-  | "Neutral"
-  | "Bearish"
-  | "Data insufficient"
+type OutlookState = "Bullish" | "Neutral" | "Bearish"
 
-type OutlookResult = {
-  state: OutlookState
-  label: string
-  explanation: string
-  evidenceScore: number
-  evidenceTotal: number
+function classifyOutlook(item: LiveItem) {
+  const view = buildIntelligenceView(item)
+  return {
+    state: view.outlook,
+    label: view.label,
+    explanation: view.explanation,
+    evidenceScore: view.availableSignals,
+    evidenceTotal: view.totalSignals,
+    dataQuality: view.dataQuality,
+    probability: view.probability,
+  }
 }
 
 function sourceFamilies(item: LiveItem) {
-  const names = new Set<string>()
-
-  for (const source of item.report.sources ?? []) {
-    const value = `${source.name} ${source.url}`.toLowerCase()
-    if (value.includes("yahoo")) names.add("Yahoo Finance")
-    if (value.includes("alpha vantage")) names.add("Alpha Vantage")
-    if (value.includes("finnhub")) names.add("Finnhub")
-    if (value.includes("sec") || value.includes("edgar")) names.add("SEC EDGAR")
-    if (value.includes("financial modeling prep")) names.add("Financial Modeling Prep")
-  }
-
-  for (const article of item.context?.news ?? []) {
-    if (article.source) names.add(article.source.trim())
-  }
-
-  return [...names]
-}
-
-function evidenceScore(item: LiveItem) {
-  const families = sourceFamilies(item)
-  let score = 0
-
-  if (item.source === "live") score += 1
-  if (families.length >= 1) score += 1
-  if (families.length >= 2) score += 1
-  if ((item.context?.news.length ?? 0) >= 2) score += 1
-  if (
-    item.report.dataComplete &&
-    !item.warning &&
-    (item.context?.warnings.length ?? 0) === 0
-  ) {
-    score += 1
-  }
-
-  return Math.min(score, 5)
-}
-
-function classifyOutlook(item: LiveItem): OutlookResult {
-  const report = item.report
-  const evidence = evidenceScore(item)
-  const families = sourceFamilies(item)
-  const warnings = item.context?.warnings ?? []
-  const fallback = item.source === "fallback"
-  const weakEvidence =
-    fallback ||
-    families.length < 2 ||
-    evidence <= 2 ||
-    warnings.some((warning) =>
-      warning.toLowerCase().includes("not yet been independently verified"),
-    )
-
-  if (weakEvidence) {
-    return {
-      state: "Data insufficient",
-      label: "Data insufficient",
-      explanation:
-        fallback
-          ? "Live market evidence was unavailable, so DIOS withheld a directional call."
-          : `Only ${families.length} independent source ${families.length === 1 ? "family was" : "families were"} available. More confirmation is required.`,
-      evidenceScore: evidence,
-      evidenceTotal: 5,
-    }
-  }
-
-  const positive =
-    ["Strong Buy", "Buy", "Start Small", "Buy Watch"].includes(
-      report.recommendation,
-    ) && report.overallScore >= 62
-
-  const negative =
-    ["Sell", "Avoid", "Reduce"].includes(report.recommendation) ||
-    report.overallScore <= 42
-
-  if (positive) {
-    return {
-      state: "Bullish",
-      label: "Bullish bias",
-      explanation:
-        "Multiple live signals support upside, but the move remains probabilistic rather than guaranteed.",
-      evidenceScore: evidence,
-      evidenceTotal: 5,
-    }
-  }
-
-  if (negative) {
-    return {
-      state: "Bearish",
-      label: "Bearish bias",
-      explanation:
-        "Downside or risk signals currently outweigh positive evidence.",
-      evidenceScore: evidence,
-      evidenceTotal: 5,
-    }
-  }
-
-  return {
-    state: "Neutral",
-    label: "Neutral / no edge",
-    explanation:
-      "There is enough data to assess the security, but the live signals do not show a clear short-term advantage.",
-    evidenceScore: evidence,
-    evidenceTotal: 5,
-  }
+  return getSourceFamilies(item)
 }
 
 function outlookTone(state: OutlookState) {
   if (state === "Bullish") return "text-positive"
   if (state === "Bearish") return "text-negative"
-  if (state === "Data insufficient") return "text-warning-foreground"
   return "text-muted-foreground"
 }
 
 function OutlookIcon({ state }: { state: OutlookState }) {
   if (state === "Bullish") return <ArrowUpRight className="h-4 w-4" />
   if (state === "Bearish") return <ArrowDownRight className="h-4 w-4" />
-  if (state === "Data insufficient") return <CircleHelp className="h-4 w-4" />
   return <ArrowRight className="h-4 w-4" />
+}
+
+async function mapWithConcurrency<T, R>(
+  values: T[],
+  limit: number,
+  worker: (value: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = new Array(values.length)
+  let cursor = 0
+  async function run() {
+    while (cursor < values.length) {
+      const index = cursor++
+      try {
+        results[index] = { status: "fulfilled", value: await worker(values[index]) }
+      } catch (reason) {
+        results[index] = { status: "rejected", reason }
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, values.length) }, run))
+  return results
 }
 
 function recommendationTone(report: AnalysisReport) {
@@ -235,15 +152,15 @@ function ItemCard({ item, owned }: { item: LiveItem; owned: boolean }) {
 
           <div>
             <p className="text-[11px] text-muted-foreground">Model confidence</p>
-            <p className="text-sm font-semibold">{item.report.confidence}%</p>
+            <p className="text-sm font-semibold">{outlook.probability}%</p>
           </div>
         </div>
 
         <div className="rounded-md border p-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium">Evidence quality</p>
+            <p className="text-xs font-medium">Data quality</p>
             <p className="text-xs font-semibold">
-              {outlook.evidenceScore}/{outlook.evidenceTotal}
+              {outlook.dataQuality}%
             </p>
           </div>
           <div className="mt-2 flex gap-1">
@@ -318,10 +235,10 @@ export default function ScanPage() {
       )
       const tickers = [...heldTickers, ...candidates]
 
-      const results = await Promise.allSettled(
-        tickers.map((ticker) =>
-          fetchLiveAnalysisReport(ticker, portfolio, settings),
-        ),
+      const results = await mapWithConcurrency(
+        tickers,
+        6,
+        (ticker) => fetchLiveAnalysisReport(ticker, portfolio, settings),
       )
 
       const rows = results.flatMap((result) =>
@@ -347,15 +264,8 @@ export default function ScanPage() {
 
   const opportunities = items
     .filter((item) => !heldSet.has(item.report.ticker))
-    .filter((item) => classifyOutlook(item).state === "Bullish")
-    .sort((a, b) => {
-      const evidenceDifference =
-        classifyOutlook(b).evidenceScore -
-        classifyOutlook(a).evidenceScore
-      if (evidenceDifference !== 0) return evidenceDifference
-      return b.report.overallScore - a.report.overallScore
-    })
-    .slice(0, 8)
+    .sort((a, b) => rankOpportunity(b) - rankOpportunity(a))
+    .slice(0, 10)
 
   const holdingCounts = holdings.reduce(
     (counts, item) => {
@@ -366,7 +276,6 @@ export default function ScanPage() {
       Bullish: 0,
       Neutral: 0,
       Bearish: 0,
-      "Data insufficient": 0,
     } as Record<OutlookState, number>,
   )
 
@@ -378,10 +287,9 @@ export default function ScanPage() {
             Daily Market Scan
           </h1>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Live, risk-calibrated view of your holdings plus unheld ETF
-            opportunities. “Neutral” now means no clear edge, while “Data
-            insufficient” means the system does not have enough independent
-            evidence to make a call.
+            Live, risk-calibrated view of your holdings plus ranked unheld ETF
+            opportunities. Every security receives a Bullish, Neutral or Bearish
+            outlook; Data Quality is shown separately.
           </p>
         </div>
 
@@ -401,9 +309,8 @@ export default function ScanPage() {
         <div className="flex gap-2">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-foreground" />
           <p>
-            A bullish or bearish label is only shown when live evidence is
-            adequate. Insufficient data is no longer incorrectly displayed as
-            “Wait / mixed”.
+            Direction and data quality are now separate. Lower-quality data reduces
+            probability and conviction, but it no longer hides the directional view.
           </p>
         </div>
       </div>
@@ -415,7 +322,7 @@ export default function ScanPage() {
       )}
 
       {!loading && holdings.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-3">
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">Bullish</p>
@@ -437,16 +344,6 @@ export default function ScanPage() {
               <p className="text-xs text-muted-foreground">Bearish</p>
               <p className="mt-1 text-2xl font-semibold text-negative">
                 {holdingCounts.Bearish}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">
-                Data insufficient
-              </p>
-              <p className="mt-1 text-2xl font-semibold text-warning-foreground">
-                {holdingCounts["Data insufficient"]}
               </p>
             </CardContent>
           </Card>
@@ -487,8 +384,8 @@ export default function ScanPage() {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Only ETFs with a bullish outlook and adequate independent evidence
-          are shown. Neutral and data-insufficient candidates are excluded.
+          The best available ETFs are always ranked by DIOS score, probability and
+          data quality. A Neutral label means watchlist rather than a trade signal.
         </p>
 
         <div className="grid gap-4 lg:grid-cols-2">
@@ -503,8 +400,7 @@ export default function ScanPage() {
 
         {!loading && opportunities.length === 0 && (
           <p className="rounded-lg border p-4 text-sm text-muted-foreground">
-            No unheld ETF currently has both a bullish bias and adequate
-            evidence. “No trade” is a valid result.
+            ETF analysis could not be loaded. Refresh the scan or review the provider warnings.
           </p>
         )}
       </section>
