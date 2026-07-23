@@ -121,6 +121,15 @@ const list: Instrument[] = [
     themes: ["energy", "oil", "inflation-hedge"],
   },
   {
+    ticker: "VDE", name: "Vanguard Energy ETF", type: "etf",
+    sector: "Energy", industry: "US Broad Energy", country: "United States", currency: "USD",
+    tags: ["sector", "commodity", "value"], riskBand: "medium", price: 170.22, prevClose: 170.22,
+    qualityHint: 78, valuationHint: 68, growthHint: 46, momentumHint: 60,
+    themes: ["energy", "oil", "gas", "inflation-hedge", "value"],
+    holdings: { XOM: 0.22, CVX: 0.15, COP: 0.07, EOG: 0.04, WMB: 0.03 },
+    nextEvent: "Quarterly distribution", nextEventDate: "2026-09-30",
+  },
+  {
     ticker: "MLPX", name: "Global X MLP & Energy Infrastructure ETF", type: "etf",
     sector: "Energy", industry: "Midstream Infrastructure", country: "United States", currency: "USD",
     tags: ["sector", "income", "commodity"], riskBand: "medium", price: 54.8, prevClose: 54.2,

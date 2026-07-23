@@ -32,6 +32,7 @@ const ETF_CANDIDATES = [
   "VT",
   "QQQ",
   "XLE",
+  "VDE",
   "GLD",
   "SMH",
 ]
