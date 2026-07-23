@@ -1,5 +1,6 @@
 import { analyse } from "./analyse"
 import type { PortfolioSummary } from "./portfolio-engine"
+import { calibrateLiveDecision } from "./decision-calibration"
 import type {
   AnalysisReport,
   ExternalAnalysisContext,
@@ -68,13 +69,18 @@ export async function fetchLiveAnalysisReport(
     }
 
     const context = payload.context ?? null
-    const report = asReport(
+    const rawReport = asReport(
       ticker,
       portfolio,
       settings,
       payload.snapshot,
       context ?? undefined,
     )
+    const report = calibrateLiveDecision({
+      report: rawReport,
+      context,
+      usedFallback: false,
+    })
 
     const warning =
       payload.warning ??
@@ -90,7 +96,12 @@ export async function fetchLiveAnalysisReport(
   } catch (error) {
     // A network/provider problem must not leave a held ETF or stock without a
     // decision. Use the same DIOS engine with its tracked fallback data.
-    const report = asReport(ticker, portfolio, settings)
+    const rawReport = asReport(ticker, portfolio, settings)
+    const report = calibrateLiveDecision({
+      report: rawReport,
+      context: null,
+      usedFallback: true,
+    })
 
     return {
       report,
