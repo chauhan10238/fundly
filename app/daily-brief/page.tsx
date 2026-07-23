@@ -16,6 +16,7 @@ import { useDios } from "@/components/dios/store"
 import { fetchLiveAnalysisReport } from "@/lib/dios/live-analysis"
 import { MACRO } from "@/lib/dios/macro"
 import { fmtCurrency } from "@/lib/format"
+import { buildTacticalOutlook } from "@/lib/dios/tactical-outlook"
 import type {
   AnalysisReport,
   ExternalAnalysisContext,
@@ -25,16 +26,9 @@ import type {
 import { Button } from "@/components/ui/button"
 
 const ETF_CANDIDATES = [
-  "SCHD",
-  "VIG",
-  "AVUV",
-  "VOO",
-  "VT",
-  "QQQ",
-  "XLE",
-  "VDE",
-  "GLD",
-  "SMH",
+  "SCHD", "VIG", "AVUV", "VOO", "VT", "QQQ", "XLE", "VDE",
+  "GLD", "SMH", "SOXX", "VGT", "XLK", "XLF", "XLV", "XLI",
+  "XLP", "XLU", "XLY", "ITA", "PAVE", "GDX", "SLV", "USO",
 ]
 
 type BriefItem = {
@@ -348,7 +342,7 @@ export default function DailyBriefPage() {
               <h2 className="font-semibold">Highest-Scoring ETF Opportunities</h2>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              ETFs not currently held, ranked against your existing portfolio.
+              ETFs not currently held, ranked for a transparent 1–2 trading-day setup against your portfolio.
             </p>
           </div>
 
@@ -380,11 +374,29 @@ export default function DailyBriefPage() {
                   </div>
                 </div>
 
-                <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
-                  {report.strongestReasons.slice(0, 3).map((reason) => (
-                    <li key={reason}>• {reason}</li>
-                  ))}
-                </ul>
+                {(() => {
+                  const context = opportunities.find((item) => item.report.ticker === report.ticker)?.context ?? null
+                  const outlook = buildTacticalOutlook(report, context)
+                  return (
+                    <>
+                      <div className="mt-3 rounded-md bg-muted/40 p-3 text-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <strong>{outlook.direction} · {outlook.horizon}</strong>
+                          <span className="font-mono">Estimated range {outlook.low >= 0 ? "+" : ""}{outlook.low}% to {outlook.high >= 0 ? "+" : ""}{outlook.high}%</span>
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">Model confidence {outlook.confidence}% · estimate, not a guaranteed return.</div>
+                      </div>
+                      <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
+                        {report.strongestReasons.slice(0, 2).map((reason) => (
+                          <li key={reason}>• {reason}</li>
+                        ))}
+                        {outlook.evidence.slice(1, 3).map((reason) => (
+                          <li key={reason}>• {reason}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )
+                })()}
               </div>
             ))}
 
@@ -506,12 +518,7 @@ export default function DailyBriefPage() {
         <div className="flex items-start gap-2">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
-            <strong>Data transparency:</strong> this first Daily Briefing release
-            uses the providers already connected to DIOS, including live quote and
-            ticker-news sources returned by the analysis API. It does not claim to
-            use 20 providers yet. Additional licensed providers should be activated
-            only after API keys, redistribution rights, costs and rate limits are
-            confirmed.
+            <strong>Forecast transparency:</strong> the 1–2 day ranges are model estimates, not promises. DIOS combines the live quote provider, Yahoo Finance news, Alpha Vantage verification/news, Finnhub news/earnings and SEC EDGAR filings/fundamentals when configured. The Sources section lists only records actually returned for this run. Missing providers reduce confidence rather than being silently treated as available.
           </div>
         </div>
       </section>
