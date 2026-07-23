@@ -1,0 +1,7 @@
+In components/dios/app-shell.tsx:
+
+1. Add Newspaper to the lucide-react import:
+   Newspaper,
+
+2. Add this NAV item after Daily Scan:
+   { href: "/daily-brief", label: "Daily Brief", icon: Newspaper },

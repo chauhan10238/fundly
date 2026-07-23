@@ -1,51 +1,57 @@
-# DIOS Risk-Calibrated Intelligence Fix
+# DIOS Phase 1 — Daily Brief
 
-Replace/add these files:
+Drop-in files:
 
-- lib/dios/decision-calibration.ts   (new)
-- lib/dios/live-analysis.ts
-- app/scan/page.tsx
-- app/daily-brief/page.tsx
+- `app/api/daily-brief/route.ts`
+- `app/daily-brief/page.tsx`
+- `lib/dios/daily-brief-engine.ts`
+- `lib/dios/daily-brief-types.ts`
 
-What changed
+Then apply the small navigation change described in `PATCH-app-shell.txt`.
 
-1. A 72/100 model score can no longer become a confident Buy merely from static hints or one feed.
-2. Buy recommendations are downgraded when:
-   - fewer than 2–3 independent source families are available;
-   - the quote is not independently verified;
-   - earnings are within three days;
-   - the security has already moved 4%–7% in the session;
-   - negative headlines materially outnumber positive headlines;
-   - DIOS is using fallback/static data.
-3. Daily Market Scan now runs the same live analysis engine as Analyse and Daily Brief.
-4. It covers current holdings plus unheld ETF candidates.
-5. Each card shows current move, 1–2 day directional bias, calibrated confidence,
-   main risk, and source-family count.
-6. “No trade” is shown when no opportunity survives the quality gates.
+## What this phase adds
 
-Important
+- Live overnight market summary
+- Explicit Nasdaq and S&P point/percentage data when returned by `/api/market-overview`
+- Portfolio health, market alignment, diversification and risk scores
+- Separate Today, 1–3 day and 1–4 week outlooks
+- Data Quality percentage instead of “Data insufficient”
+- ETF opportunity scan with honest quality gates
+- Portfolio risks and an action list
+- A JSON API that can later power the 7 AM ChatGPT brief
 
-This reduces false confidence but cannot make next-day market forecasts reliable.
-Short-horizon recommendations remain uncertain and should not be treated as guaranteed returns.
+## API
 
-Existing providers used by the project:
-- Yahoo Finance: primary intraday quote and supplementary news
-- Alpha Vantage: quote verification and news when configured
-- Finnhub: news and earnings calendar when configured
-- SEC EDGAR: filings and company facts for US stocks
-- Financial Modeling Prep: quote fallback when configured
+`POST /api/daily-brief`
 
-Recommended Vercel environment variables:
-- FMP_API_KEY
-- ALPHA_VANTAGE_API_KEY
-- FINNHUB_API_KEY
-- SEC_USER_AGENT
+Body:
 
-After deployment
+```json
+{
+  "holdings": [
+    {
+      "ticker": "GOOG",
+      "weight": 12.5,
+      "marketValue": 4500,
+      "dayChangeValue": -80,
+      "dayChangePct": -1.75
+    }
+  ]
+}
+```
 
-1. Open Daily Market Scan and click Refresh scan.
-2. Check GOOG. The decision should now be downgraded when source coverage,
-   volatility, or event risk is insufficient.
-3. Open Daily Brief and refresh it.
-4. Confirm that the same score/recommendation appears in Analyse, Daily Brief,
-   and Daily Market Scan.
+## Important
+
+The route calls your existing `/api/analysis` and `/api/market-overview` endpoints. It does not require a paid API yet.
+
+The ETF scan is capped at 24 symbols in Phase 1 to reduce Vercel timeout risk. After FMP Premium is connected, replace the per-symbol calls with batch endpoints and expand the scan to 100–150 ETFs.
+
+## Build note
+
+This package was prepared against the project files available in the conversation. Run:
+
+```bash
+pnpm run build
+```
+
+If your current `AnalysisReport` endpoint returns the report directly rather than under `report`, update the API adapter in `app/api/daily-brief/route.ts`. The supplied code expects the current richer response shape with `snapshot`, `context`, and `report`.
