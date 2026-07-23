@@ -5,18 +5,39 @@ export const runtime = "nodejs"
 
 type RangeKey = "1D" | "5D" | "1M" | "3M" | "6M" | "1Y" | "3Y" | "5Y"
 
+type YahooChartResponse = {
+  chart?: {
+    result?: Array<{
+      meta?: {
+        currency?: string
+        regularMarketPrice?: number
+        previousClose?: number
+        chartPreviousClose?: number
+        dataGranularity?: string
+        exchangeTimezoneName?: string
+      }
+      timestamp?: number[]
+      indicators?: {
+        quote?: Array<{
+          close?: Array<number | null>
+          volume?: Array<number | null>
+        }>
+        adjclose?: Array<{
+          adjclose?: Array<number | null>
+        }>
+      }
+    }>
+    error?: {
+      code?: string
+      description?: string
+    } | null
+  }
+}
+
 type PricePoint = {
   timestamp: string
   close: number
   volume: number
-}
-
-type FmpRow = {
-  date?: string
-  datetime?: string
-  close?: number
-  price?: number
-  volume?: number
 }
 
 const VALID_RANGES = new Set<RangeKey>([
@@ -34,212 +55,111 @@ function normalizeTicker(value: string) {
   return value.trim().toUpperCase().replace(/[^A-Z0-9.\-^=]/g, "")
 }
 
-function isoDate(date: Date) {
-  return date.toISOString().slice(0, 10)
-}
-
-function rangeStart(range: RangeKey) {
-  const end = new Date()
-  const start = new Date(end)
-
-  if (range === "1D") start.setDate(start.getDate() - 2)
-  if (range === "5D") start.setDate(start.getDate() - 8)
-  if (range === "1M") start.setMonth(start.getMonth() - 1)
-  if (range === "3M") start.setMonth(start.getMonth() - 3)
-  if (range === "6M") start.setMonth(start.getMonth() - 6)
-  if (range === "1Y") start.setFullYear(start.getFullYear() - 1)
-  if (range === "3Y") start.setFullYear(start.getFullYear() - 3)
-  if (range === "5Y") start.setFullYear(start.getFullYear() - 5)
-
-  return { start, end }
-}
-
-function requestedInterval(range: RangeKey) {
-  if (range === "1D") return "5min"
-  if (range === "5D") return "15min"
-  if (range === "1M") return "1hour"
-  if (range === "3M" || range === "6M" || range === "1Y") return "1day"
-  return "1week"
-}
-
-function normaliseRows(rows: FmpRow[]): PricePoint[] {
-  return rows
-    .map((row) => {
-      const timestamp = row.datetime ?? row.date
-      const close = Number(row.close ?? row.price)
-
-      if (!timestamp || !Number.isFinite(close)) return null
-
-      return {
-        timestamp,
-        close,
-        volume: Number(row.volume) || 0,
-      }
-    })
-    .filter((point): point is PricePoint => point !== null)
-    .sort(
-      (a, b) =>
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-    )
-}
-
-function sampleByPeriod(points: PricePoint[], period: "day" | "week") {
-  const sampled = new Map<string, PricePoint>()
-
-  for (const point of points) {
-    const date = new Date(point.timestamp)
-    if (Number.isNaN(date.getTime())) continue
-
-    if (period === "day") {
-      sampled.set(date.toISOString().slice(0, 10), point)
-      continue
-    }
-
-    const year = date.getUTCFullYear()
-    const firstDay = new Date(Date.UTC(year, 0, 1))
-    const dayOfYear = Math.floor(
-      (date.getTime() - firstDay.getTime()) / 86_400_000,
-    )
-    sampled.set(`${year}-${Math.floor(dayOfYear / 7)}`, point)
+function yahooSettings(range: RangeKey) {
+  switch (range) {
+    case "1D":
+      return { yahooRange: "1d", interval: "5m", label: "5-minute" }
+    case "5D":
+      return { yahooRange: "5d", interval: "15m", label: "15-minute" }
+    case "1M":
+      return { yahooRange: "1mo", interval: "1h", label: "hourly" }
+    case "3M":
+      return { yahooRange: "3mo", interval: "1d", label: "daily" }
+    case "6M":
+      return { yahooRange: "6mo", interval: "1d", label: "daily" }
+    case "1Y":
+      return { yahooRange: "1y", interval: "1d", label: "daily" }
+    case "3Y":
+      return { yahooRange: "3y", interval: "1wk", label: "weekly" }
+    case "5Y":
+      return { yahooRange: "5y", interval: "1wk", label: "weekly" }
   }
-
-  return Array.from(sampled.values())
 }
 
-async function readFmp(url: URL) {
+async function fetchYahooHistory(ticker: string, range: RangeKey) {
+  const settings = yahooSettings(range)
+  const url = new URL(
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}`,
+  )
+
+  url.searchParams.set("range", settings.yahooRange)
+  url.searchParams.set("interval", settings.interval)
+  url.searchParams.set("includePrePost", "false")
+  url.searchParams.set("events", "div,splits")
+
   const response = await fetch(url, {
     cache: "no-store",
-    headers: { Accept: "application/json" },
+    headers: {
+      Accept: "application/json",
+      "User-Agent":
+        "Mozilla/5.0 (compatible; DIOS-Fund-Manager/1.0; +https://vercel.app)",
+    },
   })
 
   const raw = await response.text()
-  const contentType = response.headers.get("content-type") ?? ""
 
-  if (!contentType.includes("application/json")) {
-    throw new Error(
-      raw.trim().startsWith("Restricted")
-        ? "This intraday interval is restricted by the current FMP plan."
-        : `Market-data provider returned a non-JSON response (${response.status}).`,
-    )
-  }
-
-  let payload: unknown
+  let payload: YahooChartResponse
 
   try {
-    payload = JSON.parse(raw)
+    payload = JSON.parse(raw) as YahooChartResponse
   } catch {
-    throw new Error("Market-data provider returned invalid JSON.")
-  }
-
-  if (!response.ok) {
-    const message =
-      typeof payload === "object" &&
-      payload !== null &&
-      "error" in payload &&
-      typeof (payload as { error?: unknown }).error === "string"
-        ? (payload as { error: string }).error
-        : `Historical price request failed (${response.status})`
-
-    throw new Error(message)
-  }
-
-  if (!Array.isArray(payload)) {
-    throw new Error("Historical price data was unavailable.")
-  }
-
-  return payload as FmpRow[]
-}
-
-function buildUrl(
-  endpoint: string,
-  ticker: string,
-  start: Date,
-  end: Date,
-  apiKey: string,
-) {
-  const url = new URL(endpoint)
-  url.searchParams.set("symbol", ticker)
-  url.searchParams.set("from", isoDate(start))
-  url.searchParams.set("to", isoDate(end))
-  url.searchParams.set("apikey", apiKey)
-  return url
-}
-
-async function fetchHistory(
-  ticker: string,
-  range: RangeKey,
-  apiKey: string,
-): Promise<{
-  points: PricePoint[]
-  interval: string
-  fallbackUsed: boolean
-  warning?: string
-}> {
-  const { start, end } = rangeStart(range)
-  const interval = requestedInterval(range)
-
-  if (interval === "5min" || interval === "15min" || interval === "1hour") {
-    const intradayUrl = buildUrl(
-      `https://financialmodelingprep.com/stable/historical-chart/${interval}`,
-      ticker,
-      start,
-      end,
-      apiKey,
+    const preview = raw.replace(/\s+/g, " ").slice(0, 160)
+    throw new Error(
+      `Yahoo Finance returned a non-JSON response (${response.status}). ${preview}`,
     )
-
-    try {
-      const intradayRows = await readFmp(intradayUrl)
-      const points = normaliseRows(intradayRows)
-
-      if (points.length >= 2) {
-        return {
-          points,
-          interval,
-          fallbackUsed: false,
-        }
-      }
-    } catch (error) {
-      const eodUrl = buildUrl(
-        "https://financialmodelingprep.com/stable/historical-price-eod/light",
-        ticker,
-        start,
-        end,
-        apiKey,
-      )
-      const eodRows = await readFmp(eodUrl)
-      const points = normaliseRows(eodRows)
-
-      return {
-        points,
-        interval: "1day",
-        fallbackUsed: true,
-        warning:
-          error instanceof Error
-            ? `${error.message} Showing end-of-day data instead.`
-            : "Intraday data unavailable. Showing end-of-day data instead.",
-      }
-    }
   }
 
-  const eodUrl = buildUrl(
-    "https://financialmodelingprep.com/stable/historical-price-eod/light",
-    ticker,
-    start,
-    end,
-    apiKey,
-  )
+  const providerError = payload.chart?.error
 
-  const rows = await readFmp(eodUrl)
-  let points = normaliseRows(rows)
+  if (!response.ok || providerError) {
+    throw new Error(
+      providerError?.description ||
+        providerError?.code ||
+        `Yahoo Finance request failed (${response.status})`,
+    )
+  }
 
-  if (interval === "1week") {
-    points = sampleByPeriod(points, "week")
+  const result = payload.chart?.result?.[0]
+
+  if (!result) {
+    throw new Error("Yahoo Finance returned no chart result.")
+  }
+
+  const timestamps = result.timestamp ?? []
+  const quote = result.indicators?.quote?.[0]
+  const closes = quote?.close ?? []
+  const volumes = quote?.volume ?? []
+  const adjusted = result.indicators?.adjclose?.[0]?.adjclose ?? []
+
+  const points: PricePoint[] = []
+
+  for (let index = 0; index < timestamps.length; index += 1) {
+    const rawClose =
+      range === "3Y" || range === "5Y"
+        ? adjusted[index] ?? closes[index]
+        : closes[index]
+
+    const close = Number(rawClose)
+
+    if (!Number.isFinite(close)) continue
+
+    points.push({
+      timestamp: new Date(timestamps[index] * 1000).toISOString(),
+      close,
+      volume: Number(volumes[index]) || 0,
+    })
+  }
+
+  if (points.length < 2) {
+    throw new Error("Not enough valid price points were returned.")
   }
 
   return {
     points,
-    interval,
-    fallbackUsed: false,
+    interval: settings.interval,
+    intervalLabel: settings.label,
+    currency: result.meta?.currency ?? "USD",
+    timezone: result.meta?.exchangeTimezoneName ?? null,
   }
 }
 
@@ -265,30 +185,8 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const apiKey = process.env.FMP_API_KEY?.trim()
-
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "FMP_API_KEY is not configured." },
-      { status: 500 },
-    )
-  }
-
   try {
-    const result = await fetchHistory(ticker, range, apiKey)
-
-    if (result.points.length < 2) {
-      return NextResponse.json(
-        {
-          error:
-            range === "1D"
-              ? "Not enough intraday or end-of-day prices were returned."
-              : "Not enough historical prices were returned.",
-        },
-        { status: 502 },
-      )
-    }
-
+    const result = await fetchYahooHistory(ticker, range)
     const first = result.points[0].close
     const last = result.points[result.points.length - 1].close
     const change = last - first
@@ -298,8 +196,11 @@ export async function GET(request: NextRequest) {
         ticker,
         range,
         interval: result.interval,
-        fallbackUsed: result.fallbackUsed,
-        warning: result.warning,
+        intervalLabel: result.intervalLabel,
+        fallbackUsed: false,
+        warning: null,
+        currency: result.currency,
+        timezone: result.timezone,
         points: result.points,
         summary: {
           first,
@@ -309,7 +210,7 @@ export async function GET(request: NextRequest) {
           high: Math.max(...result.points.map((point) => point.close)),
           low: Math.min(...result.points.map((point) => point.close)),
         },
-        provider: "Financial Modeling Prep",
+        provider: "Yahoo Finance",
         refreshedAt: new Date().toISOString(),
       },
       {
@@ -319,7 +220,7 @@ export async function GET(request: NextRequest) {
       },
     )
   } catch (error) {
-    console.error("DIOS history API failed:", error)
+    console.error("DIOS Yahoo history API failed:", error)
 
     return NextResponse.json(
       {
