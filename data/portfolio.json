@@ -31,6 +31,11 @@
       "avgCost": 443
     },
     {
+      "ticker": "VDE",
+      "quantity": 2.47532604,
+      "avgCost": 171.43196155638552
+    },
+    {
       "ticker": "VT",
       "quantity": 20.8111,
       "avgCost": 144.01
@@ -38,6 +43,18 @@
   ],
   "cash": 0,
   "transactions": [
+    {
+      "date": "2026-07-23",
+      "ticker": "VDE",
+      "type": "Buy",
+      "quantity": 2.47532604,
+      "price": 170.22,
+      "currency": "USD",
+      "brokerageFee": 3,
+      "fxFee": 0,
+      "notes": "Stake Gmail import MARKET [Stake:19f8f2b77fbe75c8] [FP:d2c11ae5542bffb0f5ef]",
+      "id": "t1784841192447-1001"
+    },
     {
       "date": "2026-07-17",
       "ticker": "GOOG",
