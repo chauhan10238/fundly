@@ -9,7 +9,8 @@ import { analyse } from "@/lib/dios/analyse"
 import { TickerSearch } from "@/components/dios/ticker-search"
 import { AnalysisReportView } from "@/components/dios/analysis-report"
 import { InstitutionalIntelligenceView } from "@/components/dios/institutional-intelligence"
-import { AnalysisReportActions } from "@/components/dios/analysis-report-actions"\nimport { StockPriceChart } from "@/components/dios/stock-price-chart"
+import { AnalysisReportActions } from "@/components/dios/analysis-report-actions"
+import { StockPriceChart } from "@/components/dios/stock-price-chart"
 import { Panel } from "@/components/dios/ui-bits"
 import { Button } from "@/components/ui/button"
 import type {
@@ -286,7 +287,9 @@ function AnalyseInner() {
         </div>
       )}
 
-      {ticker && <StockPriceChart ticker={ticker} />}\n\n      {result && "error" in result && (
+      {ticker && <StockPriceChart ticker={ticker} />}
+
+      {result && "error" in result && (
         <Panel title="Not found">
           <p className="p-4 text-sm text-muted-foreground">{result.error}</p>
         </Panel>
