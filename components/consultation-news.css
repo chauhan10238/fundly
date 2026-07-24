@@ -1,0 +1,351 @@
+
+.consultation-banner {
+  padding: clamp(65px, 8vw, 105px) max(6vw, 32px);
+  color: #fff;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(47, 214, 255, 0.13), transparent 35%),
+    linear-gradient(115deg, #123755 0%, #214fbd 58%, #1645c7 100%);
+}
+
+.consultation-inner {
+  width: min(1280px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 60px;
+  align-items: center;
+}
+
+.consultation-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+  color: #5bd8ff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.consultation-eyebrow span {
+  width: 22px;
+  height: 2px;
+  background: #58d9ff;
+}
+
+.consultation-copy h2 {
+  max-width: 720px;
+  margin: 0;
+  color: #54d8ff;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: clamp(38px, 5vw, 68px);
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+}
+
+.consultation-copy h2 strong {
+  color: #61e1ff;
+}
+
+.consultation-copy > p:not(.consultation-eyebrow) {
+  max-width: 690px;
+  margin: 22px 0 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 17px;
+}
+
+.consultation-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 26px;
+}
+
+.consultation-badges span {
+  padding: 7px 13px;
+  border: 1px solid rgba(119, 218, 255, 0.4);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.consultation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 13px;
+}
+
+.consultation-primary,
+.consultation-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  padding: 0 27px;
+  border-radius: 999px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.consultation-primary {
+  gap: 10px;
+  background: #fff;
+  color: #091d42;
+}
+
+.consultation-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+}
+
+.property-news-section {
+  padding: clamp(85px, 9vw, 135px) max(5vw, 28px);
+  background: #f4f7fb;
+}
+
+.property-news-heading {
+  width: min(1280px, 100%);
+  margin: 0 auto 45px;
+  display: flex;
+  justify-content: space-between;
+  gap: 45px;
+  align-items: flex-end;
+}
+
+.property-news-heading > div:first-child {
+  max-width: 850px;
+}
+
+.property-news-eyebrow {
+  margin: 0 0 9px;
+  color: #2d62ff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.property-news-heading h2 {
+  margin: 0;
+  color: #071f4d;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: clamp(38px, 5vw, 64px);
+  line-height: 1.06;
+  letter-spacing: -0.045em;
+}
+
+.property-news-heading > div:first-child > p:last-child {
+  max-width: 780px;
+  margin: 15px 0 0;
+  color: #63738f;
+  font-size: 17px;
+}
+
+.property-news-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 15px;
+  border: 1px solid #cfdcf3;
+  border-radius: 999px;
+  background: #fff;
+  color: #35517d;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.property-news-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e0a022;
+}
+
+.property-news-status-dot.is-live {
+  background: #22c55e;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
+}
+
+.property-news-grid {
+  width: min(1280px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.property-news-card {
+  overflow: hidden;
+  min-height: 320px;
+  border: 1px solid #d6dfec;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(27, 57, 105, 0.06);
+}
+
+.property-news-source {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 50px;
+  padding: 0 17px;
+  border-bottom: 4px solid #1c467f;
+  background: #f7f9fc;
+  color: #13284d;
+}
+
+.property-news-source.mint {
+  border-bottom-color: #f0a128;
+}
+
+.property-news-source.the-economic-times {
+  border-bottom-color: #de2543;
+}
+
+.property-news-source.reuters {
+  border-bottom-color: #ff8000;
+}
+
+.property-news-source.moneycontrol {
+  border-bottom-color: #1d4d91;
+}
+
+.property-news-browser-dots {
+  display: flex;
+  gap: 5px;
+}
+
+.property-news-browser-dots i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.property-news-browser-dots i:nth-child(1) {
+  background: #ff5f57;
+}
+
+.property-news-browser-dots i:nth-child(2) {
+  background: #febc2e;
+}
+
+.property-news-browser-dots i:nth-child(3) {
+  background: #28c840;
+}
+
+.property-news-source a {
+  color: #7d91af;
+}
+
+.property-news-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 265px;
+  padding: 22px;
+}
+
+.property-news-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  color: #7b8ba5;
+  font-size: 11px;
+}
+
+.property-news-meta span {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #eef3fb;
+  color: #224678;
+  font-weight: 800;
+}
+
+.property-news-content h3 {
+  margin: 16px 0 10px;
+  color: #071f4d;
+  font-size: 19px;
+  line-height: 1.35;
+}
+
+.property-news-content > p {
+  margin: 0;
+  color: #65758d;
+}
+
+.property-news-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 22px;
+  color: #8592a7;
+  font-size: 11px;
+}
+
+.property-news-footer a {
+  color: #245fe7;
+  font-weight: 900;
+}
+
+.property-news-disclaimer {
+  width: min(1280px, 100%);
+  margin: 28px auto 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  padding: 17px 19px;
+  border: 1px solid #d8e2ef;
+  border-radius: 14px;
+  background: #fff;
+  color: #6d7b90;
+  font-size: 12px;
+}
+
+.property-news-disclaimer strong {
+  color: #173760;
+}
+
+@media (max-width: 950px) {
+  .consultation-inner {
+    grid-template-columns: 1fr;
+  }
+
+  .consultation-actions {
+    justify-content: flex-start;
+  }
+
+  .property-news-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .property-news-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .consultation-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .consultation-primary,
+  .consultation-secondary {
+    width: 100%;
+  }
+
+  .property-news-disclaimer {
+    grid-template-columns: 1fr;
+  }
+}

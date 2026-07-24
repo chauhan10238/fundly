@@ -1,36 +1,23 @@
-import { Analytics } from '@vercel/analytics/next'
-import type { Metadata, Viewport } from 'next'
-import { Inter, JetBrains_Mono } from 'next/font/google'
-import { Toaster } from '@/components/ui/sonner'
-import { DiosProvider } from '@/components/dios/store'
-import { AppShell } from '@/components/dios/app-shell'
-import './globals.css'
+import type { Metadata } from "next"
+import { Lora, Manrope } from "next/font/google"
+import "./globals.css"
 
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-ui",
+  display: "swap",
 })
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-jetbrains-mono',
-  display: 'swap',
+const lora = Lora({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
 })
 
 export const metadata: Metadata = {
-  title: 'DIOS — Deepak Investment Operating System',
+  title: "NRI Property Connect | Manage, Sell or Buy Property in India",
   description:
-    'Private investment decision-support terminal. Institutional-quality analysis, portfolio management, market scanning and earnings intelligence.',
-  generator: 'v0.app',
-}
-
-export const viewport: Viewport = {
-  colorScheme: 'light dark',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f7f8fa' },
-    { media: '(prefers-color-scheme: dark)', color: '#141a24' },
-  ],
+    "Australia-based property support for citizens, PR holders, visa holders, NRIs and OCIs across North India.",
 }
 
 export default function RootLayout({
@@ -39,14 +26,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} bg-background`}>
-      <body className="font-sans antialiased">
-        <DiosProvider>
-          <AppShell>{children}</AppShell>
-        </DiosProvider>
-        <Toaster position="top-right" />
-        {process.env.NODE_ENV === 'production' && <Analytics />}
-      </body>
+    <html lang="en" className={`${manrope.variable} ${lora.variable}`}>
+      <body>{children}</body>
     </html>
   )
 }

@@ -1,248 +1,300 @@
-"use client"
+import ConsultationBanner from "@/components/ConsultationBanner"
+import FounderCarousel from "@/components/FounderCarousel"
+import PropertyNews from "@/components/PropertyNews"
+import SituationRouter from "@/components/SituationRouter"
+import GlobalClientNetworkMap from "@/components/GlobalClientNetworkMap"
+import GovernmentSupport from "@/components/GovernmentSupport"
+import LiveDeliveryFeed from "@/components/LiveDeliveryFeed"
+import InteractiveTrustBand from "@/components/InteractiveTrustBand"
+import ServicesShowcase from "@/components/ServicesShowcase"
+import PropertyCalculator from "@/components/PropertyCalculator"
+import AustraliaIndiaHero from "@/components/AustraliaIndiaHero"
+import PropertyCommandCentre from "@/components/PropertyCommandCentre"
 
-import Link from "next/link"
-import { useMemo } from "react"
-import { AlertTriangle, ArrowUpRight, Search, TrendingUp } from "lucide-react"
-import { useDios } from "@/components/dios/store"
-import { runScan } from "@/lib/dios/scan"
-import { MACRO, GEO } from "@/lib/dios/macro"
-import { fmtCompact, fmtCurrency, fmtPct } from "@/lib/format"
-import {
-  ButtonLink,
-  DeltaText,
-  Panel,
-  RecommendationBadge,
-  RiskBadge,
-  ScorePill,
-  StatCard,
-} from "@/components/dios/ui-bits"
-import { AllocationDonut } from "@/components/dios/allocation-donut"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+const services = [
+  {
+    title: "Property Management",
+    text: "Tenant coordination, rent monitoring, inspections, maintenance, vacancy checks and regular owner reporting.",
+  },
+  {
+    title: "Property Sale",
+    text: "Valuation guidance, document readiness, buyer coordination, negotiation, TDS, capital gains and repatriation support.",
+  },
+  {
+    title: "Purchase & Investment",
+    text: "Location research, project comparison, legal verification, negotiation, registration and post-purchase support.",
+  },
+]
 
-export default function DashboardPage() {
-  const { portfolio, settings } = useDios()
-  const scan = useMemo(() => runScan(portfolio, settings), [portfolio, settings])
+const professionals = [
+  ["Property Lawyers", "Title checks, agreements, Power of Attorney, inheritance, mutation, registration and sale documentation."],
+  ["Chartered Accountants", "Indian tax, TDS, capital gains, NRO/NRE, Form 15CA/15CB and repatriation coordination."],
+  ["On-ground Property Team", "Inspections, tenant and buyer coordination, local market checks, maintenance and transaction support."],
+  ["Builder Channel Partners", "Access to established developers while keeping client suitability, risk and exit potential central."],
+]
 
-  const { totalValue, totalPL, totalPLPct, dayChangeValue, dayChangePct, cash, exposure } = portfolio
-
+function Check() {
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-balance">Command Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Portfolio health, live opportunities and risk oversight in one view.
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m5 12 4 4L19 6" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export default function Home() {
+  return (
+    <main>
+      <div className="announcement">
+        <span className="announcement-country"><b>🇦🇺</b> Australia-based support</span>
+        <i />
+        <span className="announcement-bridge">One accountable property relationship</span>
+        <i />
+        <span className="announcement-country"><b>🇮🇳</b> On-ground India network</span>
+      </div>
+
+      <header className="site-header">
+        <a className="brand" href="#top">
+          <span className="brand-mark">
+            <span>AU</span>
+            <i />
+            <span>IN</span>
+          </span>
+          <span>
+            <strong>NRI Property Connect</strong>
+            <small>Australia ↔ India Property Services</small>
+          </span>
+        </a>
+
+        <nav>
+          <a href="#services">Services</a>
+          <a href="#property-calculator">Calculator</a>
+          <a href="#help-router">How we help</a>
+          <a href="#regions">Global reach</a>
+          <a href="/knowledge-hub">Knowledge Hub</a>
+          <a href="/investment-research">City Research</a>
+          <a href="#property-news">News</a>
+          <a href="#contact">Contact</a>
+        </nav>
+
+        <a className="button button-small" href="#contact">
+          Free consultation
+        </a>
+      </header>
+
+      <section className="hero compact-hero" id="top">
+        <div className="hero-copy-column">
+          <div className="hero-country-line">
+            <span><b>🇦🇺</b> Australia</span>
+            <i />
+            <strong>NRI Property Connect</strong>
+            <i />
+            <span><b>🇮🇳</b> India</span>
+          </div>
+          <p className="eyebrow">Property support for overseas Indians</p>
+          <h1>
+            Your property in India.
+            <em> Managed from Australia with confidence.</em>
+          </h1>
+          <p className="hero-text">
+            One coordinated Australia–India team for property management, sale,
+            purchase, legal documentation, Indian taxation and repatriation
+            across India.
+          </p>
+
+          <LiveDeliveryFeed />
+
+          <div className="hero-actions">
+            <a className="button" href="#contact">
+              Tell us about your property
+            </a>
+            <a className="button button-secondary" href="https://wa.me/61401362980">
+              Speak on WhatsApp
+            </a>
+          </div>
+
+          <div className="audience-line">
+            {["Australian citizens", "PR holders", "Visa holders", "NRIs & OCIs"].map((item) => (
+              <span key={item}>
+                <Check />
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <AustraliaIndiaHero />
+      </section>
+
+      <InteractiveTrustBand />
+
+      <PropertyCommandCentre />
+
+      <section className="section situation-section" id="help-router">
+        <div className="section-heading center">
+          <p className="eyebrow">Choose your property situation</p>
+          <h2>Start with the outcome you need.</h2>
+        </div>
+        <SituationRouter />
+      </section>
+
+      <PropertyCalculator />
+
+      <ServicesShowcase />
+      <GlobalClientNetworkMap />
+
+      <GovernmentSupport />
+
+      <section className="section white">
+        <div className="section-heading center">
+          <p className="eyebrow">Professional network</p>
+          <h2>The right specialist around one property objective.</h2>
+        </div>
+
+        <div className="professional-grid">
+          {professionals.map(([title, text], index) => (
+            <article key={title}>
+              <span>0{index + 1}</span>
+              <h3>{title}</h3>
+              <p>{text}</p>
+            </article>
+          ))}
+        </div>
+
+        <div className="disclaimer">
+          <strong>Clear professional boundaries</strong>
+          <p>
+            Legal advice is provided by appropriately qualified lawyers.
+            Indian tax advice is provided by Chartered Accountants. Australian
+            tax advice is coordinated with appropriately qualified Australian
+            professionals. Investment returns are not guaranteed.
           </p>
         </div>
-        <ButtonLink href="/analyse">
-          <Search className="h-4 w-4" />
-          Analyse an instrument
-        </ButtonLink>
-      </div>
+      </section>
 
-      {/* KPI row */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          label="Total Value"
-          value={fmtCurrency(totalValue, "USD", 0)}
-          sub={
-            <span>
-              Today <DeltaText value={dayChangePct} /> ({fmtCurrency(dayChangeValue, "USD", 0)})
+      <FounderCarousel />
+
+      <PropertyNews />
+
+      <ConsultationBanner />
+
+      <section className="contact-section" id="contact">
+        <div>
+          <p className="eyebrow gold">Free 30-minute consultation</p>
+          <h2>Tell us about your property or investment objective.</h2>
+          <p>
+            Share the city, property type and outcome you need. We will identify
+            the likely workstream, documents and professionals required.
+          </p>
+        </div>
+
+        <form className="contact-form" action="/api/enquiry" method="post">
+          <label>
+            Full name
+            <input name="name" required placeholder="Your name" />
+          </label>
+
+          <label>
+            Email
+            <input name="email" type="email" required placeholder="you@example.com" />
+          </label>
+
+          <label>
+            Phone / WhatsApp
+            <input name="phone" placeholder="+61..." />
+          </label>
+
+          <label>
+            Current status
+            <select name="status" defaultValue="">
+              <option value="" disabled>Select one</option>
+              <option>Australian citizen</option>
+              <option>Permanent resident</option>
+              <option>Temporary visa holder</option>
+              <option>NRI</option>
+              <option>OCI</option>
+            </select>
+          </label>
+
+          <label>
+            Service
+            <select name="service" defaultValue="">
+              <option value="" disabled>Select a service</option>
+              <option>Property management</option>
+              <option>Selling a property</option>
+              <option>Buying a property</option>
+              <option>Investment guidance</option>
+              <option>Inherited property</option>
+              <option>Legal or tax coordination</option>
+            </select>
+          </label>
+
+          <label>
+            Property location
+            <input name="location" placeholder="Noida, Jaipur, Dehradun..." />
+          </label>
+
+          <label className="full">
+            Briefly describe the situation
+            <textarea name="message" rows={5} />
+          </label>
+
+          <button className="button full" type="submit">
+            Request free consultation
+          </button>
+        </form>
+      </section>
+
+      <footer className="site-footer">
+        <div>
+          <a className="brand" href="#top">
+            <span className="brand-mark">
+              <span>AU</span>
+              <i />
+              <span>IN</span>
             </span>
-          }
-        />
-        <StatCard
-          label="Unrealised P/L"
-          value={fmtCurrency(totalPL, "USD", 0)}
-          accent={totalPL >= 0 ? "positive" : "negative"}
-          sub={<DeltaText value={totalPLPct} />}
-        />
-        <StatCard
-          label="Cash"
-          value={fmtCurrency(cash, "USD", 0)}
-          sub={<span>{fmtPct((cash / totalValue) * 100)} of portfolio</span>}
-        />
-        <StatCard
-          label="Open Warnings"
-          value={portfolio.warnings.length}
-          accent={portfolio.warnings.length ? "warning" : "default"}
-          sub={<span>{portfolio.warnings.filter((w) => w.severity === "high").length} high severity</span>}
-        />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left: opportunities + holdings */}
-        <div className="space-y-6 lg:col-span-2">
-          <Panel
-            title="Top Opportunities Today"
-            description="Highest risk-adjusted scores across the tracked universe."
-            action={
-              <ButtonLink href="/scan" variant="ghost" size="sm">
-                View scan <ArrowUpRight className="h-3.5 w-3.5" />
-              </ButtonLink>
-            }
-          >
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8">#</TableHead>
-                  <TableHead>Instrument</TableHead>
-                  <TableHead className="text-center">Score</TableHead>
-                  <TableHead>Recommendation</TableHead>
-                  <TableHead className="hidden md:table-cell">Why today</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {scan.topOpportunities.slice(0, 6).map((r) => (
-                  <TableRow key={r.ticker}>
-                    <TableCell className="text-muted-foreground tabular-nums">{r.rank}</TableCell>
-                    <TableCell>
-                      <Link href={`/analyse?ticker=${r.ticker}`} className="group block">
-                        <span className="font-mono font-semibold group-hover:underline">{r.ticker}</span>
-                        <span className="block max-w-[10rem] truncate text-xs text-muted-foreground">{r.name}</span>
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <ScorePill score={r.overallScore} />
-                    </TableCell>
-                    <TableCell>
-                      <RecommendationBadge value={r.recommendation} />
-                    </TableCell>
-                    <TableCell className="hidden max-w-[16rem] text-xs text-muted-foreground md:table-cell">
-                      {r.whyToday}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Panel>
-
-          <Panel
-            title="Holdings"
-            description={`${portfolio.positions.length} positions · ${fmtCompact(portfolio.investedValue)} invested`}
-            action={
-              <ButtonLink href="/portfolio" variant="ghost" size="sm">
-                Manage <ArrowUpRight className="h-3.5 w-3.5" />
-              </ButtonLink>
-            }
-          >
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Ticker</TableHead>
-                  <TableHead className="text-right">Value</TableHead>
-                  <TableHead className="text-right">Weight</TableHead>
-                  <TableHead className="text-right">Day</TableHead>
-                  <TableHead className="text-right">Unreal. P/L</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {portfolio.positions.map((p) => (
-                  <TableRow key={p.ticker}>
-                    <TableCell>
-                      <Link href={`/analyse?ticker=${p.ticker}`} className="font-mono font-semibold hover:underline">
-                        {p.ticker}
-                      </Link>
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        {p.instrument.type === "etf" ? "ETF" : p.instrument.sector}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{fmtCurrency(p.marketValue, "USD", 0)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmtPct(p.weight)}</TableCell>
-                    <TableCell className="text-right">
-                      <DeltaText value={p.dayChangePct} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DeltaText value={p.unrealisedPLPct} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Panel>
+            <span>
+              <strong>NRI Property Connect</strong>
+              <small>Australia ↔ India Property Services</small>
+            </span>
+          </a>
+          <p>
+            Property management, sale, purchase and investment guidance for
+            overseas Indians.
+          </p>
         </div>
 
-        {/* Right: risk + macro + allocation */}
-        <div className="space-y-6">
-          <Panel title="Risk Warnings" description="Rule breaches and thesis alerts.">
-            <div className="divide-y divide-border">
-              {portfolio.warnings.length === 0 && (
-                <p className="p-4 text-sm text-muted-foreground">No active warnings. Portfolio within all rules.</p>
-              )}
-              {portfolio.warnings.map((w) => (
-                <div key={w.id} className="flex gap-3 p-4">
-                  <AlertTriangle
-                    className={
-                      w.severity === "high"
-                        ? "h-4 w-4 shrink-0 text-negative"
-                        : w.severity === "medium"
-                          ? "h-4 w-4 shrink-0 text-warning-foreground"
-                          : "h-4 w-4 shrink-0 text-muted-foreground"
-                    }
-                  />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium leading-tight">{w.title}</p>
-                      <RiskBadge band={w.severity} />
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground text-pretty">{w.detail}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Panel>
-
-          <Panel title="Sector Allocation">
-            <div className="p-4">
-              <AllocationDonut data={exposure.sector} />
-            </div>
-          </Panel>
-
-          <Panel title="Market Regime">
-            <div className="space-y-3 p-4">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">{MACRO.regime}</span>
-              </div>
-              <p className="text-xs text-muted-foreground text-pretty">{MACRO.summary}</p>
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                {MACRO.drivers.slice(0, 6).map((d) => (
-                  <div key={d.label} className="rounded-md border border-border bg-muted/40 p-2">
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{d.label}</div>
-                    <div className="font-mono text-sm font-semibold">{d.value}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between rounded-md border border-border p-2.5">
-                <div>
-                  <div className="text-xs font-medium">Geopolitical risk</div>
-                  <div className="text-[11px] text-muted-foreground">{GEO.level}</div>
-                </div>
-                <RiskBadge
-                  band={
-                    GEO.level === "High" || GEO.level === "Elevated"
-                      ? "high"
-                      : GEO.level === "Moderate"
-                        ? "medium"
-                        : "low"
-                  }
-                />
-              </div>
-            </div>
-          </Panel>
+        <div>
+          <strong>Services</strong>
+          <a href="#services">Property management</a>
+          <a href="#services">Sell property</a>
+          <a href="#services">Buy property</a>
         </div>
-      </div>
 
-      <p className="text-center text-xs text-muted-foreground">
-        DIOS is a personal decision-support tool using current and latest-available market data. Informational analysis only; verify prices with your broker before trading.
-      </p>
-    </div>
+        <div>
+          <strong>Company</strong>
+          <a href="#regions">Global reach</a>
+          <a href="/knowledge-hub">Knowledge Hub</a>
+          <a href="/investment-research">City Research</a>
+          <a href="#property-news">News</a>
+          <a href="#contact">Contact</a>
+        </div>
+
+        <div>
+          <strong>Legal</strong>
+          <a href="#">Privacy policy</a>
+          <a href="#">Terms</a>
+          <a href="#">Complaints</a>
+        </div>
+
+        <small>
+          Information is general and does not constitute legal, tax, financial
+          or investment advice. © {new Date().getFullYear()} NRI Property Connect.
+        </small>
+      </footer>
+
+      <a className="floating-whatsapp" href="https://wa.me/61401362980">
+        WhatsApp
+      </a>
+    </main>
   )
 }
