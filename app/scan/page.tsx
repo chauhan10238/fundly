@@ -15,15 +15,11 @@ import { useDios } from "@/components/dios/store"
 import { fetchLiveAnalysisReport } from "@/lib/dios/live-analysis"
 import type { AnalysisReport, ExternalAnalysisContext } from "@/lib/dios/types"
 import { buildIntelligenceView, getSourceFamilies, rankOpportunity } from "@/lib/dios/intelligence-view"
+import { ETF_DISCOVERY_UNIVERSE } from "@/lib/dios/etf-universe"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
-const DISCOVERY_UNIVERSE = [
-  "VOO", "QQQ", "VT", "VTI", "DIA", "SCHD", "VIG", "VUG", "VTV", "QUAL", "USMV", "AVUV", "IWM",
-  "SMH", "SOXX", "VGT", "XLK", "CIBR", "BOTZ", "ARKQ", "XLE", "VDE", "XLF", "XLV", "XLI", "XLP", "XLU",
-  "ITA", "PAVE", "VNQ", "GLD", "SLV", "GDX", "COPX", "URA", "TLT", "IEF", "HYG", "LQD", "EFA", "EEM", "INDA", "EWJ", "VGK", "IBIT",
-]
 type LiveItem = {
   report: AnalysisReport
   context: ExternalAnalysisContext | null
@@ -151,8 +147,8 @@ function ItemCard({ item, owned }: { item: LiveItem; owned: boolean }) {
           </div>
 
           <div>
-            <p className="text-[11px] text-muted-foreground">Model confidence</p>
-            <p className="text-sm font-semibold">{outlook.probability}%</p>
+            <p className="text-[11px] text-muted-foreground">Probability / reliability</p>
+            <p className="text-sm font-semibold">{outlook.probability}% / {buildIntelligenceView(item).reliability}%</p>
           </div>
         </div>
 
@@ -178,6 +174,11 @@ function ItemCard({ item, owned }: { item: LiveItem; owned: boolean }) {
           <p className="mt-2 text-xs text-muted-foreground">
             {outlook.explanation}
           </p>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px]">
+            <div><p className="text-muted-foreground">Today</p><p className={outlookTone(buildIntelligenceView(item).today.outlook)}>{buildIntelligenceView(item).today.outlook}</p></div>
+            <div><p className="text-muted-foreground">1–3 days</p><p className={outlookTone(buildIntelligenceView(item).shortTerm.outlook)}>{buildIntelligenceView(item).shortTerm.outlook}</p></div>
+            <div><p className="text-muted-foreground">1–4 weeks</p><p className={outlookTone(buildIntelligenceView(item).mediumTerm.outlook)}>{buildIntelligenceView(item).mediumTerm.outlook}</p></div>
+          </div>
         </div>
 
         <div>
@@ -230,7 +231,7 @@ export default function ScanPage() {
     setError(null)
 
     try {
-      const candidates = DISCOVERY_UNIVERSE.filter(
+      const candidates = ETF_DISCOVERY_UNIVERSE.filter(
         (ticker) => !heldSet.has(ticker),
       )
       const tickers = [...heldTickers, ...candidates]
