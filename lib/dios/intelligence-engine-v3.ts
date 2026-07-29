@@ -1,0 +1,5 @@
+import type { MarketIntelligence } from "./market-intelligence"
+import type { SectorIntelligence } from "./sector-intelligence"
+import { scoreInstitutional,type InstitutionalInputs } from "./institutional-scoring"
+export type V3DecisionInput=InstitutionalInputs&{ticker:string;market:MarketIntelligence;sector?:SectorIntelligence|null;eventRiskScore?:number}
+export function buildV3Decision(i:V3DecisionInput){const eventPenalty=Math.min(18,(i.eventRiskScore??0)*.18);const result=scoreInstitutional({...i,marketRegime:i.market.score,sector:i.sector?.score,dataQuality:i.dataQuality});const adjustedScore=Math.max(0,Math.min(100,Math.round(result.score-eventPenalty)));const outlook=adjustedScore>=63?"Bullish":adjustedScore<=43?"Bearish":"Neutral";return {...result,score:adjustedScore,outlook,eventPenalty,explanation:[`Market regime: ${i.market.regime} (${i.market.score}/100).`,i.sector?`Sector confirmation: ${i.sector.outlook} (${i.sector.score}/100).`:"Sector confirmation is not available.",eventPenalty?`Scheduled-event penalty: ${eventPenalty.toFixed(0)} points.`:"No scheduled-event penalty applied."]}}
