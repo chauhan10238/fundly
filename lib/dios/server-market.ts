@@ -150,7 +150,7 @@ export async function fetchFmpQuote(symbolInput: string, apiKey?: string): Promi
         previousClose,
         changePercent: typeof pct === "number" ? pct : previousClose ? ((price - previousClose) / previousClose) * 100 : 0,
         refreshedAt: new Date(ts * 1000).toISOString(),
-        provider: "Financial Modeling Prep",
+        provider: "Financial Modeling Prep (Primary)",
         isLive: true,
       }
     } catch {
@@ -163,22 +163,58 @@ export async function fetchFmpQuote(symbolInput: string, apiKey?: string): Promi
 export async function resolveLiveQuote(symbol: string, apiKey?: string) {
   const configuredKey = apiKey?.trim() || process.env.FMP_API_KEY?.trim()
 
-  // FMP is the primary provider when FMP_API_KEY is configured.
+  // Use FMP first whenever the paid API key is configured.
   const fmp = await fetchFmpQuote(symbol, configuredKey)
   if (fmp) {
+    console.info("[Market Data]", {
+      symbol: cleanSymbol(symbol),
+      provider: "Financial Modeling Prep",
+      fallback: false,
+      refreshedAt: fmp.refreshedAt,
+    })
+
     return {
-      snapshot: fmp,
+      snapshot: {
+        ...fmp,
+        provider: "Financial Modeling Prep (Primary)",
+      },
       name: cleanSymbol(symbol),
       currency: "USD",
       type: "stock" as InstrumentType,
     }
   }
 
-  // Yahoo remains a no-key fallback so the existing portal still works
-  // if FMP is temporarily unavailable or does not support a symbol.
+  // Keep Yahoo as the existing fallback so the portal does not go blank.
   try {
-    return await fetchYahooQuote(symbol)
-  } catch {
+    const yahoo = await fetchYahooQuote(symbol)
+    if (!yahoo) return null
+
+    const fallbackReason = configuredKey
+      ? "FMP returned no usable quote"
+      : "FMP_API_KEY is not configured"
+
+    console.warn("[Market Data]", {
+      symbol: cleanSymbol(symbol),
+      provider: "Yahoo Finance",
+      fallback: true,
+      reason: fallbackReason,
+      refreshedAt: yahoo.snapshot.refreshedAt,
+    })
+
+    return {
+      ...yahoo,
+      snapshot: {
+        ...yahoo.snapshot,
+        provider: `Yahoo Finance (Fallback — ${fallbackReason})`,
+      },
+    }
+  } catch (error) {
+    console.error("[Market Data]", {
+      symbol: cleanSymbol(symbol),
+      provider: "None",
+      fallback: true,
+      reason: error instanceof Error ? error.message : "Quote request failed",
+    })
     return null
   }
 }
@@ -246,7 +282,7 @@ export function sourceFromQuote(provider: string, symbol: string, retrieved: str
     date: retrieved.slice(0, 10),
     url: provider.startsWith("Yahoo")
       ? `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}`
-      : provider === "Financial Modeling Prep"
+      : provider.startsWith("Financial Modeling Prep")
         ? `https://financialmodelingprep.com/financial-summary/${encodeURIComponent(symbol)}`
         : "",
     retrieved,
