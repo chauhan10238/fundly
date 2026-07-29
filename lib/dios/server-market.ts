@@ -161,15 +161,26 @@ export async function fetchFmpQuote(symbolInput: string, apiKey?: string): Promi
 }
 
 export async function resolveLiveQuote(symbol: string, apiKey?: string) {
-  try {
-    const yahoo = await fetchYahooQuote(symbol)
-    if (yahoo) return yahoo
-  } catch {
-    // FMP fallback
+  const configuredKey = apiKey?.trim() || process.env.FMP_API_KEY?.trim()
+
+  // FMP is the primary provider when FMP_API_KEY is configured.
+  const fmp = await fetchFmpQuote(symbol, configuredKey)
+  if (fmp) {
+    return {
+      snapshot: fmp,
+      name: cleanSymbol(symbol),
+      currency: "USD",
+      type: "stock" as InstrumentType,
+    }
   }
-  const fmp = await fetchFmpQuote(symbol, apiKey)
-  if (!fmp) return null
-  return { snapshot: fmp, name: cleanSymbol(symbol), currency: "USD", type: "stock" as InstrumentType }
+
+  // Yahoo remains a no-key fallback so the existing portal still works
+  // if FMP is temporarily unavailable or does not support a symbol.
+  try {
+    return await fetchYahooQuote(symbol)
+  } catch {
+    return null
+  }
 }
 
 export async function fetchMarketOverview(apiKey?: string): Promise<MarketOverviewItem[]> {
@@ -233,7 +244,11 @@ export function sourceFromQuote(provider: string, symbol: string, retrieved: str
     id: "S1",
     name: `${provider} — latest available quote for ${symbol}`,
     date: retrieved.slice(0, 10),
-    url: provider.startsWith("Yahoo") ? `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}` : "",
+    url: provider.startsWith("Yahoo")
+      ? `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}`
+      : provider === "Financial Modeling Prep"
+        ? `https://financialmodelingprep.com/financial-summary/${encodeURIComponent(symbol)}`
+        : "",
     retrieved,
   }
 }

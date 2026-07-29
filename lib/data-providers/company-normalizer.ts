@@ -56,6 +56,11 @@ function providerConfidence(
 ): ProviderConfidence {
   const checks: Array<[string, boolean, string | undefined]> = [
     [
+      "Financial Modeling Prep",
+      raw.providers.fmpQuote.ok,
+      !raw.providers.fmpQuote.ok ? raw.providers.fmpQuote.error : undefined,
+    ],
+    [
       "Alpha Vantage",
       raw.providers.alphaQuote.ok || raw.providers.alphaNews.ok,
       !raw.providers.alphaQuote.ok ? raw.providers.alphaQuote.error : undefined,

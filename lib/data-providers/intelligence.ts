@@ -1,3 +1,4 @@
+import { getFmpQuote } from "./fmp"
 import {
   getAlphaVantageNews,
   getAlphaVantageQuote,
@@ -48,8 +49,8 @@ export function quoteConfidence(
 
   for (const result of valid) {
     const differencePct =
-      Math.abs(result.data.price - primaryPrice) /
-      Math.max(primaryPrice, 0.000001) *
+      (Math.abs(result.data.price - primaryPrice) /
+        Math.max(primaryPrice, 0.000001)) *
       100
 
     if (differencePct <= 0.5) {
@@ -77,6 +78,7 @@ export interface ReturnTypeCompanyIntelligence {
   companyFacts: SecCompanyFacts | null
   warnings: string[]
   providers: {
+    fmpQuote: ProviderResult<VerifiedQuote>
     alphaQuote: ProviderResult<VerifiedQuote>
     alphaNews: ProviderResult<ProviderNewsItem[]>
     finnhubNews: ProviderResult<ProviderNewsItem[]>
@@ -92,6 +94,7 @@ export async function getCompanyIntelligence(
   const symbol = ticker.trim().toUpperCase()
 
   const [
+    fmpQuote,
     alphaQuote,
     alphaNews,
     finnhubNews,
@@ -99,6 +102,7 @@ export async function getCompanyIntelligence(
     secFilings,
     secFacts,
   ] = await Promise.all([
+    getFmpQuote(symbol),
     getAlphaVantageQuote(symbol),
     getAlphaVantageNews(symbol),
     getFinnhubCompanyNews(symbol),
@@ -113,6 +117,7 @@ export async function getCompanyIntelligence(
   ]).slice(0, 25)
 
   const warnings = [
+    fmpQuote,
     alphaQuote,
     alphaNews,
     finnhubNews,
@@ -126,13 +131,14 @@ export async function getCompanyIntelligence(
   return {
     ticker: symbol,
     retrievedAt: new Date().toISOString(),
-    quoteChecks: [alphaQuote],
+    quoteChecks: [fmpQuote, alphaQuote],
     news,
     earnings: finnhubEarnings.ok ? finnhubEarnings.data : [],
     filings: secFilings.ok ? secFilings.data : [],
     companyFacts: secFacts.ok ? secFacts.data : null,
     warnings,
     providers: {
+      fmpQuote,
       alphaQuote,
       alphaNews,
       finnhubNews,
