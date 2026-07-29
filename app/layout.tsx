@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Lora, Manrope } from "next/font/google"
+import { DiosProvider } from "@/components/dios/store"
 import "./globals.css"
 
 const manrope = Manrope({
@@ -27,7 +28,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${manrope.variable} ${lora.variable}`}>
-      <body>{children}</body>
+      <body>
+        <DiosProvider>{children}</DiosProvider>
+      </body>
     </html>
   )
 }
