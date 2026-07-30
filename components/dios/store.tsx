@@ -50,6 +50,7 @@ function normalizeHolding(h: Holding): Holding {
     ticker: h.ticker.trim().toUpperCase(),
     quantity: rawQuantity <= MIN_POSITION_QTY ? 0 : rawQuantity,
     avgCost: Math.max(0, Number(h.avgCost) || 0),
+    instrument: h.instrument,
   }
 }
 

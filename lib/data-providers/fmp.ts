@@ -180,3 +180,35 @@ export async function getFmpEarnings(symbolInput: string): Promise<ProviderResul
     return failure(error, sourceUrl)
   }
 }
+
+export interface FmpSymbolSearchResult {
+  symbol: string
+  name: string
+  exchange: string
+  type: "stock" | "etf"
+  currency?: string
+}
+
+export async function searchFmpSymbols(queryInput: string): Promise<ProviderResult<FmpSymbolSearchResult[]>> {
+  const query = queryInput.trim()
+  const sourceUrl = `${BASE}/search-symbol?query=${encodeURIComponent(query)}`
+  try {
+    if (!query) {
+      return { ok: true, provider: PROVIDER, data: [], retrievedAt: new Date().toISOString(), sourceUrl }
+    }
+    const { payload } = await request("search-symbol", { query, limit: "12" })
+    const rows = Array.isArray(payload) ? payload : []
+    const data = rows
+      .map((row: any) => ({
+        symbol: cleanSymbol(String(row.symbol ?? "")),
+        name: String(row.name ?? row.companyName ?? row.symbol ?? ""),
+        exchange: String(row.exchangeShortName ?? row.exchange ?? ""),
+        type: String(row.type ?? row.assetType ?? "stock").toLowerCase().includes("etf") ? "etf" as const : "stock" as const,
+        currency: row.currency ? String(row.currency) : undefined,
+      }))
+      .filter((row) => Boolean(row.symbol && row.name))
+    return { ok: true, provider: PROVIDER, data, retrievedAt: new Date().toISOString(), sourceUrl }
+  } catch (error) {
+    return failure(error, sourceUrl)
+  }
+}

@@ -71,6 +71,8 @@ export interface Holding {
   ticker: string
   quantity: number
   avgCost: number
+  /** Verified instrument metadata for symbols outside the original demo universe. */
+  instrument?: Instrument
 }
 
 export type TransactionType =

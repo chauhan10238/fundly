@@ -87,10 +87,27 @@ function toAllocations(map: Map<string, number>, total: number): Allocation[] {
 export function buildPositions(holdings: Holding[], liveQuotes: LiveQuoteMap = {}): Position[] {
   const positions: Position[] = []
   for (const h of holdings) {
-    const instrument = getInstrument(h.ticker)
+    const quote = liveQuotes[h.ticker.trim().toUpperCase()]
+    const instrument = h.instrument ?? getInstrument(h.ticker) ?? (quote ? {
+      ticker: h.ticker.trim().toUpperCase(),
+      name: quote.name || h.ticker.trim().toUpperCase(),
+      type: "stock" as const,
+      sector: "Unclassified",
+      industry: "Unclassified",
+      country: "United States",
+      currency: "USD",
+      tags: [],
+      riskBand: "medium" as const,
+      price: quote.price,
+      prevClose: quote.previousClose,
+      qualityHint: 50,
+      valuationHint: 50,
+      growthHint: 50,
+      momentumHint: 50,
+      themes: [],
+    } : undefined)
     if (!instrument || h.quantity <= MIN_POSITION_QTY) continue
 
-    const quote = liveQuotes[instrument.ticker]
     const price = quote?.price ?? instrument.price
     const prevClose = quote?.previousClose ?? instrument.prevClose
     const marketValue = price * h.quantity
