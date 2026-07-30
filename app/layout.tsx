@@ -16,9 +16,9 @@ const lora = Lora({
 })
 
 export const metadata: Metadata = {
-  title: "NRI Property Connect | Manage, Sell or Buy Property in India",
+  title: "DIOS | Investment Decision Intelligence",
   description:
-    "Australia-based property support for citizens, PR holders, visa holders, NRIs and OCIs across North India.",
+    "Portfolio tracking, market intelligence, analysis and Stake transaction sync powered by Financial Modeling Prep.",
 }
 
 export default function RootLayout({

@@ -1,86 +1,32 @@
-# Premium NRI Property Site – Three-Step Questionnaire
+# Fundly DIOS v4.1 — FMP Starter
 
-This package is based on the latest premium white-and-saffron website and replaces the single-step service selector with a smart three-step questionnaire.
+This package contains the DIOS investment portal only. NRI Property Connect pages and components have been removed.
 
-## Questionnaire flow
+## Included fixes
 
-### Step 1 — Service
+- Financial Modeling Prep is the primary provider for live quotes.
+- FMP Starter is the primary provider for historical price charts.
+- FMP TTM statements, ratios, key metrics and earnings feed the existing institutional analysis.
+- Yahoo Finance remains a quote/history fallback so pages do not go blank.
+- The visible provider label identifies FMP or Yahoo fallback.
+- Stake Gmail Sync detects Google `invalid_grant`, clears stale cookies and shows Reconnect Gmail.
 
-The visitor selects:
+## Vercel configuration
 
-- Property Management
-- Sell Property
-- Buy Property
-- Where to Invest
-- Inherited Property
-- Legal / Tax Support
-- Other / Multiple
+Copy the values from `.env.example` into Vercel Project Settings → Environment Variables.
 
-### Step 2 — Dynamic property questions
+At minimum, market data requires:
 
-Every visitor is asked:
-
-- Country where they are based
-- Current city
-- Preferred timeline
-
-The remaining questions adapt to the selected service.
-
-#### Sell, manage or inherited property
-
-- Where the property is located
-- Property type
-- Current situation or additional details
-
-#### Buy or investment guidance
-
-- Preferred Indian location
-- Approximate budget
-- Investment objective or additional details
-
-#### Legal, tax or other
-
-- Property location, if relevant
-- Preferred location, if buying
-- Explanation of the issue
-
-### Step 3 — Contact details
-
-- Name
-- Email
-- Phone or WhatsApp
-- Preferred contact method
-
-## Response positioning
-
-The questionnaire highlights:
-
-- Response target within 30 minutes during business hours
-- Fast routing to the relevant property, legal or tax professional
-- “Results in days, not weeks”
-
-This wording uses a response target rather than an unconditional guarantee.
-
-## Files
-
-Replace all files from the ZIP. The main change is:
-
-```text
-components/SituationRouter.tsx
+```env
+FMP_API_KEY=your_fmp_starter_key
 ```
 
-and new questionnaire CSS is included in:
+Stake Sync additionally requires the Google variables shown in `.env.example`. The Google redirect URI must exactly match the URI registered in Google Cloud.
 
-```text
-app/globals.css
-```
+## Verification
 
-## Submission
-
-The component posts the completed questionnaire to:
-
-```text
-/api/enquiry
-```
-
-The existing API route currently logs the enquiry in Vercel. Connect it to your email, CRM or database before launch.
+1. Deploy to Vercel.
+2. Open Analyse and run AAPL or NVDA.
+3. The live-price text should say `Financial Modeling Prep (Primary)`.
+4. The price chart footer should say `Source: Financial Modeling Prep (Starter)`.
+5. Open Stake Sync. An invalid old Google token should result in `Reconnect Stake Gmail`, not a false connected state.
