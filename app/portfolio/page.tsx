@@ -2,26 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { Plus, RefreshCw, Trash2, ArrowUpRight, ArrowDownUp } from "lucide-react"
+import { RefreshCw, Trash2, ArrowUpRight, ArrowDownUp } from "lucide-react"
 import { toast } from "sonner"
 import { useDios } from "@/components/dios/store"
 import { fmtCurrency } from "@/lib/format"
 import { Panel, StatCard } from "@/components/dios/ui-bits"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { fetchLiveAnalysisReport } from "@/lib/dios/live-analysis"
 import { deriveHoldingsFromTransactions } from "@/lib/dios/portfolio-engine"
 import type { AnalysisReport } from "@/lib/dios/types"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { AddHoldingDialog } from "@/components/dios/holding-dialog"
 import {
   Table,
   TableBody,
@@ -339,7 +329,7 @@ export default function PortfolioPage() {
             <RefreshCw className="h-4 w-4" />
             Refresh prices
           </Button>
-          <AddHoldingDialog onAdd={upsertHolding} />
+          <AddHoldingDialog />
         </div>
       </div>
 
@@ -793,95 +783,5 @@ function InsightCard({
       <div className={`mt-2 text-lg font-semibold ${valueClass}`}>{value}</div>
       <div className="mt-1 text-sm text-muted-foreground">{detail}</div>
     </div>
-  )
-}
-
-function AddHoldingDialog({
-  onAdd,
-}: {
-  onAdd: (holding: { ticker: string; quantity: number; avgCost: number }) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [ticker, setTicker] = useState("")
-  const [quantity, setQuantity] = useState("")
-  const [avgCost, setAvgCost] = useState("")
-
-  function submit() {
-    const symbol = ticker.trim().toUpperCase()
-    const qty = Number(quantity)
-    const cost = Number(avgCost)
-
-    if (!symbol || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(cost) || cost <= 0) {
-      toast.error("Enter a ticker, quantity and average buy price")
-      return
-    }
-
-    onAdd({ ticker: symbol, quantity: qty, avgCost: cost })
-    toast.success(`${symbol} holding saved`)
-    setOpen(false)
-    setTicker("")
-    setQuantity("")
-    setAvgCost("")
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button>
-            <Plus className="h-4 w-4" />
-            Add holding
-          </Button>
-        }
-      />
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Add or update holding</DialogTitle>
-          <DialogDescription>
-            Enter the quantity and weighted-average price paid.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="holding-ticker">Ticker</Label>
-            <Input
-              id="holding-ticker"
-              value={ticker}
-              onChange={(event) => setTicker(event.target.value.toUpperCase())}
-              placeholder="GOOG"
-              className="font-mono"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="holding-qty">Quantity</Label>
-              <Input
-                id="holding-qty"
-                type="number"
-                step="any"
-                value={quantity}
-                onChange={(event) => setQuantity(event.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="holding-cost">Average buy price</Label>
-              <Input
-                id="holding-cost"
-                type="number"
-                step="any"
-                value={avgCost}
-                onChange={(event) => setAvgCost(event.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={submit}>Save holding</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
