@@ -16,6 +16,11 @@
       "avgCost": 128.2
     },
     {
+      "ticker": "KO",
+      "quantity": 3.00101157,
+      "avgCost": 89.96966292365877
+    },
+    {
       "ticker": "META",
       "quantity": 1,
       "avgCost": 650
@@ -43,6 +48,18 @@
   ],
   "cash": 0,
   "transactions": [
+    {
+      "date": "2026-07-29",
+      "ticker": "KO",
+      "type": "Buy",
+      "quantity": 3.00101157,
+      "price": 88.97,
+      "currency": "USD",
+      "brokerageFee": 3,
+      "fxFee": 0,
+      "notes": "Stake Gmail import MARKET [Stake:19face34e9307f55] [FP:c078fb5594e0bde7219e]",
+      "id": "t1785387263724-1001"
+    },
     {
       "date": "2026-07-23",
       "ticker": "VDE",
