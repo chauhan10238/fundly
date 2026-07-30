@@ -34,5 +34,5 @@ export async function GET(request: NextRequest) {
   })
 
   if (!quotes.length) return NextResponse.json({ error: "No current quotes returned.", unavailable }, { status: 502 })
-  return NextResponse.json({ quotes, unavailable, provider: "Yahoo Finance / FMP", refreshedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store" } })
+  return NextResponse.json({ quotes, unavailable, provider: "Financial Modeling Prep (Primary) / Yahoo Finance (Fallback)", refreshedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store" } })
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { decryptToken } from "@/lib/gmail/crypto";
+import { isGoogleInvalidGrant } from "@/lib/gmail/oauth";
 import { listParsedStakeTrades } from "@/lib/gmail/stake-trades";
 
 export const runtime = "nodejs";
@@ -30,6 +31,16 @@ export async function GET(request: NextRequest) {
       trades,
     });
   } catch (error) {
+    if (isGoogleInvalidGrant(error)) {
+      const response = NextResponse.json(
+        { connected: false, reconnectRequired: true, error: "Google access expired or was revoked. Click Reconnect Gmail to authorise Stake Sync again.", trades: [] },
+        { status: 401 },
+      );
+      response.cookies.delete("dios_google_refresh_token");
+      response.cookies.delete("dios_google_account");
+      return response;
+    }
+
     console.error("Stake trade parsing failed", error);
 
     return NextResponse.json(

@@ -57,3 +57,11 @@ export function createAuthenticatedOAuthClient(refreshToken: string) {
   client.setCredentials({ refresh_token: refreshToken });
   return client;
 }
+
+
+export function isGoogleInvalidGrant(error: unknown): boolean {
+  const value = error as { message?: string; response?: { data?: { error?: string; error_description?: string } } }
+  const code = value?.response?.data?.error
+  const message = `${value?.message ?? ""} ${value?.response?.data?.error_description ?? ""}`.toLowerCase()
+  return code === "invalid_grant" || message.includes("invalid_grant") || message.includes("token has been expired or revoked")
+}

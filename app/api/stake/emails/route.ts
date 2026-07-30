@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { decryptToken } from "@/lib/gmail/crypto";
+import { isGoogleInvalidGrant } from "@/lib/gmail/oauth";
 import { listStakeEmails } from "@/lib/gmail/stake";
 
 export const runtime = "nodejs";
@@ -28,6 +29,16 @@ export async function GET(request: NextRequest) {
       emails,
     });
   } catch (error) {
+    if (isGoogleInvalidGrant(error)) {
+      const response = NextResponse.json(
+        { connected: false, reconnectRequired: true, error: "Google access expired or was revoked. Click Reconnect Gmail to authorise Stake Sync again.", emails: [] },
+        { status: 401 },
+      );
+      response.cookies.delete("dios_google_refresh_token");
+      response.cookies.delete("dios_google_account");
+      return response;
+    }
+
     console.error("Stake Gmail scan failed", error);
 
     return NextResponse.json(

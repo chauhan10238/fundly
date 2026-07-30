@@ -1,4 +1,4 @@
-import { getFmpQuote } from "./fmp"
+import { getFmpEarnings, getFmpFundamentals, getFmpQuote } from "./fmp"
 import {
   getAlphaVantageNews,
   getAlphaVantageQuote,
@@ -12,6 +12,7 @@ import type {
   SecFiling,
   VerifiedQuote,
   EarningsEvent,
+  FmpFundamentals,
 } from "./types"
 
 function dedupeNews(items: ProviderNewsItem[]): ProviderNewsItem[] {
@@ -76,9 +77,12 @@ export interface ReturnTypeCompanyIntelligence {
   earnings: EarningsEvent[]
   filings: SecFiling[]
   companyFacts: SecCompanyFacts | null
+  fmpFundamentals: FmpFundamentals | null
   warnings: string[]
   providers: {
     fmpQuote: ProviderResult<VerifiedQuote>
+    fmpFundamentals: ProviderResult<FmpFundamentals>
+    fmpEarnings: ProviderResult<EarningsEvent[]>
     alphaQuote: ProviderResult<VerifiedQuote>
     alphaNews: ProviderResult<ProviderNewsItem[]>
     finnhubNews: ProviderResult<ProviderNewsItem[]>
@@ -95,6 +99,8 @@ export async function getCompanyIntelligence(
 
   const [
     fmpQuote,
+    fmpFundamentals,
+    fmpEarnings,
     alphaQuote,
     alphaNews,
     finnhubNews,
@@ -103,6 +109,8 @@ export async function getCompanyIntelligence(
     secFacts,
   ] = await Promise.all([
     getFmpQuote(symbol),
+    getFmpFundamentals(symbol),
+    getFmpEarnings(symbol),
     getAlphaVantageQuote(symbol),
     getAlphaVantageNews(symbol),
     getFinnhubCompanyNews(symbol),
@@ -118,6 +126,8 @@ export async function getCompanyIntelligence(
 
   const warnings = [
     fmpQuote,
+    fmpFundamentals,
+    fmpEarnings,
     alphaQuote,
     alphaNews,
     finnhubNews,
@@ -133,12 +143,15 @@ export async function getCompanyIntelligence(
     retrievedAt: new Date().toISOString(),
     quoteChecks: [fmpQuote, alphaQuote],
     news,
-    earnings: finnhubEarnings.ok ? finnhubEarnings.data : [],
+    earnings: fmpEarnings.ok && fmpEarnings.data.length ? fmpEarnings.data : finnhubEarnings.ok ? finnhubEarnings.data : [],
     filings: secFilings.ok ? secFilings.data : [],
     companyFacts: secFacts.ok ? secFacts.data : null,
+    fmpFundamentals: fmpFundamentals.ok ? fmpFundamentals.data : null,
     warnings,
     providers: {
       fmpQuote,
+      fmpFundamentals,
+      fmpEarnings,
       alphaQuote,
       alphaNews,
       finnhubNews,
