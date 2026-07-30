@@ -1,4 +1,4 @@
-export type ProviderName = "FRED" | "EIA" | "Alpha Vantage" | "Finnhub" | "SEC EDGAR"
+export type ProviderName = "FRED" | "EIA" | "Financial Modeling Prep" | "Alpha Vantage" | "Finnhub" | "SEC EDGAR"
 
 export type ProviderResult<T> =
   | { ok: true; provider: ProviderName; data: T; retrievedAt: string; sourceUrl: string }

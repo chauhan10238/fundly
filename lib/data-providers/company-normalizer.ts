@@ -56,6 +56,11 @@ function providerConfidence(
 ): ProviderConfidence {
   const checks: Array<[string, boolean, string | undefined]> = [
     [
+      "Financial Modeling Prep",
+      raw.providers.fmpQuote.ok || raw.providers.fmpFundamentals.ok || raw.providers.fmpEarnings.ok,
+      !raw.providers.fmpFundamentals.ok ? raw.providers.fmpFundamentals.error : undefined,
+    ],
+    [
       "Alpha Vantage",
       raw.providers.alphaQuote.ok || raw.providers.alphaNews.ok,
       !raw.providers.alphaQuote.ok ? raw.providers.alphaQuote.error : undefined,
@@ -129,9 +134,9 @@ function summaryLines(
 export function normalizeCompanyIntelligence(
   raw: ReturnTypeCompanyIntelligence,
 ): InstitutionalCompanyIntelligence {
-  const fundamentals = raw.companyFacts
+  const fundamentals = raw.fmpFundamentals ?? (raw.companyFacts
     ? normalizeSecCompanyFacts(raw.companyFacts)
-    : null
+    : null)
 
   const financialHealth = fundamentals
     ? calculateFinancialHealth(fundamentals)

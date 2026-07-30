@@ -127,49 +127,54 @@ export async function fetchYahooQuote(symbolInput: string): Promise<{ snapshot: 
   }
 }
 
-export async function fetchFmpQuote(symbolInput: string, apiKey?: string): Promise<MarketSnapshot | null> {
+export async function fetchFmpQuote(symbolInput: string, apiKey?: string): Promise<{ snapshot: MarketSnapshot; name: string; currency: string; type: InstrumentType } | null> {
   if (!apiKey) return null
   const symbol = cleanSymbol(symbolInput)
-  const urls = [
-    `https://financialmodelingprep.com/stable/quote?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(apiKey)}`,
-    `https://financialmodelingprep.com/api/v3/quote/${encodeURIComponent(symbol)}?apikey=${encodeURIComponent(apiKey)}`,
-  ]
-  for (const url of urls) {
-    try {
-      const payload = await fetchJson(url)
-      const row = Array.isArray(payload) ? payload[0] : payload
-      const price = row?.price
-      if (typeof price !== "number" || !Number.isFinite(price) || price <= 0) continue
-      const previousClose = typeof row.previousClose === "number" && row.previousClose > 0
-        ? row.previousClose
-        : typeof row.change === "number" ? price - row.change : price
-      const pct = row.changesPercentage ?? row.changePercentage
-      const ts = typeof row.timestamp === "number" ? row.timestamp : Math.floor(Date.now() / 1000)
-      return {
+  if (!symbol) return null
+  const url = `https://financialmodelingprep.com/stable/quote?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(apiKey)}`
+  try {
+    const payload = await fetchJson(url)
+    const row = Array.isArray(payload) ? payload[0] : payload
+    const price = Number(row?.price)
+    if (!Number.isFinite(price) || price <= 0) return null
+    const previousClose = typeof row.previousClose === "number" && row.previousClose > 0
+      ? row.previousClose
+      : typeof row.change === "number" ? price - row.change : price
+    const pct = Number(row.changesPercentage ?? row.changePercentage)
+    const ts = typeof row.timestamp === "number" ? row.timestamp : Math.floor(Date.now() / 1000)
+    return {
+      snapshot: {
         price,
         previousClose,
-        changePercent: typeof pct === "number" ? pct : previousClose ? ((price - previousClose) / previousClose) * 100 : 0,
+        changePercent: Number.isFinite(pct) ? pct : previousClose ? ((price - previousClose) / previousClose) * 100 : 0,
         refreshedAt: new Date(ts * 1000).toISOString(),
-        provider: "Financial Modeling Prep",
+        provider: "Financial Modeling Prep (Starter)",
         isLive: true,
-      }
-    } catch {
-      // try next endpoint
+      },
+      name: row.name || symbol,
+      currency: row.currency || "USD",
+      type: String(row.exchange ?? "").toUpperCase().includes("ETF") ? "etf" : "stock",
     }
+  } catch {
+    return null
   }
-  return null
 }
 
 export async function resolveLiveQuote(symbol: string, apiKey?: string) {
+  const fmp = await fetchFmpQuote(symbol, apiKey)
+  if (fmp) return fmp
   try {
     const yahoo = await fetchYahooQuote(symbol)
-    if (yahoo) return yahoo
+    if (yahoo) {
+      return {
+        ...yahoo,
+        snapshot: { ...yahoo.snapshot, provider: "Yahoo Finance (Fallback)" },
+      }
+    }
   } catch {
-    // FMP fallback
+    // no provider returned a quote
   }
-  const fmp = await fetchFmpQuote(symbol, apiKey)
-  if (!fmp) return null
-  return { snapshot: fmp, name: cleanSymbol(symbol), currency: "USD", type: "stock" as InstrumentType }
+  return null
 }
 
 export async function fetchMarketOverview(apiKey?: string): Promise<MarketOverviewItem[]> {

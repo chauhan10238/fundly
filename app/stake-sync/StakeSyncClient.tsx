@@ -36,6 +36,7 @@ type StakeTrade = {
 
 type ApiResponse = {
   connected: boolean;
+  reconnectRequired?: boolean;
   scannedAt?: string;
   count?: number;
   ready?: number;
@@ -150,7 +151,7 @@ export default function StakeSyncClient() {
   if (!result?.connected) {
     return (
       <section className="rounded-lg border border-border bg-card p-5">
-        <h2 className="text-lg font-semibold">Connect Stake Gmail</h2>
+        <h2 className="text-lg font-semibold">{result?.reconnectRequired ? "Reconnect Stake Gmail" : "Connect Stake Gmail"}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           DIOS requests read-only Gmail access and searches for messages from
           notifications@hellostake.com.
@@ -161,7 +162,7 @@ export default function StakeSyncClient() {
           </p>
         ) : null}
         <Button className="mt-4" render={<a href="/api/auth/google" />}>
-          Connect Gmail
+          {result?.reconnectRequired ? "Reconnect Stake Gmail" : "Connect Gmail"}
         </Button>
       </section>
     );

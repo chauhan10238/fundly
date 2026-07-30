@@ -1,3 +1,4 @@
+import { getFmpEarnings, getFmpFundamentals, getFmpQuote } from "./fmp"
 import {
   getAlphaVantageNews,
   getAlphaVantageQuote,
@@ -75,8 +76,12 @@ export interface ReturnTypeCompanyIntelligence {
   earnings: EarningsEvent[]
   filings: SecFiling[]
   companyFacts: SecCompanyFacts | null
+  fmpFundamentals: import("./normalized-types").NormalizedFundamentals | null
   warnings: string[]
   providers: {
+    fmpQuote: ProviderResult<VerifiedQuote>
+    fmpFundamentals: ProviderResult<import("./normalized-types").NormalizedFundamentals>
+    fmpEarnings: ProviderResult<EarningsEvent[]>
     alphaQuote: ProviderResult<VerifiedQuote>
     alphaNews: ProviderResult<ProviderNewsItem[]>
     finnhubNews: ProviderResult<ProviderNewsItem[]>
@@ -92,6 +97,9 @@ export async function getCompanyIntelligence(
   const symbol = ticker.trim().toUpperCase()
 
   const [
+    fmpQuote,
+    fmpFundamentals,
+    fmpEarnings,
     alphaQuote,
     alphaNews,
     finnhubNews,
@@ -99,6 +107,9 @@ export async function getCompanyIntelligence(
     secFilings,
     secFacts,
   ] = await Promise.all([
+    getFmpQuote(symbol),
+    getFmpFundamentals(symbol),
+    getFmpEarnings(symbol),
     getAlphaVantageQuote(symbol),
     getAlphaVantageNews(symbol),
     getFinnhubCompanyNews(symbol),
@@ -113,6 +124,9 @@ export async function getCompanyIntelligence(
   ]).slice(0, 25)
 
   const warnings = [
+    fmpQuote,
+    fmpFundamentals,
+    fmpEarnings,
     alphaQuote,
     alphaNews,
     finnhubNews,
@@ -126,13 +140,17 @@ export async function getCompanyIntelligence(
   return {
     ticker: symbol,
     retrievedAt: new Date().toISOString(),
-    quoteChecks: [alphaQuote],
+    quoteChecks: [fmpQuote, alphaQuote],
     news,
-    earnings: finnhubEarnings.ok ? finnhubEarnings.data : [],
+    earnings: fmpEarnings.ok && fmpEarnings.data.length ? fmpEarnings.data : finnhubEarnings.ok ? finnhubEarnings.data : [],
     filings: secFilings.ok ? secFilings.data : [],
     companyFacts: secFacts.ok ? secFacts.data : null,
+    fmpFundamentals: fmpFundamentals.ok ? fmpFundamentals.data : null,
     warnings,
     providers: {
+      fmpQuote,
+      fmpFundamentals,
+      fmpEarnings,
       alphaQuote,
       alphaNews,
       finnhubNews,
