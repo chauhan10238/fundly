@@ -442,7 +442,9 @@
         "m3": -11.2,
         "m6": -14.7,
         "m12": null
-      }
+      },
+      "executionStatus": "Already Own",
+      "decisionAt": "2026-08-05T05:16:21.995Z"
     },
     {
       "id": "r4",
