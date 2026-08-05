@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useDios } from "@/components/dios/store"
 import type { RecommendationExecutionStatus, RecommendationRecord } from "@/lib/dios/types"
 import { Panel, RecommendationBadge, ScorePill, StatCard } from "@/components/dios/ui-bits"
@@ -28,9 +28,62 @@ function verdict(r: RecommendationRecord): "correct" | "wrong" | "pending" {
 }
 
 export default function HistoryPage() {
-  const { recommendations, updateRecommendation } = useDios()
+  const { recommendations, updateRecommendation, hydrated } = useDios()
   const [selected, setSelected] = useState<RecommendationRecord | null>(null)
   const [notes, setNotes] = useState("")
+  const measurementRunRef = useRef(false)
+
+
+
+  useEffect(() => {
+    if (!hydrated || measurementRunRef.current || recommendations.length === 0) return
+
+    const now = Date.now()
+    const horizons = [
+      ["d1", 1],
+      ["w1", 7],
+      ["m1", 30],
+      ["m3", 90],
+      ["m6", 180],
+      ["m12", 365],
+    ] as const
+
+    const due = recommendations.filter((record) => {
+      const ageDays = (now - new Date(record.datetime).getTime()) / 86_400_000
+      return horizons.some(([key, days]) => ageDays >= days && record.outcomes[key] === null)
+    })
+    if (due.length === 0) return
+
+    measurementRunRef.current = true
+    const symbols = Array.from(new Set(due.map((record) => record.ticker))).join(",")
+
+    void fetch(`/api/quotes?symbols=${encodeURIComponent(symbols)}`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Quote request failed (${response.status})`)
+        return response.json() as Promise<{ quotes?: Array<{ symbol: string; price: number }> }>
+      })
+      .then((payload) => {
+        const prices = new Map((payload.quotes ?? []).map((quote) => [quote.symbol.toUpperCase(), quote.price]))
+        for (const record of due) {
+          const currentPrice = prices.get(record.ticker.toUpperCase())
+          if (!currentPrice || !record.priceAtRec) continue
+          const ageDays = (now - new Date(record.datetime).getTime()) / 86_400_000
+          const measuredReturn = ((currentPrice / record.priceAtRec) - 1) * 100
+          const nextOutcomes = { ...record.outcomes }
+          let changed = false
+          for (const [key, days] of horizons) {
+            if (ageDays >= days && nextOutcomes[key] === null) {
+              nextOutcomes[key] = Number(measuredReturn.toFixed(2))
+              changed = true
+            }
+          }
+          if (changed) updateRecommendation(record.id, { outcomes: nextOutcomes })
+        }
+      })
+      .catch(() => {
+        measurementRunRef.current = false
+      })
+  }, [hydrated, recommendations, updateRecommendation])
 
   const stats = useMemo(() => {
     const scored = recommendations.filter((r) => verdict(r) !== "pending")
@@ -79,8 +132,8 @@ export default function HistoryPage() {
 
   return <div className="space-y-6">
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Investment Decision Tracker</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Track each Fundly recommendation, its data sources, investor action and measured outcome.</p>
+      <h1 className="text-2xl font-semibold tracking-tight">Recommendation History</h1>
+      <p className="mt-1 text-sm text-muted-foreground">Track every Fundly recommendation, its reasoning, sources, investor action and measured performance.</p>
     </div>
 
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -90,6 +143,13 @@ export default function HistoryPage() {
       <StatCard label="Average loss" value={`${stats.avgLoss.toFixed(1)}%`} sub="Negative measured calls" accent="negative" />
     </div>
 
+    <Panel title="How performance data appears" description="Fundly measures recommendations automatically once a time horizon becomes due.">
+      <div className="space-y-2 p-4 text-sm text-muted-foreground">
+        <p>1-day, 1-week, 1-month, 3-month, 6-month and 12-month outcomes are filled when Recommendation History is opened after that horizon.</p>
+        <p>The return uses the latest available market quote at the first measurement after the horizon. New recommendations therefore remain Pending until at least one day has passed.</p>
+      </div>
+    </Panel>
+
     <Panel title="Confidence calibration" description="Checks whether higher Fundly scores have produced better outcomes.">
       <div className="space-y-3 p-4">{buckets.map((b) => <div key={b.label} className="flex items-center gap-4">
         <span className="w-24 text-sm">{b.label}</span><span className="w-16 font-mono text-xs text-muted-foreground">{b.count} calls</span>
@@ -98,7 +158,7 @@ export default function HistoryPage() {
       </div>)}</div>
     </Panel>
 
-    <Panel title="Decision log" description="Click a row to inspect rationale, sources and record whether the recommendation was followed.">
+    <Panel title="Recommendation log" description="Click a row to inspect rationale, sources and record whether the recommendation was followed.">
       <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-xs text-muted-foreground">
         <th className="px-4 py-2">Date</th><th className="px-4 py-2">Ticker</th><th className="px-4 py-2">Recommendation</th><th className="px-4 py-2">Action</th><th className="px-4 py-2 text-right">Confidence</th><th className="px-4 py-2 text-right">3M/1M</th><th className="px-4 py-2">Result</th>
       </tr></thead><tbody>{recommendations.map((r) => {

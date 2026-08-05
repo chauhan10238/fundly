@@ -236,7 +236,7 @@ export default function InvestorHubPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardDescription>Fundly Recommendation Performance</CardDescription><CardTitle>{recommendationPerformance.successRate.toFixed(1)}% success rate</CardTitle></CardHeader>
+          <CardHeader><CardDescription>Fundly Recommendation Performance</CardDescription><CardTitle>{recommendationPerformance.measured ? `${recommendationPerformance.successRate.toFixed(1)}% success rate` : "Waiting for measured outcomes"}</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
             <div><p className="text-muted-foreground">Logged</p><p className="text-xl font-semibold">{recommendationPerformance.total}</p></div>
             <div><p className="text-muted-foreground">Measured</p><p className="text-xl font-semibold">{recommendationPerformance.measured}</p></div>
