@@ -4461,7 +4461,9 @@
         "m6": null,
         "m12": null
       },
-      "decisionAt": "2026-08-05T05:19:01.561Z"
+      "decisionAt": "2026-08-05T05:19:01.561Z",
+      "executionPrice": null,
+      "executionQuantity": null
     }
   ],
   "journal": []
