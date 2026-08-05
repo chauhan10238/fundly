@@ -4371,6 +4371,97 @@
       "opportunityCost": 2
     }
   },
-  "recommendations": [],
+  "recommendations": [
+    {
+      "id": "rec-1785902941365",
+      "datetime": "2026-08-05T04:09:01.365Z",
+      "ticker": "NVDA",
+      "type": "stock",
+      "priceAtRec": 216.5,
+      "overallScore": 75,
+      "recommendation": "Buy Watch",
+      "suggestedWeight": 0.33833290004149214,
+      "confidence": 41,
+      "reasons": [
+        "Upcoming earnings on 2026-08-26; event risk supports staged sizing rather than a full entry.",
+        "Price trend is constructive with momentum score 90/100; the name trades above key moving averages based on the current price trend.",
+        "Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Business quality is high (94/100): durable margins and competitive position support a core allocation.",
+        "Structural AI-driven demand remains a multi-quarter tailwind; confirm this against the latest earnings source listed below."
+      ],
+      "risks": [
+        "A demand air-pocket or inventory correction that cuts forward revenue guidance would invalidate the thesis.",
+        "A close below key support (roughly $177.53, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 33,
+          "low": 0.3186,
+          "high": 0.4806,
+          "assumptions": [
+            "AI capex cycle extends with sustained data-center demand",
+            "Gross margins hold above prior peak on pricing power",
+            "Export-control disruption remains contained"
+          ]
+        },
+        "base": {
+          "probability": 46,
+          "low": 0.12599999999999997,
+          "high": 0.20599999999999996,
+          "assumptions": [
+            "In-line earnings delivery",
+            "Stable valuation multiple",
+            "No major macro shock"
+          ]
+        },
+        "bear": {
+          "probability": 21,
+          "low": -0.29700000000000004,
+          "high": -0.027000000000000003,
+          "assumptions": [
+            "AI capex digestion / inventory correction",
+            "Export controls tighten",
+            "Cyclical demand rolls over"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Technology",
+      "macroRegime": "Late-cycle expansion, easing bias",
+      "executionStatus": "Pending",
+      "executionNotes": "",
+      "sourceNames": [
+        "Fundly Decision Engine",
+        "Yahoo Finance (Fallback) — latest available quote for NVDA",
+        "SEC EDGAR 8-K",
+        "SEC EDGAR 10-Q",
+        "Motley Fool — Is Micron Stock Going Higher? You Need To Hear What Elon Musk Just Said",
+        "Motley Fool — Hyperscaler Rally: 4 Stocks to Buy Before It's Too Late",
+        "Motley Fool — Why Backblaze Stock Jumped Today",
+        "Motley Fool — Better Robotics Stock: Tesla vs. Nvidia",
+        "Stocktwits — AMD Stock Tumbles Overnight As CapEx Surge And SpaceX’s Nvidia Switch Overshadow Q2 Beat",
+        "Motley Fool — Why Microsoft Stock Surged 24.6% in July While the Market Was Flat",
+        "Motley Fool — SpaceX CEO Elon Musk Just Delivered Fantastic News for Nvidia Investors",
+        "Motley Fool — Why ASML Stock Lost 18% in July"
+      ],
+      "confidenceContributors": [
+        "Positive: Upcoming earnings on 2026-08-26; event risk supports staged sizing rather than a full entry.",
+        "Positive: Price trend is constructive with momentum score 90/100; the name trades above key moving averages based on the current price trend.",
+        "Positive: Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Risk: A demand air-pocket or inventory correction that cuts forward revenue guidance would invalidate the thesis.",
+        "Risk: A close below key support (roughly $177.53, ~18% downside) would signal thesis failure and trigger the exit rule."
+      ],
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      }
+    }
+  ],
   "journal": []
 }
