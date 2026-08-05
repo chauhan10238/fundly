@@ -578,7 +578,9 @@
         "m3": 133.45,
         "m6": 133.45,
         "m12": null
-      }
+      },
+      "executionStatus": "Already Own",
+      "decisionAt": "2026-08-05T05:16:39.986Z"
     },
     {
       "id": "r6",
