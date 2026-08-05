@@ -20,7 +20,9 @@ function normalizedStatus(status?: RecommendationExecutionStatus): Recommendatio
   return !status || status === "Pending" ? "Awaiting Decision" : status
 }
 function isMeasured(r: RecommendationRecord) { return (r.outcomes.m3 ?? r.outcomes.m1 ?? r.outcomes.w1 ?? r.outcomes.d1) !== null }
-function primaryOutcome(r: RecommendationRecord) { return r.outcomes.m3 ?? r.outcomes.m1 ?? r.outcomes.w1 ?? r.outcomes.d1 }
+function primaryOutcome(r: RecommendationRecord) {
+  return r.outcomes.m12 ?? r.outcomes.m6 ?? r.outcomes.m3 ?? r.outcomes.m1 ?? r.outcomes.w1 ?? r.outcomes.d1
+}
 function callWasCorrect(r: RecommendationRecord) {
   const o = primaryOutcome(r)
   if (o === null) return null
@@ -33,6 +35,27 @@ function outcomeColor(v: number | null) {
   return v >= 0 ? "text-[var(--positive)]" : "text-[var(--negative)]"
 }
 function fmtOutcome(v: number | null) { return v === null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(1)}%` }
+
+function recommendationValue(r: RecommendationRecord) {
+  const outcome = primaryOutcome(r)
+  if (outcome === null) return null
+  if (POSITIVE_CALLS.includes(r.recommendation)) return outcome
+  if (NEGATIVE_CALLS.includes(r.recommendation)) return -outcome
+  return Math.abs(outcome) < 5 ? 5 - Math.abs(outcome) : -Math.abs(outcome)
+}
+
+function ignoredDecisionWasGood(r: RecommendationRecord) {
+  if (normalizedStatus(r.executionStatus) !== "Ignored") return null
+  const outcome = primaryOutcome(r)
+  if (outcome === null) return null
+  if (POSITIVE_CALLS.includes(r.recommendation)) return outcome <= 0
+  if (NEGATIVE_CALLS.includes(r.recommendation)) return outcome >= 0
+  return Math.abs(outcome) >= 5
+}
+
+function average(values: number[]) {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0
+}
 
 function resultLabel(r: RecommendationRecord) {
   const status = normalizedStatus(r.executionStatus)
@@ -105,10 +128,33 @@ export default function HistoryPage() {
     const followed = recommendations.filter((r) => FOLLOWED_STATUSES.includes(normalizedStatus(r.executionStatus)))
     const followedMeasured = followed.filter(isMeasured)
     const followedCorrect = followedMeasured.filter((r) => callWasCorrect(r) === true)
+    const followedValues = followedMeasured.map(recommendationValue).filter((v): v is number => v !== null)
+
     const ignored = recommendations.filter((r) => normalizedStatus(r.executionStatus) === "Ignored")
-    const waiting = recommendations.filter((r) => ["Awaiting Decision","Watching"].includes(normalizedStatus(r.executionStatus)))
-    const returns = measured.map(primaryOutcome).filter((v): v is number => v !== null)
-    const gains = returns.filter((v) => v > 0), losses = returns.filter((v) => v < 0)
+    const ignoredMeasured = ignored.filter(isMeasured)
+    const ignoredGood = ignoredMeasured.filter((r) => ignoredDecisionWasGood(r) === true)
+    const ignoredBad = ignoredMeasured.filter((r) => ignoredDecisionWasGood(r) === false)
+
+    const missedOpportunities = ignoredMeasured.filter((r) =>
+      POSITIVE_CALLS.includes(r.recommendation) && (primaryOutcome(r) ?? 0) > 0
+    )
+    const avoidedLosses = ignoredMeasured.filter((r) =>
+      POSITIVE_CALLS.includes(r.recommendation) && (primaryOutcome(r) ?? 0) < 0
+    )
+    const missedProtection = ignoredMeasured.filter((r) =>
+      NEGATIVE_CALLS.includes(r.recommendation) && (primaryOutcome(r) ?? 0) < 0
+    )
+    const goodIgnoredWarnings = ignoredMeasured.filter((r) =>
+      NEGATIVE_CALLS.includes(r.recommendation) && (primaryOutcome(r) ?? 0) > 0
+    )
+
+    const waiting = recommendations.filter((r) =>
+      ["Awaiting Decision", "Watching"].includes(normalizedStatus(r.executionStatus))
+    )
+    const decided = recommendations.filter((r) =>
+      !["Awaiting Decision", "Watching"].includes(normalizedStatus(r.executionStatus))
+    )
+
     return {
       total: recommendations.length,
       measured: measured.length,
@@ -116,10 +162,21 @@ export default function HistoryPage() {
       followed: followed.length,
       followedMeasured: followedMeasured.length,
       followedSuccess: followedMeasured.length ? followedCorrect.length / followedMeasured.length * 100 : 0,
+      followedAvgValue: average(followedValues),
       ignored: ignored.length,
+      ignoredMeasured: ignoredMeasured.length,
+      ignoredGood: ignoredGood.length,
+      ignoredBad: ignoredBad.length,
+      ignoredDecisionQuality: ignoredMeasured.length ? ignoredGood.length / ignoredMeasured.length * 100 : 0,
+      missedOpportunities: missedOpportunities.length,
+      avgMissedOpportunity: average(missedOpportunities.map((r) => primaryOutcome(r) ?? 0)),
+      avoidedLosses: avoidedLosses.length,
+      avgAvoidedLoss: Math.abs(average(avoidedLosses.map((r) => primaryOutcome(r) ?? 0))),
+      missedProtection: missedProtection.length,
+      avgMissedProtection: Math.abs(average(missedProtection.map((r) => primaryOutcome(r) ?? 0))),
+      goodIgnoredWarnings: goodIgnoredWarnings.length,
       waiting: waiting.length,
-      avgGain: gains.length ? gains.reduce((a,b)=>a+b,0)/gains.length : 0,
-      avgLoss: losses.length ? losses.reduce((a,b)=>a+b,0)/losses.length : 0,
+      decisionRate: recommendations.length ? decided.length / recommendations.length * 100 : 0,
     }
   }, [recommendations])
 
@@ -168,9 +225,16 @@ export default function HistoryPage() {
 
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <StatCard label="Recommendations" value={stats.total} sub={`${stats.measured} market outcomes measured`} />
-      <StatCard label="Fundly accuracy" value={stats.measured ? fmtPct(stats.fundlyAccuracy,0) : "Pending"} sub="All measured recommendations" accent={stats.measured && stats.fundlyAccuracy >= 55 ? "positive" : "warning"} />
-      <StatCard label="Recommendations followed" value={stats.followed} sub={stats.followedMeasured ? `${stats.followedSuccess.toFixed(0)}% successful when measured` : "No followed outcomes measured yet"} accent="positive" />
-      <StatCard label="Awaiting / ignored" value={`${stats.waiting} / ${stats.ignored}`} sub="Awaiting or watching / ignored" />
+      <StatCard label="Fundly accuracy" value={stats.measured ? fmtPct(stats.fundlyAccuracy,0) : "Pending"} sub="Direction correct across all measured calls" accent={stats.measured && stats.fundlyAccuracy >= 55 ? "positive" : "warning"} />
+      <StatCard label="Followed success" value={stats.followedMeasured ? fmtPct(stats.followedSuccess,0) : "Pending"} sub={`${stats.followed} followed · ${stats.followedMeasured} measured`} accent="positive" />
+      <StatCard label="Decision rate" value={fmtPct(stats.decisionRate,0)} sub={`${stats.waiting} awaiting or watching`} />
+    </div>
+
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <StatCard label="Ignored decision quality" value={stats.ignoredMeasured ? fmtPct(stats.ignoredDecisionQuality,0) : "Pending"} sub={`${stats.ignoredGood} good · ${stats.ignoredBad} costly decisions`} accent={stats.ignoredMeasured && stats.ignoredDecisionQuality >= 50 ? "positive" : "warning"} />
+      <StatCard label="Missed opportunities" value={stats.missedOpportunities} sub={stats.missedOpportunities ? `Average missed rise ${fmtPct(stats.avgMissedOpportunity,1)}` : "No measured missed gains"} accent="warning" />
+      <StatCard label="Losses avoided" value={stats.avoidedLosses} sub={stats.avoidedLosses ? `Average avoided decline ${fmtPct(stats.avgAvoidedLoss,1)}` : "No measured avoided losses"} accent="positive" />
+      <StatCard label="Followed recommendation value" value={stats.followedMeasured ? fmtPct(stats.followedAvgValue,1) : "Pending"} sub="Direction-adjusted average outcome" accent={stats.followedAvgValue >= 0 ? "positive" : "warning"} />
     </div>
 
     <Panel title="How decisions and performance work" description="Fundly measures the recommendation independently from whether you act on it.">
@@ -179,6 +243,34 @@ export default function HistoryPage() {
         <p><strong className="text-foreground">Fundly accuracy:</strong> measured for every recommendation after 1 day, 1 week, 1 month and later horizons.</p>
         <p><strong className="text-foreground">Followed performance:</strong> only recommendations marked Executed, Partially Executed or Already Own.</p>
         <p><strong className="text-foreground">Ignored outcomes:</strong> shown as missed opportunities, avoided losses or a good decision to ignore.</p>
+      </div>
+    </Panel>
+
+    <Panel title="Fundly AI scorecard" description="Separates the quality of Fundly's calls from the investor's decision to follow or ignore them.">
+      <div className="grid gap-4 p-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-lg border p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">AI calls measured</p>
+          <p className="mt-2 text-2xl font-semibold">{stats.measured}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Every recommendation is tracked, including ignored calls.</p>
+        </div>
+        <div className="rounded-lg border p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ignored warnings missed</p>
+          <p className="mt-2 text-2xl font-semibold text-[var(--negative)]">{stats.missedProtection}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{stats.missedProtection ? `Average subsequent decline ${fmtPct(stats.avgMissedProtection,1)}` : "No measured ignored reduce/sell warning has fallen yet."}</p>
+        </div>
+        <div className="rounded-lg border p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Warnings correctly ignored</p>
+          <p className="mt-2 text-2xl font-semibold text-[var(--positive)]">{stats.goodIgnoredWarnings}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Reduce, sell or avoid calls where the security subsequently rose.</p>
+        </div>
+        <div className="rounded-lg border p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Evidence status</p>
+          <p className="mt-2 text-2xl font-semibold">{stats.measured >= 30 ? "Building" : "Early"}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{stats.measured >= 30 ? "Enough observations for an initial track record; longer horizons still matter." : `${Math.max(0, 30 - stats.measured)} more measured calls before treating the scorecard as meaningful.`}</p>
+        </div>
+      </div>
+      <div className="border-t p-4 text-xs text-muted-foreground">
+        These figures are historical measurements of recorded recommendations, not a guarantee of future performance. Selling claims should identify the timeframe, sample size and whether outcomes include ignored calls.
       </div>
     </Panel>
 
