@@ -57,6 +57,27 @@ function average(values: number[]) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0
 }
 
+function primaryBenchmarkOutcome(r: RecommendationRecord) {
+  const b = r.benchmarkOutcomes
+  if (!b) return null
+  return b.m12 ?? b.m6 ?? b.m3 ?? b.m1 ?? b.w1 ?? b.d1
+}
+function trackingNotional(r: RecommendationRecord) {
+  if (r.executionPrice && r.executionQuantity) return r.executionPrice * r.executionQuantity
+  return r.trackingNotional ?? r.snapshot?.suggestedNotional ?? 10000
+}
+function outcomeDollars(r: RecommendationRecord) {
+  const o = primaryOutcome(r)
+  return o === null ? 0 : trackingNotional(r) * Math.abs(o) / 100
+}
+function aiAlphaValue(r: RecommendationRecord) {
+  const o = primaryOutcome(r), b = primaryBenchmarkOutcome(r)
+  if (o === null || b === null) return null
+  if (POSITIVE_CALLS.includes(r.recommendation)) return o - b
+  if (NEGATIVE_CALLS.includes(r.recommendation)) return b - o
+  return Math.abs(b) - Math.abs(o)
+}
+
 function resultLabel(r: RecommendationRecord) {
   const status = normalizedStatus(r.executionStatus)
   const o = primaryOutcome(r)
@@ -96,30 +117,37 @@ export default function HistoryPage() {
     })
     if (!due.length) return
     measurementRunRef.current = true
-    const symbols = Array.from(new Set(due.map((r) => r.ticker))).join(",")
-    void fetch(`/api/quotes?symbols=${encodeURIComponent(symbols)}`, { cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`Quote request failed (${response.status})`)
-        return response.json() as Promise<{ quotes?: Array<{ symbol: string; price: number }> }>
+    void Promise.all(due.map(async (record) => {
+      const params = new URLSearchParams({
+        ticker: record.ticker,
+        benchmark: record.benchmarkTicker ?? "SPY",
+        createdAt: record.datetime,
+        priceAtRec: String(record.priceAtRec),
       })
-      .then((payload) => {
-        const prices = new Map((payload.quotes ?? []).map((q) => [q.symbol.toUpperCase(), q.price]))
-        for (const record of due) {
-          const currentPrice = prices.get(record.ticker.toUpperCase())
-          if (!currentPrice || !record.priceAtRec) continue
-          const ageDays = (now - new Date(record.datetime).getTime()) / 86_400_000
-          const measuredReturn = ((currentPrice / record.priceAtRec) - 1) * 100
-          const nextOutcomes = { ...record.outcomes }
-          let changed = false
-          for (const [key, days] of horizons) {
-            if (ageDays >= days && nextOutcomes[key] === null) {
-              nextOutcomes[key] = Number(measuredReturn.toFixed(2)); changed = true
-            }
-          }
-          if (changed) updateRecommendation(record.id, { outcomes: nextOutcomes })
-        }
-      })
-      .catch(() => { measurementRunRef.current = false })
+      if (record.benchmarkPriceAtRec) params.set("benchmarkPriceAtRec", String(record.benchmarkPriceAtRec))
+      const response = await fetch(`/api/recommendations/measure?${params.toString()}`, { cache: "no-store" })
+      if (!response.ok) throw new Error(`Measurement failed for ${record.ticker} (${response.status})`)
+      return {
+        record,
+        payload: await response.json() as {
+          benchmarkPriceAtRec?: number | null
+          outcomes: RecommendationRecord["outcomes"]
+          benchmarkOutcomes: NonNullable<RecommendationRecord["benchmarkOutcomes"]>
+          measurements: NonNullable<RecommendationRecord["measurements"]>
+        },
+      }
+    })).then((results) => {
+      for (const { record, payload } of results) {
+        updateRecommendation(record.id, {
+          benchmarkPriceAtRec: payload.benchmarkPriceAtRec ?? record.benchmarkPriceAtRec ?? null,
+          outcomes: { ...record.outcomes, ...payload.outcomes },
+          benchmarkOutcomes: { ...(record.benchmarkOutcomes ?? { d1:null,w1:null,m1:null,m3:null,m6:null,m12:null }), ...payload.benchmarkOutcomes },
+          measurements: payload.measurements,
+        })
+      }
+    }).catch(() => {
+      measurementRunRef.current = false
+    })
   }, [hydrated, recommendations, updateRecommendation])
 
   const stats = useMemo(() => {
@@ -147,6 +175,18 @@ export default function HistoryPage() {
     const goodIgnoredWarnings = ignoredMeasured.filter((r) =>
       NEGATIVE_CALLS.includes(r.recommendation) && (primaryOutcome(r) ?? 0) > 0
     )
+    const alphaValues = measured.map(aiAlphaValue).filter((value): value is number => value !== null)
+    const missedOpportunityDollars = missedOpportunities.reduce((sum, record) => sum + outcomeDollars(record), 0)
+    const avoidedLossDollars = avoidedLosses.reduce((sum, record) => sum + outcomeDollars(record), 0)
+    const followedDollarImpact = followedMeasured.reduce((sum, record) => {
+      const value = recommendationValue(record)
+      return sum + (value === null ? 0 : trackingNotional(record) * value / 100)
+    }, 0)
+
+    const recommendationQuality = measured.length
+      ? (correct.length / measured.length * 100) * Math.min(1, measured.length / 30)
+      : 0
+    const aiVersions = Array.from(new Set(recommendations.map((r) => r.snapshot?.aiVersion ?? r.modelVersion)))
 
     const waiting = recommendations.filter((r) =>
       ["Awaiting Decision", "Watching"].includes(normalizedStatus(r.executionStatus))
@@ -175,6 +215,13 @@ export default function HistoryPage() {
       missedProtection: missedProtection.length,
       avgMissedProtection: Math.abs(average(missedProtection.map((r) => primaryOutcome(r) ?? 0))),
       goodIgnoredWarnings: goodIgnoredWarnings.length,
+      aiAlpha: average(alphaValues),
+      alphaMeasured: alphaValues.length,
+      missedOpportunityDollars,
+      avoidedLossDollars,
+      followedDollarImpact,
+      recommendationQuality,
+      aiVersions,
       waiting: waiting.length,
       decisionRate: recommendations.length ? decided.length / recommendations.length * 100 : 0,
     }
@@ -197,7 +244,15 @@ export default function HistoryPage() {
   }
   function setExecution(status: RecommendationExecutionStatus) {
     if (!selected) return
-    const patch = { executionStatus: status, decisionAt: new Date().toISOString() }
+    const decisionAt = new Date().toISOString()
+    const patch = {
+      executionStatus: status,
+      decisionAt,
+      actions: [
+        ...(selected.actions ?? []),
+        { id: `action-${Date.now()}`, at: decisionAt, status, note: notes || undefined },
+      ],
+    }
     updateRecommendation(selected.id, patch); setSelected({ ...selected, ...patch })
   }
   function saveDecisionDetails() {
@@ -237,6 +292,13 @@ export default function HistoryPage() {
       <StatCard label="Followed recommendation value" value={stats.followedMeasured ? fmtPct(stats.followedAvgValue,1) : "Pending"} sub="Direction-adjusted average outcome" accent={stats.followedAvgValue >= 0 ? "positive" : "warning"} />
     </div>
 
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <StatCard label="AI alpha vs SPY" value={stats.alphaMeasured ? fmtPct(stats.aiAlpha,1) : "Pending"} sub={`${stats.alphaMeasured} benchmarked calls`} accent={stats.aiAlpha >= 0 ? "positive" : "warning"} />
+      <StatCard label="Missed opportunity $" value={fmtCurrency(stats.missedOpportunityDollars)} sub="Based on executed value or stored tracking notional" accent="warning" />
+      <StatCard label="Loss avoided $" value={fmtCurrency(stats.avoidedLossDollars)} sub="Ignored positive calls that later declined" accent="positive" />
+      <StatCard label="Followed value impact" value={fmtCurrency(stats.followedDollarImpact)} sub="Direction-adjusted measured impact" accent={stats.followedDollarImpact >= 0 ? "positive" : "warning"} />
+    </div>
+
     <Panel title="How decisions and performance work" description="Fundly measures the recommendation independently from whether you act on it.">
       <div className="grid gap-3 p-4 text-sm text-muted-foreground md:grid-cols-2">
         <p><strong className="text-foreground">Awaiting Decision:</strong> not automatically ignored. Choose Bought, Watching, Ignored or Already Own.</p>
@@ -273,6 +335,15 @@ export default function HistoryPage() {
         These figures are historical measurements of recorded recommendations, not a guarantee of future performance. Selling claims should identify the timeframe, sample size and whether outcomes include ignored calls.
       </div>
     </Panel>
+
+    <div className="grid gap-4 md:grid-cols-2">
+      <Panel title="Recommendation quality" description="Accuracy adjusted for evidence maturity, so a very small sample cannot look production-ready.">
+        <div className="p-4"><p className="text-3xl font-semibold">{stats.measured ? `${stats.recommendationQuality.toFixed(1)} / 100` : "Pending"}</p><p className="mt-2 text-sm text-muted-foreground">Combines directional accuracy with progress toward the first 30 measured recommendations.</p></div>
+      </Panel>
+      <Panel title="AI version tracking" description="Shows which Fundly AI versions generated the recommendations in this profile.">
+        <div className="flex flex-wrap gap-2 p-4">{stats.aiVersions.map((version)=><Badge key={version} variant="secondary">{version}</Badge>)}</div>
+      </Panel>
+    </div>
 
     <Panel title="Confidence calibration" description="Checks whether higher Fundly scores have produced better market outcomes.">
       <div className="space-y-3 p-4">{buckets.map((b)=><div key={b.label} className="flex items-center gap-4">
@@ -316,6 +387,43 @@ export default function HistoryPage() {
         <div><label className="mb-1 block text-xs font-medium">Execution price (optional)</label><Input type="number" min="0" step="0.0001" value={executionPrice} onChange={(e)=>setExecutionPrice(e.target.value)} placeholder={String(selected.priceAtRec)} /></div>
         <div><label className="mb-1 block text-xs font-medium">Quantity (optional)</label><Input type="number" min="0" step="0.000001" value={executionQuantity} onChange={(e)=>setExecutionQuantity(e.target.value)} placeholder="Shares or units" /></div>
       </div>}
+
+      <div className="rounded-lg border p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div><h4 className="text-sm font-semibold">AI audit snapshot</h4><p className="text-xs text-muted-foreground">Frozen when the recommendation was created. It does not change with today&apos;s market.</p></div>
+          <Badge variant="secondary">{selected.snapshot?.aiVersion ?? "Fundly AI legacy"}</Badge>
+        </div>
+        <div className="mt-4 grid gap-3 text-sm sm:grid-cols-4">
+          <div><p className="text-xs text-muted-foreground">Captured</p><p>{fmtDateTime(selected.snapshot?.capturedAt ?? selected.datetime)}</p></div>
+          <div><p className="text-xs text-muted-foreground">Price</p><p>{fmtCurrency(selected.snapshot?.price ?? selected.priceAtRec)}</p></div>
+          <div><p className="text-xs text-muted-foreground">Model</p><p className="truncate" title={selected.modelVersion}>{selected.snapshot?.modelVersion ?? selected.modelVersion}</p></div>
+          <div><p className="text-xs text-muted-foreground">Data provider</p><p>{selected.snapshot?.marketDataProvider ?? selected.sourceNames?.[0] ?? "Fundly"}</p></div>
+        </div>
+        {selected.snapshot?.scores && <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {Object.entries(selected.snapshot.scores).map(([key,value])=><div key={key} className="rounded-md bg-muted/50 p-2"><p className="text-[10px] uppercase text-muted-foreground">{key}</p><p className="font-mono font-semibold">{Math.round(Number(value))}</p></div>)}
+        </div>}
+      </div>
+
+      <div className="rounded-lg border p-4">
+        <h4 className="text-sm font-semibold">Recommendation timeline</h4>
+        <div className="mt-4 space-y-3 border-l pl-4 text-sm">
+          <div><p className="font-medium">Recommendation created</p><p className="text-xs text-muted-foreground">{fmtDateTime(selected.datetime)} · {selected.recommendation} at {fmtCurrency(selected.priceAtRec)}</p></div>
+          {(selected.actions ?? []).map((action)=><div key={action.id}><p className="font-medium">Investor marked: {action.status}</p><p className="text-xs text-muted-foreground">{fmtDateTime(action.at)}{action.note ? ` · ${action.note}` : ""}</p></div>)}
+          {(selected.measurements ?? []).map((measurement)=><div key={`${measurement.horizon}-${measurement.measuredAt}`}><p className="font-medium">{measurement.horizon.toUpperCase()} outcome measured</p><p className="text-xs text-muted-foreground">{fmtOutcome(measurement.returnPct)}{measurement.alphaPct != null ? ` · Alpha ${fmtOutcome(measurement.alphaPct)}` : ""} · {fmtDateTime(measurement.measuredAt)}</p></div>)}
+          {!(selected.measurements?.length) && <div><p className="font-medium">Measurement pending</p><p className="text-xs text-muted-foreground">First automatic result is due one day after creation.</p></div>}
+        </div>
+      </div>
+
+      <div className="rounded-lg border p-4">
+        <h4 className="text-sm font-semibold">Performance milestones</h4>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-6">
+          {([['d1','1 Day'],['w1','1 Week'],['m1','1 Month'],['m3','3 Months'],['m6','6 Months'],['m12','12 Months']] as const).map(([key,label])=>{
+            const value=selected.outcomes[key]
+            const benchmark=selected.benchmarkOutcomes?.[key] ?? null
+            return <div key={key} className="rounded-md border p-3"><p className="text-xs text-muted-foreground">{label}</p><p className={`font-mono font-semibold ${outcomeColor(value)}`}>{fmtOutcome(value)}</p><p className="mt-1 text-[10px] text-muted-foreground">{benchmark===null?"SPY pending":`SPY ${fmtOutcome(benchmark)}`}</p></div>
+          })}
+        </div>
+      </div>
 
       <div><h4 className="mb-2 text-sm font-semibold">Why Fundly made this call</h4><ul className="space-y-1 text-sm text-muted-foreground">{selected.reasons.map((x,i)=><li key={i}>+ {x}</li>)}</ul></div>
       <div><h4 className="mb-2 text-sm font-semibold">Confidence contributors</h4><ul className="space-y-1 text-sm text-muted-foreground">{(selected.confidenceContributors??[...selected.reasons.slice(0,3),...selected.risks.slice(0,2)]).map((x,i)=><li key={i}>{x}</li>)}</ul></div>
