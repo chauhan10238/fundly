@@ -306,7 +306,9 @@
         "m3": 19.2,
         "m6": 31.5,
         "m12": null
-      }
+      },
+      "executionStatus": "Watching",
+      "decisionAt": "2026-08-05T05:15:54.659Z"
     },
     {
       "id": "r2",
