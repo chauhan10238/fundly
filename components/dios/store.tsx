@@ -38,6 +38,7 @@ interface StoreValue extends PersistedStore {
   updateSettings: (patch: Partial<Settings>) => void
   resetSettings: () => void
   addRecommendation: (r: RecommendationRecord) => void
+  updateRecommendation: (id: string, patch: Partial<RecommendationRecord>) => void
   upsertJournalEntry: (entry: InvestmentJournalEntry) => void
   removeJournalEntry: (ticker: string) => void
   resetPortfolio: () => void
@@ -454,6 +455,16 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
     }))
   }, [])
 
+  const updateRecommendation = useCallback((id: string, patch: Partial<RecommendationRecord>) => {
+    localChangesPendingRef.current = true
+    setState((prev) => ({
+      ...prev,
+      recommendations: prev.recommendations.map((item) =>
+        item.id === id ? { ...item, ...patch } : item,
+      ),
+    }))
+  }, [])
+
   const upsertJournalEntry = useCallback((entry: InvestmentJournalEntry) => {
     localChangesPendingRef.current = true
     const ticker = entry.ticker.trim().toUpperCase()
@@ -501,6 +512,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
         updateSettings,
         resetSettings,
         addRecommendation,
+        updateRecommendation,
         upsertJournalEntry,
         removeJournalEntry,
         resetPortfolio,

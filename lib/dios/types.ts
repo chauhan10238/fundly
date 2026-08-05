@@ -318,6 +318,8 @@ export interface InvestmentJournalEntry {
   updatedAt: string
 }
 
+export type RecommendationExecutionStatus = "Pending" | "Executed" | "Ignored" | "Partially Executed"
+
 export interface RecommendationRecord {
   id: string
   datetime: string
@@ -335,6 +337,10 @@ export interface RecommendationRecord {
   scoringVersion: string
   sector: string
   macroRegime: string
+  executionStatus?: RecommendationExecutionStatus
+  executionNotes?: string
+  sourceNames?: string[]
+  confidenceContributors?: string[]
   outcomes: {
     d1: number | null
     w1: number | null

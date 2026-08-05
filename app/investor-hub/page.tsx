@@ -57,7 +57,7 @@ function buildTaxLots(transactions: Transaction[]) {
 }
 
 export default function InvestorHubPage() {
-  const { portfolio, transactions, settings, journal, upsertJournalEntry, removeJournalEntry } = useDios()
+  const { portfolio, transactions, settings, journal, recommendations, upsertJournalEntry, removeJournalEntry } = useDios()
   const { activeProfile } = useProfile()
   const [marketShock, setMarketShock] = useState(-10)
   const [financialShock, setFinancialShock] = useState(-15)
@@ -106,13 +106,15 @@ export default function InvestorHubPage() {
   const lots = useMemo(() => buildTaxLots(transactions), [transactions])
 
   const alerts = useMemo(() => {
-    const rows: Array<{ level: "High" | "Medium" | "Info"; title: string; detail: string }> = []
+    const rows: Array<{ level: "High" | "Medium" | "Info"; title: string; detail: string; source: string; confidence: "High" | "Medium" }> = []
     for (const position of portfolio.positions) {
       if (position.weight > settings.maxStockWeight) {
         rows.push({
           level: "High",
           title: `${position.ticker} concentration`,
           detail: `${position.ticker} is ${pct(position.weight)} of the portfolio, above the ${settings.maxStockWeight}% single-stock limit.`,
+          source: "Fundly Portfolio Risk Engine",
+          confidence: "High",
         })
       }
       if (position.unrealisedPLPct <= -20) {
@@ -120,6 +122,8 @@ export default function InvestorHubPage() {
           level: "Medium",
           title: `${position.ticker} deep drawdown`,
           detail: `${position.ticker} is ${pct(position.unrealisedPLPct)} versus cost. Review the thesis before adding capital.`,
+          source: "Fundly Portfolio & Cost Basis",
+          confidence: "High",
         })
       }
     }
@@ -128,6 +132,8 @@ export default function InvestorHubPage() {
         level: "High",
         title: "Top-five concentration is elevated",
         detail: `The five largest positions represent ${pct(concentration.top5)} of the portfolio.`,
+        source: "Fundly Portfolio Risk Engine",
+        confidence: "High",
       })
     }
     if (journal.length < Math.min(10, portfolio.positions.length)) {
@@ -135,10 +141,50 @@ export default function InvestorHubPage() {
         level: "Info",
         title: "Decision journal incomplete",
         detail: `${journal.length} of ${portfolio.positions.length} positions have a documented thesis. Start with the ten largest holdings.`,
+        source: "Fundly Decision Journal",
+        confidence: "High",
       })
     }
     return rows.slice(0, 20)
   }, [portfolio.positions, settings.maxStockWeight, concentration.top5, journal.length])
+
+  const health = useMemo(() => {
+    let score = 100
+    const weaknesses: string[] = []
+    const strengths: string[] = []
+    if (concentration.top5 > 75) { score -= 30; weaknesses.push("Top-five concentration is very high") }
+    else if (concentration.top5 > 60) { score -= 20; weaknesses.push("Top-five concentration is elevated") }
+    else strengths.push("Top-five concentration is controlled")
+    if (concentration.largest && concentration.largest.weight > settings.maxStockWeight) { score -= 20; weaknesses.push(`${concentration.largest.ticker} exceeds the single-stock limit`) }
+    else strengths.push("Largest holding is within the configured limit")
+    const journalCoverage = portfolio.positions.length ? journal.length / portfolio.positions.length : 1
+    if (journalCoverage < 0.25) { score -= 15; weaknesses.push("Most holdings do not have a documented thesis") }
+    else if (journalCoverage >= 0.75) strengths.push("Decision-journal coverage is strong")
+    const deepDrawdowns = portfolio.positions.filter((p) => p.unrealisedPLPct <= -20).length
+    if (deepDrawdowns) { score -= Math.min(15, deepDrawdowns * 3); weaknesses.push(`${deepDrawdowns} holdings are down more than 20% from cost`) }
+    else strengths.push("No holdings are in a deep cost-basis drawdown")
+    return { score: Math.max(0, Math.round(score)), strengths: strengths.slice(0, 3), weaknesses: weaknesses.slice(0, 4) }
+  }, [concentration, journal.length, portfolio.positions, settings.maxStockWeight])
+
+  const recommendationPerformance = useMemo(() => {
+    const measured = recommendations.filter((r) => (r.outcomes.m3 ?? r.outcomes.m1) !== null)
+    const correct = measured.filter((r) => {
+      const outcome = r.outcomes.m3 ?? r.outcomes.m1 ?? 0
+      const positive = ["Strong Buy", "Buy", "Start Small", "Buy Watch"].includes(r.recommendation)
+      const negative = ["Sell", "Avoid", "Reduce"].includes(r.recommendation)
+      return positive ? outcome > 0 : negative ? outcome < 0 : Math.abs(outcome) < 5
+    }).length
+    const returns = measured.map((r) => r.outcomes.m3 ?? r.outcomes.m1 ?? 0)
+    const gains = returns.filter((v) => v > 0)
+    const losses = returns.filter((v) => v < 0)
+    return {
+      total: recommendations.length,
+      measured: measured.length,
+      successRate: measured.length ? correct / measured.length * 100 : 0,
+      avgGain: gains.length ? gains.reduce((a,b)=>a+b,0)/gains.length : 0,
+      avgLoss: losses.length ? losses.reduce((a,b)=>a+b,0)/losses.length : 0,
+    }
+  }, [recommendations])
 
   function selectTicker(ticker: string) {
     setSelectedTicker(ticker)
@@ -179,6 +225,25 @@ export default function InvestorHubPage() {
         <Card><CardHeader className="pb-2"><CardDescription>Top 10 concentration</CardDescription><CardTitle>{pct(concentration.top10)}</CardTitle></CardHeader></Card>
         <Card><CardHeader className="pb-2"><CardDescription>Open tax lots</CardDescription><CardTitle>{lots.length}</CardTitle></CardHeader></Card>
         <Card><CardHeader className="pb-2"><CardDescription>Documented theses</CardDescription><CardTitle>{journal.length} / {portfolio.positions.length}</CardTitle></CardHeader></Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader><CardDescription>Portfolio Health Score</CardDescription><CardTitle className="text-4xl">{health.score} / 100</CardTitle></CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div><p className="mb-2 text-sm font-medium">Strengths</p>{health.strengths.length ? health.strengths.map((item)=><p key={item} className="text-sm text-muted-foreground">✓ {item}</p>) : <p className="text-sm text-muted-foreground">No material strengths scored yet.</p>}</div>
+            <div><p className="mb-2 text-sm font-medium">Weaknesses</p>{health.weaknesses.length ? health.weaknesses.map((item)=><p key={item} className="text-sm text-muted-foreground">✕ {item}</p>) : <p className="text-sm text-muted-foreground">No material weaknesses detected.</p>}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardDescription>Fundly Recommendation Performance</CardDescription><CardTitle>{recommendationPerformance.successRate.toFixed(1)}% success rate</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+            <div><p className="text-muted-foreground">Logged</p><p className="text-xl font-semibold">{recommendationPerformance.total}</p></div>
+            <div><p className="text-muted-foreground">Measured</p><p className="text-xl font-semibold">{recommendationPerformance.measured}</p></div>
+            <div><p className="text-muted-foreground">Avg gain</p><p className="text-xl font-semibold text-[var(--positive)]">+{recommendationPerformance.avgGain.toFixed(1)}%</p></div>
+            <div><p className="text-muted-foreground">Avg loss</p><p className="text-xl font-semibold text-[var(--negative)]">{recommendationPerformance.avgLoss.toFixed(1)}%</p></div>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs defaultValue="risk" className="space-y-4">
@@ -285,7 +350,7 @@ export default function InvestorHubPage() {
             <CardContent className="space-y-3">
               {alerts.length === 0 ? <p className="text-sm text-muted-foreground">No material alerts.</p> : alerts.map((alert, index) => (
                 <div key={`${alert.title}-${index}`} className="rounded-lg border p-4">
-                  <div className="flex items-start justify-between gap-3"><div><p className="font-medium">{alert.title}</p><p className="mt-1 text-sm text-muted-foreground">{alert.detail}</p></div><Badge variant={alert.level === "High" ? "destructive" : "secondary"}>{alert.level}</Badge></div>
+                  <div className="flex items-start justify-between gap-3"><div><p className="font-medium">{alert.title}</p><p className="mt-1 text-sm text-muted-foreground">{alert.detail}</p><div className="mt-3 flex flex-wrap gap-2"><Badge variant="outline">Source: {alert.source}</Badge><Badge variant="outline">Confidence: {alert.confidence}</Badge></div></div><Badge variant={alert.level === "High" ? "destructive" : "secondary"}>{alert.level}</Badge></div>
                 </div>
               ))}
             </CardContent>
