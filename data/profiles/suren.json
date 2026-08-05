@@ -4353,7 +4353,7 @@
     "maxLeveragedWeight": 3,
     "minBuyScore": 65,
     "minStrongBuyScore": 80,
-    "riskTolerance": "medium",
+    "riskTolerance": "low",
     "dataRefreshMinutes": 60,
     "marketDataProvider": "demo",
     "weights": {
