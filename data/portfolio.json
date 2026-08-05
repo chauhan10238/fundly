@@ -310,8 +310,8 @@
       "executionStatus": "Executed",
       "decisionAt": "2026-08-05T05:17:34.738Z",
       "executionNotes": "",
-      "executionPrice": null,
-      "executionQuantity": null
+      "executionPrice": 219.55,
+      "executionQuantity": 1
     },
     {
       "id": "r2",
