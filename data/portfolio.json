@@ -714,7 +714,9 @@
         "m3": 52.08,
         "m6": 52.08,
         "m12": null
-      }
+      },
+      "executionStatus": "Executed",
+      "decisionAt": "2026-08-05T05:17:06.483Z"
     },
     {
       "id": "r8",
