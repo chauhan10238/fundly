@@ -307,8 +307,8 @@
         "m6": 31.5,
         "m12": null
       },
-      "executionStatus": "Watching",
-      "decisionAt": "2026-08-05T05:15:54.659Z",
+      "executionStatus": "Executed",
+      "decisionAt": "2026-08-05T05:17:34.738Z",
       "executionNotes": "",
       "executionPrice": null,
       "executionQuantity": null
