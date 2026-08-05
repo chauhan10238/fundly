@@ -308,7 +308,10 @@
         "m12": null
       },
       "executionStatus": "Watching",
-      "decisionAt": "2026-08-05T05:15:54.659Z"
+      "decisionAt": "2026-08-05T05:15:54.659Z",
+      "executionNotes": "",
+      "executionPrice": null,
+      "executionQuantity": null
     },
     {
       "id": "r2",
