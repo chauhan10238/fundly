@@ -376,7 +376,10 @@
         "m12": null
       },
       "executionStatus": "Already Own",
-      "decisionAt": "2026-08-05T05:16:13.474Z"
+      "decisionAt": "2026-08-05T05:16:13.474Z",
+      "executionNotes": "",
+      "executionPrice": null,
+      "executionQuantity": null
     },
     {
       "id": "r3",
