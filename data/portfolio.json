@@ -31,6 +31,11 @@
       "avgCost": 75.16
     },
     {
+      "ticker": "NVDA",
+      "quantity": 0.99862208,
+      "avgCost": 219.85
+    },
+    {
       "ticker": "TSM",
       "quantity": 3.8206,
       "avgCost": 443
@@ -48,6 +53,18 @@
   ],
   "cash": 0,
   "transactions": [
+    {
+      "date": "2026-08-05",
+      "ticker": "NVDA",
+      "type": "Buy",
+      "quantity": 0.99862208,
+      "price": 216.85,
+      "currency": "USD",
+      "brokerageFee": 3,
+      "fxFee": 0,
+      "notes": "Stake Gmail import MARKET [Stake:19fd0efcd75368a3] [FP:5bc4bc01d44da5c9daf6]",
+      "id": "t1785917429182-1001"
+    },
     {
       "date": "2026-07-29",
       "ticker": "KO",
