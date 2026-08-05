@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { decryptToken } from "@/lib/gmail/crypto"
 import { listParsedStakeTrades } from "@/lib/gmail/stake-trades"
 import { isGoogleInvalidGrant } from "@/lib/gmail/oauth"
+import { PROFILE_COOKIE_NAME, readProfileSession } from "@/lib/dios/profile-auth"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -14,6 +15,9 @@ function clearGoogleCookies(response: NextResponse) {
 }
 
 export async function GET(request: NextRequest) {
+  if (readProfileSession(request.cookies.get(PROFILE_COOKIE_NAME)?.value) !== "deepak") {
+    return NextResponse.json({ error: "Stake Sync is not enabled for this profile." }, { status: 403 })
+  }
   try {
     const encryptedToken = request.cookies.get("dios_google_refresh_token")?.value
     if (!encryptedToken) return NextResponse.json({ connected: false, reconnectRequired: false, trades: [] }, { status: 401 })

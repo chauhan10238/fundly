@@ -326,7 +326,8 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
     const refresh = () => {
       if (document.visibilityState === "visible") void refreshQuotes()
     }
-    const interval = window.setInterval(refresh, 10_000)
+    const refreshMs = state.holdings.length > 25 ? 60_000 : 10_000
+    const interval = window.setInterval(refresh, refreshMs)
     document.addEventListener("visibilitychange", refresh)
 
     return () => {

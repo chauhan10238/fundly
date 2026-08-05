@@ -258,7 +258,12 @@ export default function PortfolioPage() {
   const refreshDecisions = useCallback(async () => {
     const currentPortfolio = portfolioRef.current
     const currentSettings = settingsRef.current
-    const tickers = currentPortfolio.positions.map((position) => position.ticker)
+    // Keep institutional analysis responsive for large client portfolios.
+    // Live decisions are refreshed for the 30 largest positions; the full portfolio still receives live quotes.
+    const tickers = [...currentPortfolio.positions]
+      .sort((a, b) => b.marketValue - a.marketValue)
+      .slice(0, 30)
+      .map((position) => position.ticker)
 
     if (tickers.length === 0) {
       setLiveDecisions({})

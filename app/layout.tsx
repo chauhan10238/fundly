@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
 import { DiosProvider } from '@/components/dios/store'
+import { ProfileProvider } from '@/components/dios/profile-provider'
 import { AppShell } from '@/components/dios/app-shell'
 import './globals.css'
 
@@ -19,7 +20,7 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'DIOS — Deepak Investment Operating System',
+  title: 'Fundly — Private Investment Operating System',
   description:
     'Private investment decision-support terminal. Institutional-quality analysis, portfolio management, market scanning and earnings intelligence.',
   generator: 'v0.app',
@@ -41,9 +42,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} bg-background`}>
       <body className="font-sans antialiased">
-        <DiosProvider>
-          <AppShell>{children}</AppShell>
-        </DiosProvider>
+        <ProfileProvider>
+          <DiosProvider>
+            <AppShell>{children}</AppShell>
+          </DiosProvider>
+        </ProfileProvider>
         <Toaster position="top-right" />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
