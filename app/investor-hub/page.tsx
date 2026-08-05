@@ -167,22 +167,28 @@ export default function InvestorHubPage() {
   }, [concentration, journal.length, portfolio.positions, settings.maxStockWeight])
 
   const recommendationPerformance = useMemo(() => {
-    const measured = recommendations.filter((r) => (r.outcomes.m3 ?? r.outcomes.m1) !== null)
-    const correct = measured.filter((r) => {
-      const outcome = r.outcomes.m3 ?? r.outcomes.m1 ?? 0
+    const outcomeFor = (r: (typeof recommendations)[number]) => r.outcomes.m3 ?? r.outcomes.m1 ?? r.outcomes.w1 ?? r.outcomes.d1
+    const isCorrect = (r: (typeof recommendations)[number]) => {
+      const outcome = outcomeFor(r)
+      if (outcome === null) return false
       const positive = ["Strong Buy", "Buy", "Start Small", "Buy Watch"].includes(r.recommendation)
       const negative = ["Sell", "Avoid", "Reduce"].includes(r.recommendation)
       return positive ? outcome > 0 : negative ? outcome < 0 : Math.abs(outcome) < 5
-    }).length
-    const returns = measured.map((r) => r.outcomes.m3 ?? r.outcomes.m1 ?? 0)
-    const gains = returns.filter((v) => v > 0)
-    const losses = returns.filter((v) => v < 0)
+    }
+    const measured = recommendations.filter((r) => outcomeFor(r) !== null)
+    const followedStatuses = ["Executed", "Partially Executed", "Already Own"]
+    const followed = recommendations.filter((r) => followedStatuses.includes(r.executionStatus ?? ""))
+    const followedMeasured = followed.filter((r) => outcomeFor(r) !== null)
+    const ignored = recommendations.filter((r) => r.executionStatus === "Ignored")
+    const correct = measured.filter(isCorrect).length
     return {
       total: recommendations.length,
       measured: measured.length,
       successRate: measured.length ? correct / measured.length * 100 : 0,
-      avgGain: gains.length ? gains.reduce((a,b)=>a+b,0)/gains.length : 0,
-      avgLoss: losses.length ? losses.reduce((a,b)=>a+b,0)/losses.length : 0,
+      followed: followed.length,
+      followedMeasured: followedMeasured.length,
+      followedSuccessRate: followedMeasured.length ? followedMeasured.filter(isCorrect).length / followedMeasured.length * 100 : 0,
+      ignored: ignored.length,
     }
   }, [recommendations])
 
@@ -238,10 +244,10 @@ export default function InvestorHubPage() {
         <Card>
           <CardHeader><CardDescription>Fundly Recommendation Performance</CardDescription><CardTitle>{recommendationPerformance.measured ? `${recommendationPerformance.successRate.toFixed(1)}% success rate` : "Waiting for measured outcomes"}</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
-            <div><p className="text-muted-foreground">Logged</p><p className="text-xl font-semibold">{recommendationPerformance.total}</p></div>
-            <div><p className="text-muted-foreground">Measured</p><p className="text-xl font-semibold">{recommendationPerformance.measured}</p></div>
-            <div><p className="text-muted-foreground">Avg gain</p><p className="text-xl font-semibold text-[var(--positive)]">+{recommendationPerformance.avgGain.toFixed(1)}%</p></div>
-            <div><p className="text-muted-foreground">Avg loss</p><p className="text-xl font-semibold text-[var(--negative)]">{recommendationPerformance.avgLoss.toFixed(1)}%</p></div>
+            <div><p className="text-muted-foreground">Logged / measured</p><p className="text-xl font-semibold">{recommendationPerformance.total} / {recommendationPerformance.measured}</p></div>
+            <div><p className="text-muted-foreground">Followed</p><p className="text-xl font-semibold">{recommendationPerformance.followed}</p></div>
+            <div><p className="text-muted-foreground">Followed success</p><p className="text-xl font-semibold text-[var(--positive)]">{recommendationPerformance.followedMeasured ? `${recommendationPerformance.followedSuccessRate.toFixed(1)}%` : "Pending"}</p></div>
+            <div><p className="text-muted-foreground">Ignored</p><p className="text-xl font-semibold">{recommendationPerformance.ignored}</p></div>
           </CardContent>
         </Card>
       </div>

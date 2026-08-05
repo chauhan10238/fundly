@@ -174,7 +174,7 @@ function AnalyseInner() {
       sector:
         externalContext?.instrument?.sector ?? instrument?.sector ?? "—",
       macroRegime: MACRO.regime,
-      executionStatus: "Pending",
+      executionStatus: "Awaiting Decision",
       executionNotes: "",
       sourceNames: Array.from(new Set([
         "Fundly Decision Engine",

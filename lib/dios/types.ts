@@ -318,7 +318,14 @@ export interface InvestmentJournalEntry {
   updatedAt: string
 }
 
-export type RecommendationExecutionStatus = "Pending" | "Executed" | "Ignored" | "Partially Executed"
+export type RecommendationExecutionStatus =
+  | "Pending" // legacy records; displayed as Awaiting Decision
+  | "Awaiting Decision"
+  | "Executed"
+  | "Partially Executed"
+  | "Watching"
+  | "Ignored"
+  | "Already Own"
 
 export interface RecommendationRecord {
   id: string
@@ -339,6 +346,9 @@ export interface RecommendationRecord {
   macroRegime: string
   executionStatus?: RecommendationExecutionStatus
   executionNotes?: string
+  decisionAt?: string
+  executionPrice?: number | null
+  executionQuantity?: number | null
   sourceNames?: string[]
   confidenceContributors?: string[]
   outcomes: {
