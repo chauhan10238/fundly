@@ -306,6 +306,18 @@ export interface RippleImpact {
   duration: string
 }
 
+
+export interface InvestmentJournalEntry {
+  ticker: string
+  thesis: string
+  targetWeight: number
+  conviction: 1 | 2 | 3 | 4 | 5
+  reviewDate: string
+  sellRule: string
+  notes: string
+  updatedAt: string
+}
+
 export interface RecommendationRecord {
   id: string
   datetime: string

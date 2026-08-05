@@ -1,0 +1,297 @@
+"use client"
+
+import { useMemo, useState } from "react"
+import { AlertTriangle, BookOpenCheck, Calculator, ShieldAlert, Target, Trash2 } from "lucide-react"
+import { toast } from "sonner"
+import { useDios } from "@/components/dios/store"
+import { useProfile } from "@/components/dios/profile-provider"
+import { fmtCurrency } from "@/lib/format"
+import type { InvestmentJournalEntry, Transaction } from "@/lib/dios/types"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+
+function pct(value: number) {
+  return `${value.toFixed(1)}%`
+}
+
+function buildTaxLots(transactions: Transaction[]) {
+  const lots = new Map<string, Array<{ date: string; quantity: number; price: number; fees: number }>>()
+  const ordered = [...transactions].sort((a, b) => a.date.localeCompare(b.date))
+
+  for (const tx of ordered) {
+    const ticker = tx.ticker.trim().toUpperCase()
+    if (!ticker || (tx.type !== "Buy" && tx.type !== "Sell")) continue
+    const list = lots.get(ticker) ?? []
+
+    if (tx.type === "Buy") {
+      list.push({
+        date: tx.date,
+        quantity: tx.quantity,
+        price: tx.price,
+        fees: (tx.brokerageFee ?? 0) + (tx.fxFee ?? 0),
+      })
+    } else {
+      let remaining = tx.quantity
+      while (remaining > 0 && list.length) {
+        const first = list[0]
+        const used = Math.min(first.quantity, remaining)
+        first.quantity -= used
+        remaining -= used
+        if (first.quantity <= 0.000001) list.shift()
+      }
+    }
+    lots.set(ticker, list)
+  }
+
+  return Array.from(lots.entries())
+    .flatMap(([ticker, entries]) => entries.map((entry) => ({ ticker, ...entry })))
+    .filter((lot) => lot.quantity > 0.000001)
+    .sort((a, b) => b.quantity * b.price - a.quantity * a.price)
+}
+
+export default function InvestorHubPage() {
+  const { portfolio, transactions, settings, journal, upsertJournalEntry, removeJournalEntry } = useDios()
+  const { activeProfile } = useProfile()
+  const [marketShock, setMarketShock] = useState(-10)
+  const [financialShock, setFinancialShock] = useState(-15)
+  const [selectedTicker, setSelectedTicker] = useState(portfolio.positions[0]?.ticker ?? "")
+
+  const currentJournal = journal.find((item) => item.ticker === selectedTicker)
+  const [draft, setDraft] = useState<InvestmentJournalEntry>(() => ({
+    ticker: selectedTicker,
+    thesis: currentJournal?.thesis ?? "",
+    targetWeight: currentJournal?.targetWeight ?? 5,
+    conviction: currentJournal?.conviction ?? 3,
+    reviewDate: currentJournal?.reviewDate ?? "",
+    sellRule: currentJournal?.sellRule ?? "",
+    notes: currentJournal?.notes ?? "",
+    updatedAt: currentJournal?.updatedAt ?? new Date().toISOString(),
+  }))
+
+  const concentration = useMemo(() => {
+    const sorted = [...portfolio.positions].sort((a, b) => b.weight - a.weight)
+    return {
+      top5: sorted.slice(0, 5).reduce((sum, position) => sum + position.weight, 0),
+      top10: sorted.slice(0, 10).reduce((sum, position) => sum + position.weight, 0),
+      largest: sorted[0],
+      rows: sorted.slice(0, 15),
+    }
+  }, [portfolio.positions])
+
+  const scenario = useMemo(() => {
+    const broadLoss = portfolio.totalValue * (marketShock / 100)
+    const financialValue = portfolio.positions
+      .filter((position) => {
+        const text = `${position.instrument.sector} ${position.instrument.industry} ${position.instrument.name}`.toLowerCase()
+        return /financial|bank|capital one|wells fargo|citigroup|goldman|morgan stanley|jpmorgan/.test(text)
+      })
+      .reduce((sum, position) => sum + position.marketValue, 0)
+    const financialLoss = financialValue * (financialShock / 100)
+    return {
+      broadLoss,
+      broadAfter: portfolio.totalValue + broadLoss,
+      financialValue,
+      financialLoss,
+      combinedAfter: portfolio.totalValue + broadLoss + financialLoss,
+    }
+  }, [portfolio.positions, portfolio.totalValue, marketShock, financialShock])
+
+  const lots = useMemo(() => buildTaxLots(transactions), [transactions])
+
+  const alerts = useMemo(() => {
+    const rows: Array<{ level: "High" | "Medium" | "Info"; title: string; detail: string }> = []
+    for (const position of portfolio.positions) {
+      if (position.weight > settings.maxStockWeight) {
+        rows.push({
+          level: "High",
+          title: `${position.ticker} concentration`,
+          detail: `${position.ticker} is ${pct(position.weight)} of the portfolio, above the ${settings.maxStockWeight}% single-stock limit.`,
+        })
+      }
+      if (position.unrealisedPLPct <= -20) {
+        rows.push({
+          level: "Medium",
+          title: `${position.ticker} deep drawdown`,
+          detail: `${position.ticker} is ${pct(position.unrealisedPLPct)} versus cost. Review the thesis before adding capital.`,
+        })
+      }
+    }
+    if (concentration.top5 > 65) {
+      rows.unshift({
+        level: "High",
+        title: "Top-five concentration is elevated",
+        detail: `The five largest positions represent ${pct(concentration.top5)} of the portfolio.`,
+      })
+    }
+    if (journal.length < Math.min(10, portfolio.positions.length)) {
+      rows.push({
+        level: "Info",
+        title: "Decision journal incomplete",
+        detail: `${journal.length} of ${portfolio.positions.length} positions have a documented thesis. Start with the ten largest holdings.`,
+      })
+    }
+    return rows.slice(0, 20)
+  }, [portfolio.positions, settings.maxStockWeight, concentration.top5, journal.length])
+
+  function selectTicker(ticker: string) {
+    setSelectedTicker(ticker)
+    const entry = journal.find((item) => item.ticker === ticker)
+    setDraft({
+      ticker,
+      thesis: entry?.thesis ?? "",
+      targetWeight: entry?.targetWeight ?? 5,
+      conviction: entry?.conviction ?? 3,
+      reviewDate: entry?.reviewDate ?? "",
+      sellRule: entry?.sellRule ?? "",
+      notes: entry?.notes ?? "",
+      updatedAt: entry?.updatedAt ?? new Date().toISOString(),
+    })
+  }
+
+  function saveJournal() {
+    if (!draft.ticker || !draft.thesis.trim()) {
+      toast.error("Add an investment thesis before saving.")
+      return
+    }
+    upsertJournalEntry({ ...draft, ticker: draft.ticker.trim().toUpperCase() })
+    toast.success(`${draft.ticker} journal saved`)
+  }
+
+  return (
+    <div className="mx-auto max-w-7xl space-y-6">
+      <div>
+        <p className="text-sm text-muted-foreground">{activeProfile?.name ?? "Investor"} · portfolio governance</p>
+        <h1 className="text-2xl font-semibold tracking-tight">Investor Hub</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Concentration, stress testing, tax lots, decision discipline and material alerts for a high-value portfolio.
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card><CardHeader className="pb-2"><CardDescription>Top 5 concentration</CardDescription><CardTitle>{pct(concentration.top5)}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>Top 10 concentration</CardDescription><CardTitle>{pct(concentration.top10)}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>Open tax lots</CardDescription><CardTitle>{lots.length}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>Documented theses</CardDescription><CardTitle>{journal.length} / {portfolio.positions.length}</CardTitle></CardHeader></Card>
+      </div>
+
+      <Tabs defaultValue="risk" className="space-y-4">
+        <TabsList className="flex h-auto flex-wrap justify-start">
+          <TabsTrigger value="risk"><ShieldAlert className="mr-2 h-4 w-4" />Concentration</TabsTrigger>
+          <TabsTrigger value="stress"><Calculator className="mr-2 h-4 w-4" />Stress test</TabsTrigger>
+          <TabsTrigger value="lots"><Target className="mr-2 h-4 w-4" />Tax lots</TabsTrigger>
+          <TabsTrigger value="journal"><BookOpenCheck className="mr-2 h-4 w-4" />Decision journal</TabsTrigger>
+          <TabsTrigger value="alerts"><AlertTriangle className="mr-2 h-4 w-4" />Alerts</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="risk">
+          <Card>
+            <CardHeader><CardTitle>Largest positions</CardTitle><CardDescription>Single-stock exposure compared with the configured limit of {settings.maxStockWeight}%.</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              {concentration.rows.map((position) => (
+                <div key={position.ticker} className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <div><span className="font-semibold">{position.ticker}</span><span className="ml-2 text-muted-foreground">{position.instrument.name}</span></div>
+                    <div className="text-right"><span className="font-medium">{pct(position.weight)}</span><span className="ml-3 text-muted-foreground">{fmtCurrency(position.marketValue)}</span></div>
+                  </div>
+                  <Progress value={Math.min(position.weight, 100)} />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="stress">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader><CardTitle>Scenario assumptions</CardTitle><CardDescription>Adjust the shocks to estimate portfolio sensitivity. This is not a forecast.</CardDescription></CardHeader>
+              <CardContent className="space-y-5">
+                <div className="space-y-2"><Label>Broad market shock (%)</Label><Input type="number" value={marketShock} onChange={(e) => setMarketShock(Number(e.target.value))} /></div>
+                <div className="space-y-2"><Label>Additional financial-sector shock (%)</Label><Input type="number" value={financialShock} onChange={(e) => setFinancialShock(Number(e.target.value))} /></div>
+                <p className="text-xs text-muted-foreground">Financial exposure is estimated from available sector, industry and company metadata. Unclassified securities can understate this result.</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>Estimated impact</CardTitle><CardDescription>Simple linear shock analysis using current market values.</CardDescription></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between"><span>Broad-market impact</span><span className="font-semibold text-negative">{fmtCurrency(scenario.broadLoss)}</span></div>
+                <div className="flex justify-between"><span>Estimated financial exposure</span><span className="font-semibold">{fmtCurrency(scenario.financialValue)}</span></div>
+                <div className="flex justify-between"><span>Additional financial impact</span><span className="font-semibold text-negative">{fmtCurrency(scenario.financialLoss)}</span></div>
+                <div className="border-t pt-4"><div className="flex justify-between text-lg"><span>Portfolio after combined shock</span><span className="font-semibold">{fmtCurrency(scenario.combinedAfter)}</span></div></div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="lots">
+          <Card>
+            <CardHeader><CardTitle>FIFO tax-lot view</CardTitle><CardDescription>Derived from recorded buy and sell transactions. Confirm with Schwab and a tax adviser before relying on it for reporting.</CardDescription></CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b text-left text-muted-foreground"><th className="py-2">Ticker</th><th>Date</th><th>Quantity</th><th>Cost/share</th><th>Fees</th><th>Open cost basis</th></tr></thead>
+                  <tbody>{lots.slice(0, 200).map((lot, index) => (
+                    <tr key={`${lot.ticker}-${lot.date}-${index}`} className="border-b">
+                      <td className="py-2 font-semibold">{lot.ticker}</td><td>{lot.date}</td><td>{lot.quantity.toLocaleString(undefined, { maximumFractionDigits: 6 })}</td><td>{fmtCurrency(lot.price)}</td><td>{fmtCurrency(lot.fees)}</td><td>{fmtCurrency(lot.quantity * lot.price + lot.fees)}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="journal">
+          <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+            <Card>
+              <CardHeader><CardTitle>Holdings</CardTitle><CardDescription>Select a position to document.</CardDescription></CardHeader>
+              <CardContent className="max-h-[650px] space-y-1 overflow-y-auto">
+                {[...portfolio.positions].sort((a, b) => b.weight - a.weight).map((position) => (
+                  <button key={position.ticker} onClick={() => selectTicker(position.ticker)} className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ${selectedTicker === position.ticker ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
+                    <span className="font-medium">{position.ticker}</span><span>{pct(position.weight)}</span>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>{selectedTicker || "Select a holding"} decision journal</CardTitle><CardDescription>Record the reason to own it, target exposure and conditions that would change the decision.</CardDescription></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2"><Label>Investment thesis</Label><Textarea rows={4} value={draft.thesis} onChange={(e) => setDraft((d) => ({ ...d, thesis: e.target.value }))} /></div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2"><Label>Target weight (%)</Label><Input type="number" min="0" max="100" value={draft.targetWeight} onChange={(e) => setDraft((d) => ({ ...d, targetWeight: Number(e.target.value) }))} /></div>
+                  <div className="space-y-2"><Label>Conviction</Label><Select value={String(draft.conviction)} onValueChange={(value) => setDraft((d) => ({ ...d, conviction: Number(value) as 1 | 2 | 3 | 4 | 5 }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{[1,2,3,4,5].map((value) => <SelectItem key={value} value={String(value)}>{value} / 5</SelectItem>)}</SelectContent></Select></div>
+                  <div className="space-y-2"><Label>Review date</Label><Input type="date" value={draft.reviewDate} onChange={(e) => setDraft((d) => ({ ...d, reviewDate: e.target.value }))} /></div>
+                </div>
+                <div className="space-y-2"><Label>Sell / reduce rule</Label><Textarea rows={3} value={draft.sellRule} onChange={(e) => setDraft((d) => ({ ...d, sellRule: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Notes</Label><Textarea rows={3} value={draft.notes} onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))} /></div>
+                <div className="flex items-center justify-between gap-3">
+                  <Button variant="outline" disabled={!currentJournal} onClick={() => { removeJournalEntry(selectedTicker); toast.success(`${selectedTicker} journal removed`) }}><Trash2 className="mr-2 h-4 w-4" />Remove</Button>
+                  <Button onClick={saveJournal}>Save journal</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="alerts">
+          <Card>
+            <CardHeader><CardTitle>Material portfolio alerts</CardTitle><CardDescription>Rules-based alerts prioritised for concentration, drawdowns and governance.</CardDescription></CardHeader>
+            <CardContent className="space-y-3">
+              {alerts.length === 0 ? <p className="text-sm text-muted-foreground">No material alerts.</p> : alerts.map((alert, index) => (
+                <div key={`${alert.title}-${index}`} className="rounded-lg border p-4">
+                  <div className="flex items-start justify-between gap-3"><div><p className="font-medium">{alert.title}</p><p className="mt-1 text-sm text-muted-foreground">{alert.detail}</p></div><Badge variant={alert.level === "High" ? "destructive" : "secondary"}>{alert.level}</Badge></div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}

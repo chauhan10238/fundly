@@ -5,7 +5,7 @@ import { buildPortfolio, type LiveQuote, type LiveQuoteMap, type PortfolioSummar
 import { getInstrument } from "@/lib/dios/universe"
 import { DEFAULT_SETTINGS } from "@/lib/dios/macro"
 import { SEED_HOLDINGS, SEED_RECOMMENDATIONS, SEED_TRANSACTIONS } from "@/lib/dios/seed"
-import type { Holding, RecommendationRecord, Settings, Transaction } from "@/lib/dios/types"
+import type { Holding, InvestmentJournalEntry, RecommendationRecord, Settings, Transaction } from "@/lib/dios/types"
 
 const MIN_POSITION_QTY = 0.001
 
@@ -15,6 +15,7 @@ interface PersistedStore {
   transactions: Transaction[]
   settings: Settings
   recommendations: RecommendationRecord[]
+  journal: InvestmentJournalEntry[]
 }
 
 type QuoteStatus = "idle" | "loading" | "live" | "partial" | "error"
@@ -37,6 +38,8 @@ interface StoreValue extends PersistedStore {
   updateSettings: (patch: Partial<Settings>) => void
   resetSettings: () => void
   addRecommendation: (r: RecommendationRecord) => void
+  upsertJournalEntry: (entry: InvestmentJournalEntry) => void
+  removeJournalEntry: (ticker: string) => void
   resetPortfolio: () => void
 }
 
@@ -95,6 +98,7 @@ function initialState(): PersistedStore {
     transactions: SEED_TRANSACTIONS,
     settings: DEFAULT_SETTINGS,
     recommendations: SEED_RECOMMENDATIONS,
+    journal: [],
   }
 }
 
@@ -140,6 +144,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
       recommendations: Array.isArray(remote.recommendations)
         ? remote.recommendations
         : current.recommendations,
+      journal: Array.isArray(remote.journal) ? remote.journal : current.journal,
     }))
   }, [])
 
@@ -449,6 +454,27 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
     }))
   }, [])
 
+  const upsertJournalEntry = useCallback((entry: InvestmentJournalEntry) => {
+    localChangesPendingRef.current = true
+    const ticker = entry.ticker.trim().toUpperCase()
+    setState((prev) => ({
+      ...prev,
+      journal: [
+        { ...entry, ticker, updatedAt: new Date().toISOString() },
+        ...prev.journal.filter((item) => item.ticker !== ticker),
+      ],
+    }))
+  }, [])
+
+  const removeJournalEntry = useCallback((ticker: string) => {
+    localChangesPendingRef.current = true
+    const normalized = ticker.trim().toUpperCase()
+    setState((prev) => ({
+      ...prev,
+      journal: prev.journal.filter((item) => item.ticker !== normalized),
+    }))
+  }, [])
+
   const resetPortfolio = useCallback(() => {
     localChangesPendingRef.current = true
     setState(initialState())
@@ -475,6 +501,8 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
         updateSettings,
         resetSettings,
         addRecommendation,
+        upsertJournalEntry,
+        removeJournalEntry,
         resetPortfolio,
       }}
     >

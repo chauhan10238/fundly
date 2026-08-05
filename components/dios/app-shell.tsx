@@ -18,6 +18,7 @@ import {
   TrendingUp,
   RefreshCw,
   Newspaper,
+  ShieldCheck,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MACRO } from "@/lib/dios/macro"
@@ -38,6 +39,7 @@ const NAV: Array<{
   { href: "/scan", label: "Daily Scan", icon: Radar },
   { href: "/earnings", label: "Earnings", icon: CalendarClock },
   { href: "/history", label: "Rec. History", icon: History },
+  { href: "/investor-hub", label: "Investor Hub", icon: ShieldCheck },
   { href: "/stake-sync", label: "Stake Sync", icon: RefreshCw, adminOnly: true },
   { href: "/settings", label: "Settings", icon: Settings },
 ]
