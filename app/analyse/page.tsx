@@ -151,20 +151,10 @@ function AnalyseInner() {
   const report =
     result && !("error" in result) ? (result as AnalysisReport) : null
 
-  const logRecommendation = useCallback(async () => {
+  const logRecommendation = useCallback(() => {
     if (!report) return
 
     const instrument = getInstrument(report.ticker)
-    let benchmarkPriceAtRec: number | null = null
-    try {
-      const response = await fetch("/api/quotes?symbols=SPY", { cache: "no-store" })
-      if (response.ok) {
-        const payload = await response.json() as { quotes?: Array<{ symbol: string; price: number }> }
-        benchmarkPriceAtRec = payload.quotes?.find((quote) => quote.symbol.toUpperCase() === "SPY")?.price ?? null
-      }
-    } catch {
-      benchmarkPriceAtRec = null
-    }
 
     const record: RecommendationRecord = {
       id: `rec-${Date.now()}`,
@@ -194,42 +184,6 @@ function AnalyseInner() {
         ...report.whyToday.slice(0, 3).map((reason) => `Positive: ${reason}`),
         ...report.thesisInvalidation.slice(0, 2).map((risk) => `Risk: ${risk}`),
       ],
-      trackingNotional: Math.max(1000, portfolio.totalValue * (report.proposedWeight / 100)),
-      benchmarkTicker: "SPY",
-      benchmarkPriceAtRec,
-      benchmarkOutcomes: {
-        d1: null,
-        w1: null,
-        m1: null,
-        m3: null,
-        m6: null,
-        m12: null,
-      },
-      snapshot: {
-        capturedAt: new Date().toISOString(),
-        aiVersion: "Fundly AI v2.0",
-        modelVersion: report.modelVersion,
-        scoringVersion: report.scoringVersion,
-        price: report.price,
-        overallScore: report.overallScore,
-        confidence: report.confidence,
-        scores: report.scores,
-        marketDataProvider: report.marketDataProvider,
-        macroRegime: MACRO.regime,
-        sector: externalContext?.instrument?.sector ?? instrument?.sector ?? "—",
-        portfolioValue: portfolio.totalValue,
-        currentWeight: report.currentWeight,
-        proposedWeight: report.proposedWeight,
-        suggestedNotional: Math.max(1000, portfolio.totalValue * (report.proposedWeight / 100)),
-        sourceNames: Array.from(new Set([
-          "Fundly Decision Engine",
-          ...(report.sources ?? []).map((source) => source.name).filter(Boolean),
-        ])),
-        reasons: [...report.whyToday],
-        risks: [...report.thesisInvalidation],
-      },
-      actions: [],
-      measurements: [],
       outcomes: {
         d1: null,
         w1: null,

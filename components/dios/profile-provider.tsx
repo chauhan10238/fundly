@@ -20,15 +20,15 @@ const ProfileContext = createContext<ProfileContextValue | null>(null)
 
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [profiles, setProfiles] = useState<Profile[]>([])
-  const [activeProfileId, setActiveProfileId] = useState<string>("deepak")
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
 
   const load = useCallback(async () => {
     try {
       const response = await fetch("/api/profiles", { cache: "no-store" })
-      const payload = await response.json() as { profiles?: Profile[]; activeProfileId?: string }
+      const payload = await response.json() as { profiles?: Profile[]; activeProfileId?: string | null }
       setProfiles(Array.isArray(payload.profiles) ? payload.profiles : [])
-      setActiveProfileId(payload.activeProfileId || "deepak")
+      setActiveProfileId(payload.activeProfileId ?? null)
     } finally {
       setReady(true)
     }

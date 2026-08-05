@@ -30,6 +30,7 @@ const NAV: Array<{
   label: string
   icon: React.ComponentType<{ className?: string }>
   adminOnly?: boolean
+  investorOnly?: boolean
 }> = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/analyse", label: "Analyse", icon: Search },
@@ -41,6 +42,7 @@ const NAV: Array<{
   { href: "/history", label: "Rec. History", icon: History },
   { href: "/investor-hub", label: "Investor Hub", icon: ShieldCheck },
   { href: "/stake-sync", label: "Stake Sync", icon: RefreshCw, adminOnly: true },
+  { href: "/schwab-sync", label: "Schwab Sync", icon: RefreshCw, investorOnly: true },
   { href: "/settings", label: "Settings", icon: Settings },
 ]
 
@@ -120,7 +122,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
-          {NAV.filter((item) => !item.adminOnly || activeProfile?.role === "admin").map((item) => {
+          {NAV.filter((item) => (!item.adminOnly || activeProfile?.role === "admin") && (!item.investorOnly || activeProfile?.id === "suren")).map((item) => {
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
             const Icon = item.icon
             return (

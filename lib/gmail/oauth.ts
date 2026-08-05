@@ -9,7 +9,7 @@ export function createOAuthClient() {
   );
 }
 
-export function createGoogleAuthorizationUrl(state: string): string {
+export function createGoogleAuthorizationUrl(state: string, loginHint?: string | null): string {
   const client = createOAuthClient();
 
   return client.generateAuthUrl({
@@ -18,7 +18,7 @@ export function createGoogleAuthorizationUrl(state: string): string {
     include_granted_scopes: true,
     scope: [GMAIL_SCOPE],
     state,
-    login_hint: gmailConfig.expectedAccount,
+    ...(loginHint ? { login_hint: loginHint } : {}),
   });
 }
 

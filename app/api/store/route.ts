@@ -23,8 +23,10 @@ function config() {
   return { token, owner, repo, branch }
 }
 
-function activeProfile(request: NextRequest) {
-  return readProfileSession(request.cookies.get(PROFILE_COOKIE_NAME)?.value)
+function activeProfile(request: NextRequest): "deepak" | "suren" {
+  const profileId = readProfileSession(request.cookies.get(PROFILE_COOKIE_NAME)?.value)
+  if (!profileId) throw new Error("Fundly profile is locked. Enter your PIN to continue.")
+  return profileId
 }
 
 function dataPath(profileId: "deepak" | "suren") {

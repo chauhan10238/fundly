@@ -3,14 +3,16 @@ import { decryptToken } from "@/lib/gmail/crypto"
 import { listStakeEmails } from "@/lib/gmail/stake"
 import { isGoogleInvalidGrant } from "@/lib/gmail/oauth"
 import { PROFILE_COOKIE_NAME, readProfileSession } from "@/lib/dios/profile-auth"
+import { brokerCookieNames } from "@/lib/gmail/broker-context"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 function clearGoogleCookies(response: NextResponse) {
-  response.cookies.delete("dios_google_refresh_token")
-  response.cookies.delete("dios_google_account")
-  response.cookies.delete("dios_google_oauth_state")
+  const names = brokerCookieNames("deepak", "stake")
+  response.cookies.delete(names.refreshToken)
+  response.cookies.delete(names.account)
+  response.cookies.delete(names.oauthState)
   return response
 }
 
@@ -19,7 +21,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Stake Sync is not enabled for this profile." }, { status: 403 })
   }
   try {
-    const encryptedToken = request.cookies.get("dios_google_refresh_token")?.value
+    const encryptedToken = request.cookies.get(brokerCookieNames("deepak", "stake").refreshToken)?.value
     if (!encryptedToken) return NextResponse.json({ connected: false, reconnectRequired: false, emails: [] }, { status: 401 })
     const refreshToken = decryptToken(encryptedToken)
     const emails = await listStakeEmails(refreshToken, 50)

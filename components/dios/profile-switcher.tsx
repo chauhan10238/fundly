@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { LockKeyhole, UserRound, X } from "lucide-react"
 import { toast } from "sonner"
 import { useProfile } from "@/components/dios/profile-provider"
@@ -15,6 +15,11 @@ export function ProfileSwitcher() {
   const [busy, setBusy] = useState(false)
 
   const target = profiles.find((profile) => profile.id === selected)
+  const locked = !activeProfile
+
+  useEffect(() => {
+    if (locked && profiles.length > 0) setOpen(true)
+  }, [locked, profiles.length])
 
   async function openProfile(profileId: string) {
     const profile = profiles.find((item) => item.id === profileId)
@@ -55,12 +60,14 @@ export function ProfileSwitcher() {
           <div className="w-full max-w-sm rounded-xl border bg-background p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold">Choose profile</h2>
+                <h2 className="text-lg font-semibold">{locked ? "Unlock Fundly" : "Choose profile"}</h2>
                 <p className="text-sm text-muted-foreground">Each profile has separate holdings and transactions.</p>
               </div>
-              <button onClick={() => { setOpen(false); setSelected(null) }} className="rounded p-1 hover:bg-muted" aria-label="Close">
-                <X className="h-4 w-4" />
-              </button>
+              {!locked ? (
+                <button onClick={() => { setOpen(false); setSelected(null) }} className="rounded p-1 hover:bg-muted" aria-label="Close">
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
             </div>
 
             {!target ? (

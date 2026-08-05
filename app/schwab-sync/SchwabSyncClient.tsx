@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-type StakeTrade = {
+type SchwabTrade = {
   messageId: string;
   threadId: string | null;
   subject: string;
@@ -41,22 +41,22 @@ type ApiResponse = {
   count?: number;
   ready?: number;
   needsReview?: number;
-  trades: StakeTrade[];
+  trades: SchwabTrade[];
   error?: string;
 };
 
 function isAlreadyImported(
-  trade: StakeTrade,
+  trade: SchwabTrade,
   transactionNotes: string[],
 ): boolean {
   return transactionNotes.some(
     (notes) =>
-      notes.includes(`[Stake:${trade.messageId}]`) ||
+      notes.includes(`[Schwab:${trade.messageId}]`) ||
       notes.includes(`[FP:${trade.fingerprint}]`),
   );
 }
 
-export default function StakeSyncClient() {
+export default function SchwabSyncClient() {
   const { transactions, addTransactions } = useDios();
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,7 +95,7 @@ export default function StakeSyncClient() {
     setSelected(new Set());
 
     try {
-      const response = await fetch("/api/stake/trades", {
+      const response = await fetch("/api/schwab/trades", {
         cache: "no-store",
       });
 
@@ -105,7 +105,7 @@ export default function StakeSyncClient() {
       setResult({
         connected: false,
         trades: [],
-        error: "Unable to contact the DIOS Stake sync service.",
+        error: "Unable to contact the DIOS Schwab sync service.",
       });
     } finally {
       setLoading(false);
@@ -134,35 +134,35 @@ export default function StakeSyncClient() {
         currency: trade.currency || "USD",
         brokerageFee: trade.brokerageFee ?? 0,
         fxFee: trade.fxFee ?? 0,
-        notes: `Stake Gmail import ${trade.orderType ?? ""} [Stake:${trade.messageId}] [FP:${trade.fingerprint}]`.trim(),
+        notes: `Schwab Gmail import ${trade.orderType ?? ""} [Schwab:${trade.messageId}] [FP:${trade.fingerprint}]`.trim(),
       })),
     );
 
     setSelected(new Set());
     toast.success(
-      `Imported ${count} Stake transaction${count === 1 ? "" : "s"}. Portfolio and dashboard updated.`,
+      `Imported ${count} Schwab transaction${count === 1 ? "" : "s"}. Portfolio and dashboard updated.`,
     );
   }
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Scanning Stake confirmations…</p>;
+    return <p className="text-sm text-muted-foreground">Scanning Schwab confirmations…</p>;
   }
 
   if (!result?.connected) {
     return (
       <section className="rounded-lg border border-border bg-card p-5">
-        <h2 className="text-lg font-semibold">{result?.reconnectRequired ? "Reconnect Stake Gmail" : "Connect Stake Gmail"}</h2>
+        <h2 className="text-lg font-semibold">{result?.reconnectRequired ? "Reconnect Schwab Gmail" : "Connect Schwab Gmail"}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           DIOS requests read-only Gmail access and searches for messages from
-          notifications@hellostake.com.
+          Charles Schwab trade-confirmation messages.
         </p>
         {result?.error ? (
           <p className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
             {result.error}
           </p>
         ) : null}
-        <Button className="mt-4" render={<a href="/api/auth/google?broker=stake" />}>
-          {result?.reconnectRequired ? "Reconnect Stake Gmail" : "Connect Gmail"}
+        <Button className="mt-4" render={<a href="/api/auth/google?broker=schwab" />}>
+          {result?.reconnectRequired ? "Reconnect Schwab Gmail" : "Connect Gmail"}
         </Button>
       </section>
     );
@@ -212,7 +212,7 @@ export default function StakeSyncClient() {
               Import selected ({selectedCount})
             </Button>
             <form action="/api/auth/google/disconnect" method="post">
-              <input type="hidden" name="broker" value="stake" />
+              <input type="hidden" name="broker" value="schwab" />
               <Button type="submit" variant="outline">
                 Disconnect
               </Button>
@@ -235,7 +235,7 @@ export default function StakeSyncClient() {
 
       <section className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="border-b border-border px-5 py-4">
-          <h3 className="font-semibold">Detected Stake trades</h3>
+          <h3 className="font-semibold">Detected Schwab trades</h3>
           <p className="mt-1 text-sm text-muted-foreground">
             All trades are unselected by default. Select individual trades or use
             Select all. Incomplete confirmations cannot be imported.
@@ -253,7 +253,7 @@ export default function StakeSyncClient() {
                       checked={allImportableSelected}
                       disabled={importable.length === 0}
                       onChange={(event) => toggleSelectAll(event.target.checked)}
-                      aria-label="Select all importable Stake trades"
+                      aria-label="Select all importable Schwab trades"
                       className="h-4 w-4 rounded border-border accent-primary disabled:cursor-not-allowed disabled:opacity-50"
                     />
                     Select all

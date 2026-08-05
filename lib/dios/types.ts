@@ -327,47 +327,6 @@ export type RecommendationExecutionStatus =
   | "Ignored"
   | "Already Own"
 
-export type RecommendationHorizon = "d1" | "w1" | "m1" | "m3" | "m6" | "m12"
-
-export interface RecommendationSnapshot {
-  capturedAt: string
-  aiVersion: string
-  modelVersion: string
-  scoringVersion: string
-  price: number
-  overallScore: number
-  confidence: number
-  scores?: Partial<ScoreSet>
-  marketDataProvider?: string
-  macroRegime: string
-  sector: string
-  portfolioValue?: number
-  currentWeight?: number
-  proposedWeight?: number
-  suggestedNotional?: number
-  sourceNames: string[]
-  reasons: string[]
-  risks: string[]
-}
-
-export interface RecommendationAction {
-  id: string
-  at: string
-  status: RecommendationExecutionStatus
-  note?: string
-  price?: number | null
-  quantity?: number | null
-}
-
-export interface RecommendationMeasurement {
-  horizon: RecommendationHorizon
-  measuredAt: string
-  returnPct: number
-  benchmarkReturnPct?: number | null
-  alphaPct?: number | null
-  source?: string
-}
-
 export interface RecommendationRecord {
   id: string
   datetime: string
@@ -392,20 +351,6 @@ export interface RecommendationRecord {
   executionQuantity?: number | null
   sourceNames?: string[]
   confidenceContributors?: string[]
-  snapshot?: RecommendationSnapshot
-  actions?: RecommendationAction[]
-  measurements?: RecommendationMeasurement[]
-  trackingNotional?: number
-  benchmarkTicker?: string
-  benchmarkPriceAtRec?: number | null
-  benchmarkOutcomes?: {
-    d1: number | null
-    w1: number | null
-    m1: number | null
-    m3: number | null
-    m6: number | null
-    m12: number | null
-  }
   outcomes: {
     d1: number | null
     w1: number | null
