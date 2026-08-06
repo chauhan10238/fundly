@@ -3,18 +3,19 @@ import crypto from "node:crypto"
 export type ProfileRole = "admin" | "investor"
 
 export type DiosProfile = {
-  id: "deepak" | "suren"
+  id: string
   name: string
   role: ProfileRole
   pinRequired: boolean
+  trackingStartDate?: string
 }
 
 export const DIOS_PROFILES: DiosProfile[] = [
-  { id: "deepak", name: "Deepak", role: "admin", pinRequired: true },
-  { id: "suren", name: "Suren", role: "investor", pinRequired: true },
+  { id: "deepak", name: "Deepak", role: "admin", pinRequired: true, trackingStartDate: "2026-08-05" },
+  { id: "suren", name: "Suren", role: "investor", pinRequired: true, trackingStartDate: "2026-08-05" },
 ]
 
-const PROFILE_PIN_HASHES: Record<DiosProfile["id"], string> = {
+const PROFILE_PIN_HASHES: Record<string, string> = {
   deepak: "bf0bfbca4f3c39e51ae7a07ab82d6f9adff073fbe058b8c5169c50cb65733d0f",
   suren: "e1cf26ade53997f57712338aeabc1aab46c259c4f88c54d36c6723d63f157983",
 }
@@ -55,19 +56,22 @@ export function readProfileSession(value?: string | null): DiosProfile["id"] | n
       expiresAt?: number
     }
     if (typeof parsed.expiresAt !== "number" || parsed.expiresAt < Date.now()) return null
-    return parsed.profileId === "suren" ? "suren" : parsed.profileId === "deepak" ? "deepak" : null
+    return typeof parsed.profileId === "string" && DIOS_PROFILES.some((profile) => profile.id === parsed.profileId)
+      ? parsed.profileId
+      : null
   } catch {
     return null
   }
 }
 
 export function verifyProfilePin(profileId: string, pin: string) {
-  if (profileId !== "deepak" && profileId !== "suren") return false
+  if (!DIOS_PROFILES.some((profile) => profile.id === profileId)) return false
   const actual = crypto
     .createHash("sha256")
     .update(`${profileId}:${pin}:DIOS-profile-pin-v1`)
     .digest("hex")
   const expected = PROFILE_PIN_HASHES[profileId]
+  if (!expected) return false
   const a = Buffer.from(actual)
   const b = Buffer.from(expected)
   return a.length === b.length && crypto.timingSafeEqual(a, b)

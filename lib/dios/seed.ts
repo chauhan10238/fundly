@@ -85,6 +85,8 @@ function rec(
     scoringVersion: "dios-scoring-2026.02",
     sector: inst.sector,
     macroRegime: "Late-cycle expansion",
+    origin: "seed",
+    recordKind: "ai-recommendation",
     outcomes,
   }
 }

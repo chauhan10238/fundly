@@ -1,10 +1,12 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { AlertTriangle, BookOpenCheck, Calculator, ShieldAlert, Target, Trash2 } from "lucide-react"
+import { Activity, AlertTriangle, BookOpenCheck, Calculator, ShieldAlert, Target, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { useDios } from "@/components/dios/store"
 import { useProfile } from "@/components/dios/profile-provider"
+import { ExistingHoldingsTracking } from "@/components/dios/existing-holdings-tracking"
+import { trackedRecommendationsForProfile } from "@/lib/dios/tracking"
 import { fmtCurrency } from "@/lib/format"
 import type { InvestmentJournalEntry, Transaction } from "@/lib/dios/types"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -57,8 +59,12 @@ function buildTaxLots(transactions: Transaction[]) {
 }
 
 export default function InvestorHubPage() {
-  const { portfolio, transactions, settings, journal, recommendations, upsertJournalEntry, removeJournalEntry } = useDios()
+  const { portfolio, transactions, settings, journal, recommendations, tracking, upsertJournalEntry, removeJournalEntry } = useDios()
   const { activeProfile } = useProfile()
+  const trackedRecommendations = useMemo(
+    () => trackedRecommendationsForProfile(activeProfile?.id, recommendations, tracking),
+    [activeProfile?.id, recommendations, tracking],
+  )
   const [marketShock, setMarketShock] = useState(-10)
   const [financialShock, setFinancialShock] = useState(-15)
   const [selectedTicker, setSelectedTicker] = useState(portfolio.positions[0]?.ticker ?? "")
@@ -167,11 +173,11 @@ export default function InvestorHubPage() {
   }, [concentration, journal.length, portfolio.positions, settings.maxStockWeight])
 
   const recommendationPerformance = useMemo(() => {
-    const outcomeFor = (r: (typeof recommendations)[number]) =>
+    const outcomeFor = (r: (typeof trackedRecommendations)[number]) =>
       r.outcomes.m12 ?? r.outcomes.m6 ?? r.outcomes.m3 ?? r.outcomes.m1 ?? r.outcomes.w1 ?? r.outcomes.d1
     const positiveCalls = ["Strong Buy", "Buy", "Start Small", "Buy Watch"]
     const negativeCalls = ["Sell", "Avoid", "Reduce"]
-    const isCorrect = (r: (typeof recommendations)[number]) => {
+    const isCorrect = (r: (typeof trackedRecommendations)[number]) => {
       const outcome = outcomeFor(r)
       if (outcome === null) return false
       return positiveCalls.includes(r.recommendation)
@@ -180,7 +186,7 @@ export default function InvestorHubPage() {
           ? outcome < 0
           : Math.abs(outcome) < 5
     }
-    const ignoredWasGood = (r: (typeof recommendations)[number]) => {
+    const ignoredWasGood = (r: (typeof trackedRecommendations)[number]) => {
       const outcome = outcomeFor(r)
       if (outcome === null) return false
       return positiveCalls.includes(r.recommendation)
@@ -190,17 +196,17 @@ export default function InvestorHubPage() {
           : Math.abs(outcome) >= 5
     }
 
-    const measured = recommendations.filter((r) => outcomeFor(r) !== null)
+    const measured = trackedRecommendations.filter((r) => outcomeFor(r) !== null)
     const followedStatuses = ["Executed", "Partially Executed", "Already Own"]
-    const followed = recommendations.filter((r) => followedStatuses.includes(r.executionStatus ?? ""))
+    const followed = trackedRecommendations.filter((r) => followedStatuses.includes(r.executionStatus ?? ""))
     const followedMeasured = followed.filter((r) => outcomeFor(r) !== null)
-    const ignored = recommendations.filter((r) => r.executionStatus === "Ignored")
+    const ignored = trackedRecommendations.filter((r) => r.executionStatus === "Ignored")
     const ignoredMeasured = ignored.filter((r) => outcomeFor(r) !== null)
     const correct = measured.filter(isCorrect).length
     const ignoredGood = ignoredMeasured.filter(ignoredWasGood).length
 
     return {
-      total: recommendations.length,
+      total: trackedRecommendations.length,
       measured: measured.length,
       successRate: measured.length ? correct / measured.length * 100 : 0,
       followed: followed.length,
@@ -210,7 +216,7 @@ export default function InvestorHubPage() {
       ignoredMeasured: ignoredMeasured.length,
       ignoredDecisionQuality: ignoredMeasured.length ? ignoredGood / ignoredMeasured.length * 100 : 0,
     }
-  }, [recommendations])
+  }, [trackedRecommendations])
 
   function selectTicker(ticker: string) {
     setSelectedTicker(ticker)
@@ -273,14 +279,19 @@ export default function InvestorHubPage() {
         </Card>
       </div>
 
-      <Tabs defaultValue="risk" className="space-y-4">
+      <Tabs defaultValue="baseline" className="space-y-4">
         <TabsList className="flex h-auto flex-wrap justify-start">
+          <TabsTrigger value="baseline"><Activity className="mr-2 h-4 w-4" />Since tracking start</TabsTrigger>
           <TabsTrigger value="risk"><ShieldAlert className="mr-2 h-4 w-4" />Concentration</TabsTrigger>
           <TabsTrigger value="stress"><Calculator className="mr-2 h-4 w-4" />Stress test</TabsTrigger>
           <TabsTrigger value="lots"><Target className="mr-2 h-4 w-4" />Tax lots</TabsTrigger>
           <TabsTrigger value="journal"><BookOpenCheck className="mr-2 h-4 w-4" />Decision journal</TabsTrigger>
           <TabsTrigger value="alerts"><AlertTriangle className="mr-2 h-4 w-4" />Alerts</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="baseline">
+          <ExistingHoldingsTracking />
+        </TabsContent>
 
         <TabsContent value="risk">
           <Card>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveLiveQuote } from "@/lib/dios/server-market"
+import { getFmpApiKey } from "@/lib/data-providers/fmp"
 
 export const dynamic = "force-dynamic"
 const MAX_SYMBOLS = 200
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
   if (symbols.length > MAX_SYMBOLS) return NextResponse.json({ error: `Maximum ${MAX_SYMBOLS} symbols.` }, { status: 400 })
 
   const results = await mapWithConcurrency(symbols, async (symbol) => {
-    try { return { symbol, value: await resolveLiveQuote(symbol, process.env.FMP_API_KEY) } }
+    try { return { symbol, value: await resolveLiveQuote(symbol, getFmpApiKey()) } }
     catch { return { symbol, value: null } }
   })
 

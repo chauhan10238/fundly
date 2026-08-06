@@ -4,8 +4,18 @@ import type { EarningsEvent, ProviderResult, VerifiedQuote } from "./types"
 const PROVIDER = "Financial Modeling Prep" as const
 const BASE = "https://financialmodelingprep.com/stable"
 
+export function getFmpApiKey() {
+  return (
+    process.env.FMP_API_KEY ||
+    process.env.FMP_KEY ||
+    process.env.FINANCIAL_MODELING_PREP_API_KEY ||
+    process.env.FINANCIALMODELINGPREP_API_KEY ||
+    ""
+  ).trim()
+}
+
 function apiKey() {
-  return process.env.FMP_API_KEY?.trim()
+  return getFmpApiKey()
 }
 
 function cleanSymbol(value: string) {
@@ -29,7 +39,18 @@ async function request(path: string, params: Record<string, string>) {
   const url = new URL(`${BASE}/${path}`)
   Object.entries(params).forEach(([name, value]) => url.searchParams.set(name, value))
   url.searchParams.set("apikey", key)
-  const response = await fetch(url, { cache: "no-store", headers: { Accept: "application/json" } })
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 8000)
+  let response: Response
+  try {
+    response = await fetch(url, {
+      cache: "no-store",
+      signal: controller.signal,
+      headers: { Accept: "application/json", "User-Agent": "Fundly/2.0" },
+    })
+  } finally {
+    clearTimeout(timeout)
+  }
   const raw = await response.text()
   let payload: unknown
   try { payload = JSON.parse(raw) } catch { throw new Error(`FMP returned non-JSON (${response.status})`) }
