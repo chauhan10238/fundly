@@ -8709,8 +8709,8 @@
     "benchmark": "SPY",
     "baselineVersion": 2,
     "baselineStatus": "building",
-    "baselineBuiltAt": "2026-08-06T06:58:35.891Z",
-    "baselineMeasuredAt": "2026-08-06T06:58:35.608Z",
+    "baselineBuiltAt": "2026-08-06T06:58:41.395Z",
+    "baselineMeasuredAt": "2026-08-06T06:58:41.479Z",
     "baselineTickers": [
       "AAL",
       "AAP",
