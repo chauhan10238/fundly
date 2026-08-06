@@ -15,6 +15,7 @@ import {
   getCompanyIntelligence,
   normalizeCompanyIntelligence,
   quoteConfidence,
+  getFmpApiKey,
 } from "@/lib/data-providers"
 
 export const dynamic = "force-dynamic"
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
   }
 
   const [resolved, rawIntelligence, yahooNews] = await Promise.all([
-    resolveLiveQuote(ticker, process.env.FMP_API_KEY),
+    resolveLiveQuote(ticker, getFmpApiKey()),
     getCompanyIntelligence(ticker),
     fetchYahooNews(ticker),
   ])

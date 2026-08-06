@@ -1,3 +1,5 @@
+import { getFmpApiKey } from "@/lib/data-providers/fmp"
+
 export type HistoricalPoint = { date: string; close: number }
 
 export function cleanMarketTicker(value: string) {
@@ -29,7 +31,7 @@ export function lastOnOrBefore(points: HistoricalPoint[], target: Date) {
 }
 
 async function fetchFmpHistory(ticker: string, from: string, to: string): Promise<HistoricalPoint[]> {
-  const apiKey = process.env.FMP_API_KEY?.trim()
+  const apiKey = getFmpApiKey()
   if (!apiKey) throw new Error("FMP_API_KEY is not configured")
 
   const url = new URL("https://financialmodelingprep.com/stable/historical-price-eod/full")

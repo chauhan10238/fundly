@@ -61,6 +61,10 @@ function encode(value: string) {
   return Buffer.from(value, "utf8").toString("base64")
 }
 
+function canonical(value: unknown) {
+  return JSON.stringify(value)
+}
+
 async function readFile(profileId: string) {
   const { token, owner, repo, branch } = config()
   const path = dataPath(profileId)
@@ -111,6 +115,18 @@ export async function POST(request: NextRequest) {
         { error: "Cloud data changed in another browser. Reloading is required.", conflict: true, sha: current.sha, data: current.data },
         { status: 409 },
       )
+    }
+
+    // Do not create a Git commit when the payload has not changed. This stops
+    // portfolio autosave from triggering an endless chain of Vercel builds.
+    if (current.data && canonical(current.data) === canonical(body.data)) {
+      return NextResponse.json({
+        ok: true,
+        unchanged: true,
+        profileId,
+        sha: current.sha,
+        savedAt: new Date().toISOString(),
+      })
     }
 
     const response = await fetch(putUrl(owner, repo, path), {

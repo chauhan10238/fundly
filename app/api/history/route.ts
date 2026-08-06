@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getFmpApiKey } from "@/lib/data-providers/fmp"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -47,7 +48,7 @@ function downsampleWeekly(points: PricePoint[]) {
 }
 
 async function fetchFmpHistory(ticker: string, range: RangeKey) {
-  const apiKey = process.env.FMP_API_KEY?.trim()
+  const apiKey = getFmpApiKey()
   if (!apiKey) throw new Error("FMP_API_KEY is not configured")
   const settings = fmpSettings(range)
   const to = new Date()

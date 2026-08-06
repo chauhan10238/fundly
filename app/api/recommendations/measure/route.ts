@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getFmpApiKey } from "@/lib/data-providers/fmp"
 import type { RecommendationHorizon, RecommendationMeasurement } from "@/lib/dios/types"
 import { PERFORMANCE_HORIZONS } from "@/lib/dios/tracking"
 import {
