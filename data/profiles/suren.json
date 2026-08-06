@@ -8480,8 +8480,8 @@
     "benchmark": "SPY",
     "baselineVersion": 1,
     "baselineStatus": "building",
-    "baselineBuiltAt": "2026-08-06T06:21:42.212Z",
-    "baselineMeasuredAt": "2026-08-06T06:21:41.933Z",
+    "baselineBuiltAt": "2026-08-06T06:21:53.614Z",
+    "baselineMeasuredAt": "2026-08-06T06:21:53.323Z",
     "baselineTickers": [
       "AAL",
       "AAP",
