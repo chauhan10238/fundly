@@ -8707,7 +8707,7 @@
     "startDate": "2026-08-05",
     "startAt": "2026-08-04T14:00:00.000Z",
     "benchmark": "SPY",
-    "baselineVersion": 1,
+    "baselineVersion": 2,
     "baselineStatus": "building",
     "baselineBuiltAt": "2026-08-06T06:36:34.208Z",
     "baselineMeasuredAt": "2026-08-06T06:36:34.250Z",
