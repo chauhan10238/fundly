@@ -8708,9 +8708,9 @@
     "startAt": "2026-08-04T14:00:00.000Z",
     "benchmark": "SPY",
     "baselineVersion": 2,
-    "baselineStatus": "building",
-    "baselineBuiltAt": "2026-08-06T07:05:52.752Z",
-    "baselineMeasuredAt": "2026-08-06T07:05:52.913Z",
+    "baselineStatus": "partial",
+    "baselineBuiltAt": "2026-08-06T08:05:27.726Z",
+    "baselineMeasuredAt": "2026-08-06T08:05:27.727Z",
     "baselineTickers": [
       "AAL",
       "AAP",
@@ -11690,6 +11690,7 @@
           "themes": []
         }
       }
-    ]
+    ],
+    "baselineError": "Failed to fetch"
   }
 }
