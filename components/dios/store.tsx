@@ -279,6 +279,10 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!hydrated || !cloudReadyRef.current) return
 
+    // Persist only explicit local changes. Quote refreshes, focus refreshes and
+    // remote hydration must never create a GitHub data commit.
+    if (!localChangesPendingRef.current) return
+
     // A cloud refresh updates React state. Do not write that same state back.
     if (suppressNextSaveRef.current) {
       suppressNextSaveRef.current = false
@@ -345,7 +349,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
           console.error("Unable to save the DIOS portfolio to GitHub:", error)
         }
       }
-    }, 350)
+    }, 2000)
 
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
@@ -551,37 +555,9 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
     }
   }, [activeProfile?.id])
 
-  useEffect(() => {
-    if (!hydrated || !activeProfile?.id || !cloudReadyRef.current) return
-    const baselineTickers = new Set(state.holdingBaselines.map((item) => item.ticker))
-    const expectedTickers = state.tracking?.baselineTickers?.length
-      ? state.tracking.baselineTickers
-      : state.holdings.map((holding) => holding.ticker)
-    const hasMissing = expectedTickers.some((ticker) => !baselineTickers.has(ticker))
-    if (hasMissing || state.tracking?.baselineVersion !== HOLDING_BASELINE_VERSION) {
-      void refreshHoldingBaselines()
-    }
-  }, [
-    hydrated,
-    activeProfile?.id,
-    state.holdings,
-    state.holdingBaselines,
-    state.tracking?.baselineVersion,
-    state.tracking?.baselineTickers,
-    refreshHoldingBaselines,
-  ])
-
-  useEffect(() => {
-    if (!hydrated || !activeProfile?.id || !state.holdingBaselines.length) return
-    if (state.holdingBaselines.some((baseline) => baselineNeedsMeasurement(baseline))) {
-      void refreshBaselineMeasurements()
-    }
-  }, [
-    hydrated,
-    activeProfile?.id,
-    state.holdingBaselines,
-    refreshBaselineMeasurements,
-  ])
+  // Baseline creation and milestone measurement are intentionally user-triggered
+  // from Investor Hub. Running them from every mounted page caused multiple open
+  // tabs to race, write the same profile repeatedly and create deployment storms.
 
   const refreshQuotes = useCallback(async () => {
     const symbols = Array.from(

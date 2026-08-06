@@ -61,7 +61,12 @@ function encode(value: string) {
   return Buffer.from(value, "utf8").toString("base64")
 }
 
-function canonical(value: unknown) {
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonical(record[key])}`).join(",")}}`
+  }
   return JSON.stringify(value)
 }
 
@@ -133,7 +138,7 @@ export async function POST(request: NextRequest) {
       method: "PUT",
       headers: headers(token),
       body: JSON.stringify({
-        message: current.sha ? `Update DIOS ${profileId} portfolio data` : `Create DIOS ${profileId} portfolio data`,
+        message: current.sha ? `[fundly-data] Update DIOS ${profileId} portfolio data` : `[fundly-data] Create DIOS ${profileId} portfolio data`,
         content: encode(JSON.stringify(body.data, null, 2)),
         branch,
         ...(current.sha ? { sha: current.sha } : {}),
