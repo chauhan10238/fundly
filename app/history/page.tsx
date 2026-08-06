@@ -2,6 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useDios } from "@/components/dios/store"
+import { useProfile } from "@/components/dios/profile-provider"
+import {
+  PERFORMANCE_HORIZONS,
+  SUREN_TRACKING_START_DATE,
+  trackedRecommendationsForProfile,
+} from "@/lib/dios/tracking"
 import type { RecommendationExecutionStatus, RecommendationRecord } from "@/lib/dios/types"
 import { Panel, RecommendationBadge, ScorePill, StatCard } from "@/components/dios/ui-bits"
 import { ScenarioView } from "@/components/dios/scenario-view"
@@ -19,7 +25,7 @@ const FOLLOWED_STATUSES: RecommendationExecutionStatus[] = ["Executed", "Partial
 function normalizedStatus(status?: RecommendationExecutionStatus): RecommendationExecutionStatus {
   return !status || status === "Pending" ? "Awaiting Decision" : status
 }
-function isMeasured(r: RecommendationRecord) { return (r.outcomes.m3 ?? r.outcomes.m1 ?? r.outcomes.w1 ?? r.outcomes.d1) !== null }
+function isMeasured(r: RecommendationRecord) { return primaryOutcome(r) !== null }
 function primaryOutcome(r: RecommendationRecord) {
   return r.outcomes.m12 ?? r.outcomes.m6 ?? r.outcomes.m3 ?? r.outcomes.m1 ?? r.outcomes.w1 ?? r.outcomes.d1
 }
@@ -79,7 +85,12 @@ function statusTone(status: RecommendationExecutionStatus) {
 }
 
 export default function HistoryPage() {
-  const { recommendations, updateRecommendation, hydrated } = useDios()
+  const { recommendations: rawRecommendations, updateRecommendation, hydrated } = useDios()
+  const { activeProfile } = useProfile()
+  const recommendations = useMemo(
+    () => trackedRecommendationsForProfile(activeProfile?.id, rawRecommendations),
+    [activeProfile?.id, rawRecommendations],
+  )
   const [selected, setSelected] = useState<RecommendationRecord | null>(null)
   const [notes, setNotes] = useState("")
   const [executionPrice, setExecutionPrice] = useState("")
@@ -87,39 +98,70 @@ export default function HistoryPage() {
   const measurementRunRef = useRef(false)
 
   useEffect(() => {
+    measurementRunRef.current = false
+  }, [activeProfile?.id])
+
+  useEffect(() => {
     if (!hydrated || measurementRunRef.current || recommendations.length === 0) return
     const now = Date.now()
-    const horizons = [["d1",1],["w1",7],["m1",30],["m3",90],["m6",180],["m12",365]] as const
     const due = recommendations.filter((record) => {
-      const ageDays = (now - new Date(record.datetime).getTime()) / 86_400_000
-      return horizons.some(([key, days]) => ageDays >= days && record.outcomes[key] === null)
+      const createdAt = new Date(record.datetime).getTime()
+      if (!Number.isFinite(createdAt)) return false
+      return PERFORMANCE_HORIZONS.some(
+        ({ key, days }) => now >= createdAt + days * 86_400_000 && record.outcomes[key] === null,
+      )
     })
     if (!due.length) return
+
     measurementRunRef.current = true
-    const symbols = Array.from(new Set(due.map((r) => r.ticker))).join(",")
-    void fetch(`/api/quotes?symbols=${encodeURIComponent(symbols)}`, { cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`Quote request failed (${response.status})`)
-        return response.json() as Promise<{ quotes?: Array<{ symbol: string; price: number }> }>
-      })
-      .then((payload) => {
-        const prices = new Map((payload.quotes ?? []).map((q) => [q.symbol.toUpperCase(), q.price]))
+    void (async () => {
+      try {
         for (const record of due) {
-          const currentPrice = prices.get(record.ticker.toUpperCase())
-          if (!currentPrice || !record.priceAtRec) continue
-          const ageDays = (now - new Date(record.datetime).getTime()) / 86_400_000
-          const measuredReturn = ((currentPrice / record.priceAtRec) - 1) * 100
+          const query = new URLSearchParams({
+            ticker: record.ticker,
+            benchmark: record.benchmarkTicker ?? "SPY",
+            createdAt: record.datetime,
+            priceAtRec: String(record.priceAtRec),
+          })
+          if (record.benchmarkPriceAtRec) {
+            query.set("benchmarkPriceAtRec", String(record.benchmarkPriceAtRec))
+          }
+          const response = await fetch(`/api/recommendations/measure?${query.toString()}`, {
+            cache: "no-store",
+          })
+          const payload = await response.json().catch(() => null) as {
+            error?: string
+            benchmarkPriceAtRec?: number | null
+            outcomes?: RecommendationRecord["outcomes"]
+            benchmarkOutcomes?: NonNullable<RecommendationRecord["benchmarkOutcomes"]>
+            measurements?: NonNullable<RecommendationRecord["measurements"]>
+          } | null
+          if (!response.ok || !payload?.outcomes) continue
+
           const nextOutcomes = { ...record.outcomes }
-          let changed = false
-          for (const [key, days] of horizons) {
-            if (ageDays >= days && nextOutcomes[key] === null) {
-              nextOutcomes[key] = Number(measuredReturn.toFixed(2)); changed = true
+          for (const horizon of PERFORMANCE_HORIZONS) {
+            const value = payload.outcomes[horizon.key]
+            if (value !== null) nextOutcomes[horizon.key] = value
+          }
+          const nextBenchmarkOutcomes = { ...(record.benchmarkOutcomes ?? { d1:null,w1:null,m1:null,m3:null,m6:null,m12:null }) }
+          if (payload.benchmarkOutcomes) {
+            for (const horizon of PERFORMANCE_HORIZONS) {
+              const value = payload.benchmarkOutcomes[horizon.key]
+              if (value !== null) nextBenchmarkOutcomes[horizon.key] = value
             }
           }
-          if (changed) updateRecommendation(record.id, { outcomes: nextOutcomes })
+
+          updateRecommendation(record.id, {
+            outcomes: nextOutcomes,
+            benchmarkPriceAtRec: payload.benchmarkPriceAtRec ?? record.benchmarkPriceAtRec ?? null,
+            benchmarkOutcomes: nextBenchmarkOutcomes,
+            measurements: payload.measurements ?? record.measurements,
+          })
         }
-      })
-      .catch(() => { measurementRunRef.current = false })
+      } finally {
+        measurementRunRef.current = false
+      }
+    })()
   }, [hydrated, recommendations, updateRecommendation])
 
   const stats = useMemo(() => {
@@ -222,6 +264,11 @@ export default function HistoryPage() {
   return <div className="space-y-6">
     <div><h1 className="text-2xl font-semibold tracking-tight">Recommendation History</h1>
       <p className="mt-1 text-sm text-muted-foreground">Track every Fundly recommendation, your decision, its sources and the measured market outcome.</p></div>
+
+    {activeProfile?.id === "suren" && <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+      <p className="font-medium">Clean Fundly tracking began {SUREN_TRACKING_START_DATE}.</p>
+      <p className="mt-1 text-muted-foreground">Only genuine recommendations logged from this date are included in this history and the AI Scorecard. Existing holdings are measured separately in Investor Hub.</p>
+    </div>}
 
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <StatCard label="Recommendations" value={stats.total} sub={`${stats.measured} market outcomes measured`} />

@@ -174,6 +174,18 @@ function AnalyseInner() {
       sector:
         externalContext?.instrument?.sector ?? instrument?.sector ?? "—",
       macroRegime: MACRO.regime,
+      origin: "logged",
+      recordKind: "ai-recommendation",
+      benchmarkTicker: "SPY",
+      trackingNotional: Math.max(1_000, portfolio.totalValue * (report.proposedWeight / 100)),
+      snapshot: {
+        suggestedNotional: Math.max(1_000, portfolio.totalValue * (report.proposedWeight / 100)),
+        portfolioValue: portfolio.totalValue,
+        currentWeight: report.currentWeight,
+        proposedWeight: report.proposedWeight,
+        marketDataProvider: report.marketDataProvider,
+        scoreBreakdown: report.scores,
+      },
       executionStatus: "Awaiting Decision",
       executionNotes: "",
       sourceNames: Array.from(new Set([
@@ -200,7 +212,7 @@ function AnalyseInner() {
     toast.success(`Logged ${report.recommendation} for ${report.ticker}`, {
       description: "Saved to recommendation history for outcome tracking.",
     })
-  }, [report, addRecommendation, externalContext])
+  }, [report, addRecommendation, externalContext, portfolio.totalValue])
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

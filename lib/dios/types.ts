@@ -327,6 +327,61 @@ export type RecommendationExecutionStatus =
   | "Ignored"
   | "Already Own"
 
+export type RecommendationHorizon = "d1" | "w1" | "m1" | "m3" | "m6" | "m12"
+
+export interface RecommendationMeasurement {
+  horizon: RecommendationHorizon
+  measuredAt: string
+  returnPct: number
+  benchmarkReturnPct: number | null
+  alphaPct: number | null
+  source: string
+}
+
+export interface RecommendationSnapshot {
+  suggestedNotional?: number
+  portfolioValue?: number
+  currentWeight?: number
+  proposedWeight?: number
+  marketDataProvider?: string
+  scoreBreakdown?: Partial<ScoreSet>
+}
+
+export interface ExistingHoldingBaseline {
+  id: string
+  ticker: string
+  startDate: string
+  startAt: string
+  quantity: number
+  avgCost: number
+  baselinePrice: number
+  baselineValue: number
+  priceDate: string
+  provider: string
+  benchmarkTicker: string
+  benchmarkPrice: number | null
+  createdAt: string
+  status: "active" | "closed"
+  outcomes: Record<RecommendationHorizon, number | null>
+  benchmarkOutcomes: Record<RecommendationHorizon, number | null>
+  measurements: RecommendationMeasurement[]
+}
+
+export interface TrackingMetadata {
+  profileId: "suren"
+  timezone: string
+  startDate: string
+  startAt: string
+  benchmark: string
+  baselineVersion: number
+  baselineTickers?: string[]
+  baselineHoldings?: Holding[]
+  baselineStatus: "pending" | "building" | "partial" | "complete"
+  baselineBuiltAt?: string
+  baselineMeasuredAt?: string
+  baselineError?: string
+}
+
 export interface RecommendationRecord {
   id: string
   datetime: string
@@ -344,6 +399,8 @@ export interface RecommendationRecord {
   scoringVersion: string
   sector: string
   macroRegime: string
+  origin?: "logged" | "seed" | "imported"
+  recordKind?: "ai-recommendation"
   executionStatus?: RecommendationExecutionStatus
   executionNotes?: string
   decisionAt?: string
@@ -351,12 +408,11 @@ export interface RecommendationRecord {
   executionQuantity?: number | null
   sourceNames?: string[]
   confidenceContributors?: string[]
-  outcomes: {
-    d1: number | null
-    w1: number | null
-    m1: number | null
-    m3: number | null
-    m6: number | null
-    m12: number | null
-  }
+  trackingNotional?: number
+  benchmarkTicker?: string
+  benchmarkPriceAtRec?: number | null
+  benchmarkOutcomes?: Record<RecommendationHorizon, number | null>
+  measurements?: RecommendationMeasurement[]
+  snapshot?: RecommendationSnapshot
+  outcomes: Record<RecommendationHorizon, number | null>
 }

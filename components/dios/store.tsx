@@ -5,7 +5,23 @@ import { buildPortfolio, type LiveQuote, type LiveQuoteMap, type PortfolioSummar
 import { getInstrument } from "@/lib/dios/universe"
 import { DEFAULT_SETTINGS } from "@/lib/dios/macro"
 import { SEED_HOLDINGS, SEED_RECOMMENDATIONS, SEED_TRANSACTIONS } from "@/lib/dios/seed"
-import type { Holding, InvestmentJournalEntry, RecommendationRecord, Settings, Transaction } from "@/lib/dios/types"
+import { useProfile } from "@/components/dios/profile-provider"
+import {
+  HOLDING_BASELINE_VERSION,
+  SUREN_TRACKING_START_DATE,
+  baselineNeedsMeasurement,
+  defaultSurenTracking,
+  trackedRecommendationsForProfile,
+} from "@/lib/dios/tracking"
+import type {
+  ExistingHoldingBaseline,
+  Holding,
+  InvestmentJournalEntry,
+  RecommendationRecord,
+  Settings,
+  TrackingMetadata,
+  Transaction,
+} from "@/lib/dios/types"
 
 const MIN_POSITION_QTY = 0.001
 
@@ -16,6 +32,8 @@ interface PersistedStore {
   settings: Settings
   recommendations: RecommendationRecord[]
   journal: InvestmentJournalEntry[]
+  holdingBaselines: ExistingHoldingBaseline[]
+  tracking: TrackingMetadata | null
 }
 
 type QuoteStatus = "idle" | "loading" | "live" | "partial" | "error"
@@ -28,6 +46,8 @@ interface StoreValue extends PersistedStore {
   quotesRefreshedAt: string | null
   unavailableQuotes: string[]
   refreshQuotes: () => Promise<void>
+  refreshHoldingBaselines: () => Promise<void>
+  refreshBaselineMeasurements: () => Promise<void>
   upsertHolding: (h: Holding) => void
   removeHolding: (ticker: string) => void
   addCash: (amount: number) => void
@@ -92,6 +112,33 @@ function applyTradeToHoldings(holdings: Holding[], t: Omit<Transaction, "id">): 
   return next.sort((a, b) => a.ticker.localeCompare(b.ticker))
 }
 
+function buildHoldingsAsOf(
+  currentHoldings: Holding[],
+  transactions: Transaction[],
+  date: string,
+) {
+  const instrumentByTicker = new Map(
+    currentHoldings.map((holding) => [holding.ticker, holding.instrument]),
+  )
+  const eligible = transactions
+    .filter((transaction) =>
+      (transaction.type === "Buy" || transaction.type === "Sell") &&
+      transaction.date.slice(0, 10) <= date,
+    )
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  const reconstructed = eligible.reduce(
+    (holdings, transaction) => applyTradeToHoldings(holdings, transaction),
+    [] as Holding[],
+  )
+
+  if (!reconstructed.length) return currentHoldings.map(normalizeHolding)
+  return reconstructed.map((holding) => ({
+    ...holding,
+    instrument: instrumentByTicker.get(holding.ticker),
+  }))
+}
+
 function initialState(): PersistedStore {
   return {
     holdings: SEED_HOLDINGS.map(normalizeHolding),
@@ -100,10 +147,13 @@ function initialState(): PersistedStore {
     settings: DEFAULT_SETTINGS,
     recommendations: SEED_RECOMMENDATIONS,
     journal: [],
+    holdingBaselines: [],
+    tracking: null,
   }
 }
 
 export function DiosProvider({ children }: { children: React.ReactNode }) {
+  const { activeProfile } = useProfile()
   const [state, setState] = useState<PersistedStore>(initialState)
   const [hydrated, setHydrated] = useState(false)
   const [liveQuotes, setLiveQuotes] = useState<LiveQuoteMap>({})
@@ -118,14 +168,50 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   const localChangesPendingRef = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveRequestRef = useRef<AbortController | null>(null)
+  const baselineBuildRef = useRef(false)
+  const baselineMeasureRef = useRef(false)
 
   useEffect(() => {
     stateRef.current = state
   }, [state])
 
-  const applyRemoteState = useCallback((remote: Partial<PersistedStore>) => {
-    suppressNextSaveRef.current = true
-    localChangesPendingRef.current = false
+  const applyRemoteState = useCallback((
+    remote: Partial<PersistedStore>,
+    profileId: "deepak" | "suren",
+  ) => {
+    const remoteRecommendations = Array.isArray(remote.recommendations)
+      ? remote.recommendations
+      : []
+    const eligibleRecommendations = trackedRecommendationsForProfile(
+      profileId,
+      remoteRecommendations,
+    )
+    const recommendationsChanged = eligibleRecommendations.length !== remoteRecommendations.length
+
+    const remoteBaselines = Array.isArray(remote.holdingBaselines)
+      ? remote.holdingBaselines
+      : []
+    const tracking = profileId === "suren"
+      ? {
+          ...(remote.tracking ?? {}),
+          ...defaultSurenTracking(),
+          baselineStatus: remote.tracking?.baselineStatus ?? "pending",
+          baselineBuiltAt: remote.tracking?.baselineBuiltAt,
+          baselineMeasuredAt: remote.tracking?.baselineMeasuredAt,
+          baselineError: remote.tracking?.baselineError,
+        }
+      : remote.tracking ?? null
+    const trackingChanged = profileId === "suren" && (
+      !remote.tracking ||
+      remote.tracking.startDate !== SUREN_TRACKING_START_DATE ||
+      remote.tracking.baselineVersion !== HOLDING_BASELINE_VERSION
+    )
+    const migrationChanged = recommendationsChanged || trackingChanged || (
+      profileId === "suren" && !Array.isArray(remote.holdingBaselines)
+    )
+
+    suppressNextSaveRef.current = !migrationChanged
+    localChangesPendingRef.current = migrationChanged
     setState((current) => ({
       holdings: Array.isArray(remote.holdings)
         ? remote.holdings.map(normalizeHolding).filter((holding) => holding.quantity > 0)
@@ -142,10 +228,12 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
             },
           }
         : current.settings,
-      recommendations: Array.isArray(remote.recommendations)
-        ? remote.recommendations
-        : current.recommendations,
+      recommendations: profileId === "suren"
+        ? eligibleRecommendations
+        : (Array.isArray(remote.recommendations) ? remote.recommendations : current.recommendations),
       journal: Array.isArray(remote.journal) ? remote.journal : current.journal,
+      holdingBaselines: remoteBaselines,
+      tracking,
     }))
   }, [])
 
@@ -164,6 +252,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
         data?: Partial<PersistedStore> | null
         sha?: string | null
         error?: string
+        profileId?: "deepak" | "suren"
       }
 
       if (!response.ok) {
@@ -171,7 +260,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
       }
 
       remoteShaRef.current = payload.sha ?? null
-      if (payload.data) applyRemoteState(payload.data)
+      if (payload.data && payload.profileId) applyRemoteState(payload.data, payload.profileId)
 
       // Saving is enabled only after a successful cloud read.
       cloudReadyRef.current = true
@@ -278,6 +367,221 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
       document.removeEventListener("visibilitychange", refreshFromRemote)
     }
   }, [hydrated, loadRemoteStore])
+
+  useEffect(() => {
+    baselineBuildRef.current = false
+    baselineMeasureRef.current = false
+  }, [activeProfile?.id])
+
+  const refreshHoldingBaselines = useCallback(async () => {
+    if (activeProfile?.id !== "suren" || baselineBuildRef.current) return
+
+    const snapshot = stateRef.current
+    const capturedHoldings = snapshot.tracking?.baselineHoldings?.length
+      ? snapshot.tracking.baselineHoldings
+      : buildHoldingsAsOf(snapshot.holdings, snapshot.transactions, SUREN_TRACKING_START_DATE)
+    const capturedTickers = snapshot.tracking?.baselineTickers?.length
+      ? snapshot.tracking.baselineTickers
+      : capturedHoldings.map((holding) => holding.ticker)
+    const holdingMap = new Map(capturedHoldings.map((holding) => [holding.ticker, holding]))
+    const existingTickers = new Set(snapshot.holdingBaselines.map((item) => item.ticker))
+    const missing = capturedTickers
+      .filter((ticker) => !existingTickers.has(ticker))
+      .map((ticker) => holdingMap.get(ticker))
+      .filter((holding): holding is Holding => Boolean(holding))
+
+    if (!missing.length) {
+      if (snapshot.tracking?.baselineStatus !== "complete") {
+        localChangesPendingRef.current = true
+        setState((current) => ({
+          ...current,
+          tracking: {
+            ...defaultSurenTracking(),
+            ...(current.tracking ?? {}),
+            baselineTickers: capturedTickers,
+            baselineHoldings: capturedHoldings,
+            baselineStatus: "complete",
+            baselineBuiltAt: current.tracking?.baselineBuiltAt ?? new Date().toISOString(),
+            baselineError: undefined,
+          },
+        }))
+      }
+      return
+    }
+
+    baselineBuildRef.current = true
+    localChangesPendingRef.current = true
+    setState((current) => ({
+      ...current,
+      tracking: {
+        ...defaultSurenTracking(),
+        ...(current.tracking ?? {}),
+        baselineTickers: capturedTickers,
+        baselineHoldings: capturedHoldings,
+        baselineStatus: "building",
+        baselineError: undefined,
+      },
+    }))
+
+    const created: ExistingHoldingBaseline[] = []
+    const errors: string[] = []
+
+    try {
+      for (let index = 0; index < missing.length; index += 8) {
+        const chunk = missing.slice(index, index + 8)
+        const response = await fetch("/api/tracking/baselines", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: SUREN_TRACKING_START_DATE,
+            holdings: chunk.map(({ ticker, quantity, avgCost }) => ({
+              ticker, quantity, avgCost,
+            })),
+          }),
+        })
+        const payload = await response.json().catch(() => null) as {
+          error?: string
+          results?: Array<{
+            ticker?: string
+            baseline?: ExistingHoldingBaseline
+            error?: string
+          }>
+        } | null
+        if (!response.ok) {
+          throw new Error(payload?.error || `Baseline request failed with status ${response.status}`)
+        }
+        for (const row of payload?.results ?? []) {
+          if (row.baseline) created.push(row.baseline)
+          else if (row.error) errors.push(`${row.ticker || "Unknown"}: ${row.error}`)
+        }
+      }
+
+      localChangesPendingRef.current = true
+      setState((current) => {
+        const byTicker = new Map(current.holdingBaselines.map((item) => [item.ticker, item]))
+        for (const item of created) byTicker.set(item.ticker, item)
+        const expected = new Set(capturedTickers)
+        const complete = Array.from(expected).every((ticker) => byTicker.has(ticker))
+        return {
+          ...current,
+          holdingBaselines: Array.from(byTicker.values()).sort((a, b) => a.ticker.localeCompare(b.ticker)),
+          tracking: {
+            ...defaultSurenTracking(),
+            ...(current.tracking ?? {}),
+            baselineTickers: capturedTickers,
+            baselineHoldings: capturedHoldings,
+            baselineStatus: complete ? "complete" : "partial",
+            baselineBuiltAt: new Date().toISOString(),
+            baselineError: errors.length ? errors.slice(0, 8).join(" ") : undefined,
+          },
+        }
+      })
+    } catch (error) {
+      localChangesPendingRef.current = true
+      setState((current) => ({
+        ...current,
+        tracking: {
+          ...defaultSurenTracking(),
+          ...(current.tracking ?? {}),
+          baselineStatus: "partial",
+          baselineError: error instanceof Error ? error.message : "Unable to build holding baselines.",
+        },
+      }))
+    } finally {
+      baselineBuildRef.current = false
+    }
+  }, [activeProfile?.id])
+
+  const refreshBaselineMeasurements = useCallback(async () => {
+    if (activeProfile?.id !== "suren" || baselineMeasureRef.current) return
+    const due = stateRef.current.holdingBaselines.filter((baseline) => baselineNeedsMeasurement(baseline))
+    if (!due.length) return
+
+    baselineMeasureRef.current = true
+    try {
+      const updates = new Map<string, Partial<ExistingHoldingBaseline>>()
+      for (let index = 0; index < due.length; index += 8) {
+        const response = await fetch("/api/tracking/measure", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ baselines: due.slice(index, index + 8) }),
+        })
+        const payload = await response.json().catch(() => null) as {
+          error?: string
+          results?: Array<({
+            id: string
+            benchmarkPrice: number | null
+            outcomes: ExistingHoldingBaseline["outcomes"]
+            benchmarkOutcomes: ExistingHoldingBaseline["benchmarkOutcomes"]
+            measurements: ExistingHoldingBaseline["measurements"]
+          } | { id: string; error: string })>
+        } | null
+        if (!response.ok) {
+          throw new Error(payload?.error || `Baseline measurement failed with status ${response.status}`)
+        }
+        for (const row of payload?.results ?? []) {
+          if (!("error" in row)) {
+            updates.set(row.id, {
+              benchmarkPrice: row.benchmarkPrice,
+              outcomes: row.outcomes,
+              benchmarkOutcomes: row.benchmarkOutcomes,
+              measurements: row.measurements,
+            })
+          }
+        }
+      }
+
+      if (updates.size) {
+        localChangesPendingRef.current = true
+        setState((current) => ({
+          ...current,
+          holdingBaselines: current.holdingBaselines.map((baseline) => ({
+            ...baseline,
+            ...(updates.get(baseline.id) ?? {}),
+          })),
+          tracking: current.tracking
+            ? { ...current.tracking, baselineMeasuredAt: new Date().toISOString() }
+            : current.tracking,
+        }))
+      }
+    } catch (error) {
+      console.error("Unable to measure existing-holding baselines:", error)
+    } finally {
+      baselineMeasureRef.current = false
+    }
+  }, [activeProfile?.id])
+
+  useEffect(() => {
+    if (!hydrated || activeProfile?.id !== "suren" || !cloudReadyRef.current) return
+    const baselineTickers = new Set(state.holdingBaselines.map((item) => item.ticker))
+    const expectedTickers = state.tracking?.baselineTickers?.length
+      ? state.tracking.baselineTickers
+      : state.holdings.map((holding) => holding.ticker)
+    const hasMissing = expectedTickers.some((ticker) => !baselineTickers.has(ticker))
+    if (hasMissing || state.tracking?.baselineVersion !== HOLDING_BASELINE_VERSION) {
+      void refreshHoldingBaselines()
+    }
+  }, [
+    hydrated,
+    activeProfile?.id,
+    state.holdings,
+    state.holdingBaselines,
+    state.tracking?.baselineVersion,
+    state.tracking?.baselineTickers,
+    refreshHoldingBaselines,
+  ])
+
+  useEffect(() => {
+    if (!hydrated || activeProfile?.id !== "suren" || !state.holdingBaselines.length) return
+    if (state.holdingBaselines.some((baseline) => baselineNeedsMeasurement(baseline))) {
+      void refreshBaselineMeasurements()
+    }
+  }, [
+    hydrated,
+    activeProfile?.id,
+    state.holdingBaselines,
+    refreshBaselineMeasurements,
+  ])
 
   const refreshQuotes = useCallback(async () => {
     const symbols = Array.from(
@@ -502,6 +806,8 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
         quotesRefreshedAt,
         unavailableQuotes,
         refreshQuotes,
+        refreshHoldingBaselines,
+        refreshBaselineMeasurements,
         upsertHolding,
         removeHolding,
         addCash,
