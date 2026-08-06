@@ -4373,6 +4373,120 @@
   },
   "recommendations": [
     {
+      "id": "rec-1785997501153",
+      "datetime": "2026-08-06T06:25:01.153Z",
+      "ticker": "AAPL",
+      "type": "stock",
+      "priceAtRec": 312.5,
+      "overallScore": 68,
+      "recommendation": "Buy Watch",
+      "suggestedWeight": 0.6491537799611053,
+      "confidence": 49,
+      "reasons": [
+        "Upcoming earnings on 2026-10-28; event risk supports staged sizing rather than a full entry.",
+        "Price trend is constructive with momentum score 66/100; the name trades above key moving averages based on the current price trend.",
+        "Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Business quality is high (93/100): durable margins and competitive position support a core allocation.",
+        "Structural AI-driven demand remains a multi-quarter tailwind; confirm this against the latest earnings source listed below."
+      ],
+      "risks": [
+        "A close below key support (roughly $256.25, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 29,
+          "low": 0.13523999999999997,
+          "high": 0.21924000000000002,
+          "assumptions": [
+            "Revenue growth beats consensus",
+            "Margin expansion continues",
+            "Multiple re-rates toward peers"
+          ]
+        },
+        "base": {
+          "probability": 47,
+          "low": 0.0832,
+          "high": 0.1632,
+          "assumptions": [
+            "In-line earnings delivery",
+            "Stable valuation multiple",
+            "No major macro shock"
+          ]
+        },
+        "bear": {
+          "probability": 24,
+          "low": -0.154,
+          "high": -0.013999999999999999,
+          "assumptions": [
+            "Earnings miss and guidance cut",
+            "Multiple compression",
+            "Macro or liquidity shock"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Technology",
+      "macroRegime": "Late-cycle expansion, easing bias",
+      "origin": "logged",
+      "recordKind": "ai-recommendation",
+      "benchmarkTicker": "SPY",
+      "trackingNotional": 12500,
+      "snapshot": {
+        "suggestedNotional": 12500,
+        "portfolioValue": 1925583.7963,
+        "currentWeight": 0.6491537799611053,
+        "proposedWeight": 0.6491537799611053,
+        "marketDataProvider": "Yahoo Finance (Fallback)",
+        "scoreBreakdown": {
+          "macro": 70,
+          "geopolitics": 48,
+          "earnings": 72,
+          "fundamentals": 77,
+          "valuation": 42,
+          "quality": 93,
+          "flows": 77,
+          "technical": 66,
+          "portfolioFit": 70,
+          "timing": 54,
+          "psychology": 68,
+          "opportunityCost": 48
+        }
+      },
+      "executionStatus": "Awaiting Decision",
+      "executionNotes": "",
+      "sourceNames": [
+        "Fundly Decision Engine",
+        "Yahoo Finance (Fallback) — latest available quote for AAPL",
+        "SEC EDGAR 10-Q",
+        "SEC EDGAR 8-K",
+        "Yahoo — Divorced at 60 With Half the Savings You Planned On. These 3 ETFs Help Rebuild a Retirement",
+        "Moneyweek — As AI spend continues to soar, when will investors start to be rewarded?",
+        "Yahoo — Apple Seeks Injunction Against OpenAI in Trade Secrets Lawsuit, Says It Faces 'Irreparable Harm'— Jim Cramer Says 'Gloves Off'",
+        "Yahoo — The Calm Surface of Alphabet Stock Hides a Turbulent Forecast",
+        "Barrons.com — SpaceX’s $1T Goal and 3 More Shockers From Musk on the Earnings Call",
+        "Yahoo — Price hikes on consumer electronics could be here to stay. Here's why.",
+        "Yahoo — Amazon Web Services Will Continue to Drive Growth and Create Value",
+        "Yahoo — Spain's 'Warren Buffett' Bets Against the Crowd--and It's Paying Off"
+      ],
+      "confidenceContributors": [
+        "Positive: Upcoming earnings on 2026-10-28; event risk supports staged sizing rather than a full entry.",
+        "Positive: Price trend is constructive with momentum score 66/100; the name trades above key moving averages based on the current price trend.",
+        "Positive: Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Risk: A close below key support (roughly $256.25, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Risk: Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      }
+    },
+    {
       "id": "rec-1785997443003",
       "datetime": "2026-08-06T06:24:03.003Z",
       "ticker": "NVDA",
@@ -8595,8 +8709,8 @@
     "benchmark": "SPY",
     "baselineVersion": 1,
     "baselineStatus": "building",
-    "baselineBuiltAt": "2026-08-06T06:24:59.051Z",
-    "baselineMeasuredAt": "2026-08-06T06:24:59.208Z",
+    "baselineBuiltAt": "2026-08-06T06:25:06.027Z",
+    "baselineMeasuredAt": "2026-08-06T06:25:05.984Z",
     "baselineTickers": [
       "AAL",
       "AAP",
