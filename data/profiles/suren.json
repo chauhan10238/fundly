@@ -5548,7 +5548,7 @@
       "createdAt": "2026-08-06T06:20:20.970Z",
       "status": "active",
       "outcomes": {
-        "d1": null,
+        "d1": 0,
         "w1": null,
         "m1": null,
         "m3": null,
@@ -5556,14 +5556,23 @@
         "m12": null
       },
       "benchmarkOutcomes": {
-        "d1": null,
+        "d1": 0,
         "w1": null,
         "m1": null,
         "m3": null,
         "m6": null,
         "m12": null
       },
-      "measurements": []
+      "measurements": [
+        {
+          "horizon": "d1",
+          "measuredAt": "2026-08-05T21:00:00.000Z",
+          "returnPct": 0,
+          "benchmarkReturnPct": 0,
+          "alphaPct": 0,
+          "source": "Yahoo Finance (Fallback)"
+        }
+      ]
     },
     {
       "id": "baseline-2026-08-05-DELL",
@@ -7627,7 +7636,7 @@
       "createdAt": "2026-08-06T06:20:23.949Z",
       "status": "active",
       "outcomes": {
-        "d1": null,
+        "d1": 9900,
         "w1": null,
         "m1": null,
         "m3": null,
@@ -7635,14 +7644,23 @@
         "m12": null
       },
       "benchmarkOutcomes": {
-        "d1": null,
+        "d1": 0,
         "w1": null,
         "m1": null,
         "m3": null,
         "m6": null,
         "m12": null
       },
-      "measurements": []
+      "measurements": [
+        {
+          "horizon": "d1",
+          "measuredAt": "2026-08-05T21:00:00.000Z",
+          "returnPct": 9900,
+          "benchmarkReturnPct": 0,
+          "alphaPct": 9900,
+          "source": "Yahoo Finance (Fallback)"
+        }
+      ]
     },
     {
       "id": "baseline-2026-08-05-SHOP",
@@ -8709,8 +8727,8 @@
     "benchmark": "SPY",
     "baselineVersion": 2,
     "baselineStatus": "building",
-    "baselineBuiltAt": "2026-08-06T08:24:04.662Z",
-    "baselineMeasuredAt": "2026-08-06T08:24:04.633Z",
+    "baselineBuiltAt": "2026-08-06T08:25:02.148Z",
+    "baselineMeasuredAt": "2026-08-06T08:24:40.019Z",
     "baselineTickers": [
       "AAL",
       "AAP",
