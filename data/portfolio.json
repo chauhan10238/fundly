@@ -263,6 +263,120 @@
   },
   "recommendations": [
     {
+      "id": "rec-1785997579042",
+      "datetime": "2026-08-06T06:26:19.042Z",
+      "ticker": "GOOG",
+      "type": "stock",
+      "priceAtRec": 360.13,
+      "overallScore": 73,
+      "recommendation": "Buy",
+      "suggestedWeight": 7.855049494357913,
+      "confidence": 76,
+      "reasons": [
+        "Upcoming earnings on 2026-10-27; event risk supports staged sizing rather than a full entry.",
+        "Price trend is constructive with momentum score 74/100; the name trades above key moving averages based on the current price trend.",
+        "Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Business quality is high (91/100): durable margins and competitive position support a core allocation.",
+        "Structural AI-driven demand remains a multi-quarter tailwind; confirm this against the latest earnings source listed below."
+      ],
+      "risks": [
+        "A close below key support (roughly $295.31, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 32,
+          "low": 0.2212,
+          "high": 0.3412,
+          "assumptions": [
+            "Revenue growth beats consensus",
+            "Margin expansion continues",
+            "Multiple re-rates toward peers"
+          ]
+        },
+        "base": {
+          "probability": 46,
+          "low": 0.1112,
+          "high": 0.19119999999999998,
+          "assumptions": [
+            "In-line earnings delivery",
+            "Stable valuation multiple",
+            "No major macro shock"
+          ]
+        },
+        "bear": {
+          "probability": 22,
+          "low": -0.22,
+          "high": -0.02,
+          "assumptions": [
+            "Earnings miss and guidance cut",
+            "Multiple compression",
+            "Macro or liquidity shock"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Communication Services",
+      "macroRegime": "Late-cycle expansion, easing bias",
+      "origin": "logged",
+      "recordKind": "ai-recommendation",
+      "benchmarkTicker": "SPY",
+      "trackingNotional": 1000,
+      "snapshot": {
+        "suggestedNotional": 1000,
+        "portfolioValue": 9169.3884362835,
+        "currentWeight": 7.855049494357913,
+        "proposedWeight": 7.855049494357913,
+        "marketDataProvider": "Financial Modeling Prep (Starter)",
+        "scoreBreakdown": {
+          "macro": 70,
+          "geopolitics": 48,
+          "earnings": 80,
+          "fundamentals": 82,
+          "valuation": 56,
+          "quality": 91,
+          "flows": 81,
+          "technical": 74,
+          "portfolioFit": 70,
+          "timing": 65,
+          "psychology": 68,
+          "opportunityCost": 62
+        }
+      },
+      "executionStatus": "Awaiting Decision",
+      "executionNotes": "",
+      "sourceNames": [
+        "Fundly Decision Engine",
+        "Financial Modeling Prep (Starter) — latest available quote for GOOG",
+        "SEC EDGAR 10-Q",
+        "SEC EDGAR 8-K",
+        "MarketBeat — TTM Technologies Q2 Earnings Call Highlights",
+        "Forkast News — Meta’s Superintelligence Labs Ships Its First Product — and the Contributor Tier Is the Real Strategy",
+        "Moneyweek — As AI spend continues to soar, when will investors start to be rewarded?",
+        "Yahoo — Alphabet Post-Earnings Rebound is On: Buy at $363?",
+        "Yahoo — Alphabet CEO Sundar Pichai Just Made a $200 Billion Infrastructure Move. Nvidia, Micron, and Broadcom Investors Should Rejoice.",
+        "Yahoo — Google’s DeepMind Shakeup Reveals a Compute Landlord Betting on Infrastructure Over Research",
+        "Yahoo — Waymo's Co-CEO Just Issued a Stark Warning to Every AI Company Building Robots and Cars: 'There's Simply Not An Undo…'",
+        "Yahoo — Google Shifts AI Power to California in Race Against Anthropic, OpenAI"
+      ],
+      "confidenceContributors": [
+        "Positive: Upcoming earnings on 2026-10-27; event risk supports staged sizing rather than a full entry.",
+        "Positive: Price trend is constructive with momentum score 74/100; the name trades above key moving averages based on the current price trend.",
+        "Positive: Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Risk: A close below key support (roughly $295.31, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Risk: Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      }
+    },
+    {
       "id": "rec-1785989334256",
       "datetime": "2026-08-06T04:08:54.256Z",
       "ticker": "SHOP",
@@ -886,5 +1000,7 @@
       }
     }
   ],
-  "journal": []
+  "journal": [],
+  "holdingBaselines": [],
+  "tracking": null
 }
