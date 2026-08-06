@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { BookmarkPlus, BrainCircuit, Check, Loader2, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { useDios } from "@/components/dios/store"
@@ -26,7 +26,6 @@ import { getInstrument } from "@/lib/dios/universe"
 const SUGGESTIONS = ["NVDA", "AAPL", "GOOG", "GLD", "VOO", "TSM", "QQQ", "SCHD"]
 
 function AnalyseInner() {
-  const router = useRouter()
   const params = useSearchParams()
   const ticker = params.get("ticker")?.toUpperCase() ?? ""
   const { portfolio, settings, addRecommendation, recommendations } = useDios()
@@ -141,12 +140,14 @@ function AnalyseInner() {
     setLogged(false)
   }, [ticker])
 
-  const select = useCallback(
-    (value: string) => {
-      router.push(`/analyse?ticker=${value}`)
-    },
-    [router],
-  )
+  const select = useCallback((value: string) => {
+    const normalized = value.trim().toUpperCase()
+    if (!normalized) return
+
+    // Use a native navigation so search, autocomplete and quick picks keep
+    // working even if the Next.js client router is stale after a deployment.
+    window.location.assign(`/analyse?ticker=${encodeURIComponent(normalized)}`)
+  }, [])
 
   const report =
     result && !("error" in result) ? (result as AnalysisReport) : null
@@ -227,19 +228,19 @@ function AnalyseInner() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <TickerSearch onSelect={select} initialValue={ticker} />
+        <TickerSearch key={ticker || "empty"} currentTicker={ticker} onSelect={select} />
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-muted-foreground">Quick pick:</span>
 
           {SUGGESTIONS.map((suggestion) => (
-            <button
+            <a
               key={suggestion}
-              onClick={() => select(suggestion)}
+              href={`/analyse?ticker=${encodeURIComponent(suggestion)}`}
               className="rounded-md border border-border bg-card px-2 py-1 font-mono text-xs font-medium transition-colors hover:bg-muted"
             >
               {suggestion}
-            </button>
+            </a>
           ))}
 
           <span className="ml-auto text-xs text-muted-foreground">

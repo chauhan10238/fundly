@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { FormEvent, useEffect, useRef, useState } from "react"
 import { Loader2, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -16,18 +16,16 @@ type SearchResult = {
 
 type TickerSearchProps = {
   onSelect: (ticker: string) => void
-  initialValue?: string
+  currentTicker?: string
   placeholder?: string
 }
 
-const TICKER_PATTERN = /^[A-Z0-9.^-]{1,20}$/
-
 export function TickerSearch({
   onSelect,
-  initialValue = "",
+  currentTicker = "",
   placeholder = "Search ticker or name (e.g. NVIDIA, GLD, Vanguard)…",
 }: TickerSearchProps) {
-  const [query, setQuery] = useState(initialValue)
+  const [query, setQuery] = useState(currentTicker)
   const [results, setResults] = useState<SearchResult[]>([])
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
@@ -36,20 +34,21 @@ export function TickerSearch({
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requestId = useRef(0)
 
+  // Keep the input aligned with browser navigation and quick-pick changes.
   useEffect(() => {
-    setQuery(initialValue)
+    setQuery(currentTicker)
     setResults([])
     setOpen(false)
     setMessage(null)
-  }, [initialValue])
+  }, [currentTicker])
 
-  async function runSearch(raw: string): Promise<SearchResult[]> {
+  async function runSearch(raw: string) {
     const q = raw.trim()
     if (!q) {
       setResults([])
       setMessage(null)
       setLoading(false)
-      return []
+      return
     }
 
     const id = ++requestId.current
@@ -70,7 +69,7 @@ export function TickerSearch({
         provider?: string
       }
 
-      if (id !== requestId.current) return []
+      if (id !== requestId.current) return
 
       const rows = Array.isArray(payload.results) ? payload.results : []
       setResults(rows)
@@ -78,18 +77,16 @@ export function TickerSearch({
       setMessage(
         rows.length
           ? `Results via ${payload.provider ?? "market search"}`
-          : "No matches found. A valid ticker can still be opened directly.",
+          : "No suggestions found. Press Enter or Search to analyse the symbol directly.",
       )
-      return rows
     } catch (error) {
-      if (id !== requestId.current) return []
+      if (id !== requestId.current) return
       setResults([])
       setMessage(
         error instanceof DOMException && error.name === "AbortError"
-          ? "Search timed out. A valid ticker can still be opened directly."
-          : "Search is temporarily unavailable. A valid ticker can still be opened directly.",
+          ? "Search timed out. Press Enter or Search to analyse the symbol directly."
+          : "Search is temporarily unavailable. Press Enter or Search to analyse the symbol directly.",
       )
-      return []
     } finally {
       window.clearTimeout(timeout)
       if (id === requestId.current) setLoading(false)
@@ -98,70 +95,38 @@ export function TickerSearch({
 
   useEffect(() => {
     const q = query.trim()
-    if (!q || q.toUpperCase() === initialValue.toUpperCase()) {
+    if (!q || q.toUpperCase() === currentTicker.toUpperCase()) {
       setResults([])
       setMessage(null)
       return
     }
 
-    const timer = window.setTimeout(() => void runSearch(q), 250)
+    const timer = window.setTimeout(() => void runSearch(q), 220)
     return () => window.clearTimeout(timer)
-  }, [query, initialValue])
+  }, [query, currentTicker])
 
-  function choose(ticker: string) {
-    const normalized = ticker.trim().toUpperCase()
+  function choose(rawTicker: string) {
+    const normalized = rawTicker.trim().toUpperCase().replace(/[^A-Z0-9.\-^=]/g, "")
     if (!normalized) return
 
     if (blurTimer.current) window.clearTimeout(blurTimer.current)
     setQuery(normalized)
+    setOpen(false)
     setResults([])
     setMessage(null)
-    setOpen(false)
     onSelect(normalized)
   }
 
-  async function submitSearch() {
-    const raw = query.trim()
-    if (!raw || loading) return
-
-    const normalized = raw.toUpperCase()
-    const existing =
-      results.find((row) => row.symbol.toUpperCase() === normalized) ??
-      results[active]
-
-    if (existing) {
-      choose(existing.symbol)
-      return
-    }
-
-    const rows = await runSearch(raw)
-    const exact = rows.find(
-      (row) => row.symbol.toUpperCase() === normalized,
-    )
-
-    if (exact) {
-      choose(exact.symbol)
-      return
-    }
-
-    if (rows.length === 1) {
-      choose(rows[0].symbol)
-      return
-    }
-
-    // A ticker is allowed to open directly even when a provider cannot return
-    // autocomplete results. The analysis API performs the final validation.
-    if (TICKER_PATTERN.test(normalized)) {
-      choose(normalized)
-    }
+  function submit(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault()
+    // A highlighted suggestion wins; otherwise the exact text is submitted immediately.
+    choose(results[active]?.symbol ?? query)
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault()
-      setActive((value) =>
-        Math.min(value + 1, Math.max(0, results.length - 1)),
-      )
+      setActive((value) => Math.min(value + 1, Math.max(0, results.length - 1)))
       return
     }
 
@@ -173,7 +138,7 @@ export function TickerSearch({
 
     if (event.key === "Enter") {
       event.preventDefault()
-      void submitSearch()
+      choose(results[active]?.symbol ?? query)
       return
     }
 
@@ -182,13 +147,7 @@ export function TickerSearch({
 
   return (
     <div className="relative z-50">
-      <form
-        className="flex gap-2"
-        onSubmit={(event) => {
-          event.preventDefault()
-          void submitSearch()
-        }}
-      >
+      <form className="flex gap-2" onSubmit={submit}>
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           {loading && (
@@ -201,11 +160,13 @@ export function TickerSearch({
               setOpen(true)
             }}
             onFocus={() => {
-              setOpen(true)
-              if (query.trim() && !results.length) void runSearch(query)
+              if (query.trim() && query.toUpperCase() !== currentTicker.toUpperCase()) {
+                setOpen(true)
+                if (!results.length) void runSearch(query)
+              }
             }}
             onBlur={() => {
-              blurTimer.current = window.setTimeout(() => setOpen(false), 200)
+              blurTimer.current = window.setTimeout(() => setOpen(false), 180)
             }}
             onKeyDown={onKeyDown}
             placeholder={placeholder}
@@ -214,17 +175,17 @@ export function TickerSearch({
             autoComplete="off"
           />
         </div>
-        <Button type="submit" variant="outline" disabled={!query.trim() || loading}>
-          {loading ? "Searching…" : "Search"}
+        <Button type="submit" variant="outline" disabled={!query.trim()}>
+          Search
         </Button>
       </form>
 
-      {open && query.trim() && (
+      {open && query.trim() && query.toUpperCase() !== currentTicker.toUpperCase() && (
         <div className="absolute left-0 right-0 z-[100] mt-1 max-h-96 overflow-auto rounded-md border border-border bg-popover p-1 shadow-2xl">
           {results.length ? (
             <ul>
               {results.map((result, index) => (
-                <li key={`${result.symbol}-${result.exchange}`}>
+                <li key={`${result.symbol}-${result.exchange}-${index}`}>
                   <button
                     type="button"
                     onMouseDown={(event) => {
@@ -240,12 +201,8 @@ export function TickerSearch({
                     )}
                   >
                     <span className="min-w-0">
-                      <span className="font-mono font-semibold">
-                        {result.symbol}
-                      </span>
-                      <span className="ml-2 text-muted-foreground">
-                        {result.name}
-                      </span>
+                      <span className="font-mono font-semibold">{result.symbol}</span>
+                      <span className="ml-2 text-muted-foreground">{result.name}</span>
                     </span>
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {result.type === "etf" ? "ETF" : "Stock"}
