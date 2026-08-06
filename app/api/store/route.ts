@@ -23,14 +23,17 @@ function config() {
   return { token, owner, repo, branch }
 }
 
-function activeProfile(request: NextRequest): "deepak" | "suren" {
+function activeProfile(request: NextRequest): string {
   const profileId = readProfileSession(request.cookies.get(PROFILE_COOKIE_NAME)?.value)
   if (!profileId) throw new Error("Fundly profile is locked. Enter your PIN to continue.")
   return profileId
 }
 
-function dataPath(profileId: "deepak" | "suren") {
-  return profileId === "suren" ? "data/profiles/suren.json" : "data/portfolio.json"
+function dataPath(profileId: string) {
+  if (profileId === "deepak") return "data/portfolio.json"
+  const safeId = profileId.toLowerCase().replace(/[^a-z0-9_-]/g, "")
+  if (!safeId) throw new Error("Invalid profile identifier.")
+  return `data/profiles/${safeId}.json`
 }
 
 function headers(token: string) {
@@ -58,7 +61,7 @@ function encode(value: string) {
   return Buffer.from(value, "utf8").toString("base64")
 }
 
-async function readFile(profileId: "deepak" | "suren") {
+async function readFile(profileId: string) {
   const { token, owner, repo, branch } = config()
   const path = dataPath(profileId)
   const response = await fetch(getUrl(owner, repo, branch, path), {

@@ -5,7 +5,6 @@ import { useDios } from "@/components/dios/store"
 import { useProfile } from "@/components/dios/profile-provider"
 import {
   PERFORMANCE_HORIZONS,
-  SUREN_TRACKING_START_DATE,
   trackedRecommendationsForProfile,
 } from "@/lib/dios/tracking"
 import type { RecommendationExecutionStatus, RecommendationRecord } from "@/lib/dios/types"
@@ -85,11 +84,11 @@ function statusTone(status: RecommendationExecutionStatus) {
 }
 
 export default function HistoryPage() {
-  const { recommendations: rawRecommendations, updateRecommendation, hydrated } = useDios()
+  const { recommendations: rawRecommendations, updateRecommendation, hydrated, tracking } = useDios()
   const { activeProfile } = useProfile()
   const recommendations = useMemo(
-    () => trackedRecommendationsForProfile(activeProfile?.id, rawRecommendations),
-    [activeProfile?.id, rawRecommendations],
+    () => trackedRecommendationsForProfile(activeProfile?.id, rawRecommendations, tracking),
+    [activeProfile?.id, rawRecommendations, tracking],
   )
   const [selected, setSelected] = useState<RecommendationRecord | null>(null)
   const [notes, setNotes] = useState("")
@@ -265,9 +264,9 @@ export default function HistoryPage() {
     <div><h1 className="text-2xl font-semibold tracking-tight">Recommendation History</h1>
       <p className="mt-1 text-sm text-muted-foreground">Track every Fundly recommendation, your decision, its sources and the measured market outcome.</p></div>
 
-    {activeProfile?.id === "suren" && <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
-      <p className="font-medium">Clean Fundly tracking began {SUREN_TRACKING_START_DATE}.</p>
-      <p className="mt-1 text-muted-foreground">Only genuine recommendations logged from this date are included in this history and the AI Scorecard. Existing holdings are measured separately in Investor Hub.</p>
+    {activeProfile && <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+      <p className="font-medium">Clean Fundly tracking began {tracking?.startDate ?? "when this profile was created"}.</p>
+      <p className="mt-1 text-muted-foreground">Only genuine recommendations logged from this profile's tracking start are included in Recommendation History and the AI Scorecard. Existing holdings are measured separately in Investor Hub.</p>
     </div>}
 
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

@@ -3,10 +3,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 
 type Profile = {
-  id: "deepak" | "suren"
+  id: string
   name: string
   role: "admin" | "investor"
   pinRequired: boolean
+  trackingStartDate?: string
 }
 
 type ProfileContextValue = {

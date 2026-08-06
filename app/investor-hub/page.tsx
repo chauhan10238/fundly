@@ -59,11 +59,11 @@ function buildTaxLots(transactions: Transaction[]) {
 }
 
 export default function InvestorHubPage() {
-  const { portfolio, transactions, settings, journal, recommendations, upsertJournalEntry, removeJournalEntry } = useDios()
+  const { portfolio, transactions, settings, journal, recommendations, tracking, upsertJournalEntry, removeJournalEntry } = useDios()
   const { activeProfile } = useProfile()
   const trackedRecommendations = useMemo(
-    () => trackedRecommendationsForProfile(activeProfile?.id, recommendations),
-    [activeProfile?.id, recommendations],
+    () => trackedRecommendationsForProfile(activeProfile?.id, recommendations, tracking),
+    [activeProfile?.id, recommendations, tracking],
   )
   const [marketShock, setMarketShock] = useState(-10)
   const [financialShock, setFinancialShock] = useState(-15)
@@ -279,9 +279,9 @@ export default function InvestorHubPage() {
         </Card>
       </div>
 
-      <Tabs defaultValue={activeProfile?.id === "suren" ? "baseline" : "risk"} className="space-y-4">
+      <Tabs defaultValue="baseline" className="space-y-4">
         <TabsList className="flex h-auto flex-wrap justify-start">
-          {activeProfile?.id === "suren" && <TabsTrigger value="baseline"><Activity className="mr-2 h-4 w-4" />Since 5 Aug</TabsTrigger>}
+          <TabsTrigger value="baseline"><Activity className="mr-2 h-4 w-4" />Since tracking start</TabsTrigger>
           <TabsTrigger value="risk"><ShieldAlert className="mr-2 h-4 w-4" />Concentration</TabsTrigger>
           <TabsTrigger value="stress"><Calculator className="mr-2 h-4 w-4" />Stress test</TabsTrigger>
           <TabsTrigger value="lots"><Target className="mr-2 h-4 w-4" />Tax lots</TabsTrigger>
@@ -289,9 +289,9 @@ export default function InvestorHubPage() {
           <TabsTrigger value="alerts"><AlertTriangle className="mr-2 h-4 w-4" />Alerts</TabsTrigger>
         </TabsList>
 
-        {activeProfile?.id === "suren" && <TabsContent value="baseline">
+        <TabsContent value="baseline">
           <ExistingHoldingsTracking />
-        </TabsContent>}
+        </TabsContent>
 
         <TabsContent value="risk">
           <Card>

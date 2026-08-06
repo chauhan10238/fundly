@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { PROFILE_COOKIE_NAME, readProfileSession } from "@/lib/dios/profile-auth"
 import {
-  SUREN_TRACKING_START_DATE,
+  DEFAULT_TRACKING_START_DATE,
   TRACKING_BENCHMARK,
   emptyPerformanceOutcomes,
 } from "@/lib/dios/tracking"
@@ -39,8 +39,8 @@ async function mapLimit<T, R>(items: T[], limit: number, mapper: (item: T) => Pr
 
 export async function POST(request: NextRequest) {
   const profileId = readProfileSession(request.cookies.get(PROFILE_COOKIE_NAME)?.value)
-  if (profileId !== "suren") {
-    return NextResponse.json({ error: "Existing-holding baselines are available only for Suren's profile." }, { status: 403 })
+  if (!profileId) {
+    return NextResponse.json({ error: "A valid investor profile session is required." }, { status: 401 })
   }
 
   const body = (await request.json().catch(() => null)) as {
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 
   const date = /^\d{4}-\d{2}-\d{2}$/.test(String(body?.date ?? ""))
     ? String(body?.date)
-    : SUREN_TRACKING_START_DATE
+    : DEFAULT_TRACKING_START_DATE
   const holdingsInput = body?.holdings
   const holdings = Array.isArray(holdingsInput) ? holdingsInput.slice(0, 12) : []
   if (!holdings.length) {

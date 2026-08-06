@@ -5,7 +5,7 @@ import { Activity, RefreshCw } from "lucide-react"
 import { useDios } from "@/components/dios/store"
 import { useProfile } from "@/components/dios/profile-provider"
 import { fmtCurrency } from "@/lib/format"
-import { PERFORMANCE_HORIZONS, SUREN_TRACKING_START_DATE } from "@/lib/dios/tracking"
+import { PERFORMANCE_HORIZONS } from "@/lib/dios/tracking"
 import type { ExistingHoldingBaseline, RecommendationHorizon } from "@/lib/dios/types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -82,17 +82,6 @@ export function ExistingHoldingsTracking() {
     }
   }, [holdingBaselines, holdings.length, portfolio.positions, tracking?.baselineTickers])
 
-  if (activeProfile?.id !== "suren") {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Existing holdings tracking</CardTitle>
-          <CardDescription>This baseline view is currently configured for Suren's portfolio.</CardDescription>
-        </CardHeader>
-      </Card>
-    )
-  }
-
   const refreshing = tracking?.baselineStatus === "building"
 
   return (
@@ -104,7 +93,7 @@ export function ExistingHoldingsTracking() {
               <Activity className="h-5 w-5" /> Existing Holdings Performance
             </CardTitle>
             <CardDescription>
-              Tracks the positions Suren already owned from {SUREN_TRACKING_START_DATE}. This is portfolio performance—not an AI recommendation—and is excluded from Fundly Accuracy.
+              Tracks the positions {activeProfile?.name ?? "this investor"} already owned from {tracking?.startDate ?? "the tracking start date"}. This is portfolio performance—not an AI recommendation—and is excluded from Fundly Accuracy.
             </CardDescription>
           </div>
           <Button
@@ -153,7 +142,7 @@ export function ExistingHoldingsTracking() {
         <CardHeader>
           <CardTitle>Holding-by-holding baseline</CardTitle>
           <CardDescription>
-            Baseline prices use the verified close on 5 August 2026, or the nearest prior trading close when the market was closed. FMP is primary; Yahoo Finance is fallback.
+            Baseline prices use the verified close on {tracking?.startDate ?? "the profile tracking date"}, or the nearest prior trading close when the market was closed. FMP is primary; Yahoo Finance is fallback.
           </CardDescription>
         </CardHeader>
         <CardContent>

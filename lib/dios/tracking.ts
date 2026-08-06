@@ -5,11 +5,17 @@ import type {
   TrackingMetadata,
 } from "./types"
 
-export const SUREN_TRACKING_START_DATE = "2026-08-05"
-export const SUREN_TRACKING_START_AT = "2026-08-04T14:00:00.000Z"
-export const SUREN_TRACKING_TIMEZONE = "Australia/Sydney"
-export const HOLDING_BASELINE_VERSION = 1
+export const DEFAULT_TRACKING_START_DATE = "2026-08-05"
+export const DEFAULT_TRACKING_TIMEZONE = "Australia/Sydney"
+export const HOLDING_BASELINE_VERSION = 2
 export const TRACKING_BENCHMARK = "SPY"
+
+// Existing profiles start from the clean Fundly launch baseline. Any profile added
+// later receives its own first-use date and that date is persisted in TrackingMetadata.
+const PROFILE_TRACKING_START_DATES: Record<string, string> = {
+  deepak: DEFAULT_TRACKING_START_DATE,
+  suren: DEFAULT_TRACKING_START_DATE,
+}
 
 export const PERFORMANCE_HORIZONS: Array<{
   key: RecommendationHorizon
@@ -28,12 +34,39 @@ export function emptyPerformanceOutcomes(): Record<RecommendationHorizon, number
   return { d1: null, w1: null, m1: null, m3: null, m6: null, m12: null }
 }
 
-export function defaultSurenTracking(): TrackingMetadata {
+function sydneyDateToday() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: DEFAULT_TRACKING_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date())
+}
+
+export function trackingStartDateForProfile(profileId: string, persistedStartDate?: string | null) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(persistedStartDate ?? ""))) {
+    return String(persistedStartDate)
+  }
+  return PROFILE_TRACKING_START_DATES[profileId] ?? sydneyDateToday()
+}
+
+export function trackingStartAtForDate(date: string) {
+  // Sydney was UTC+10 on 5 Aug 2026. This fixed midnight representation is also
+  // suitable for new profiles because eligibility is day-based rather than intraday.
+  const [year, month, day] = date.split("-").map(Number)
+  return new Date(Date.UTC(year, month - 1, day) - 10 * 60 * 60 * 1000).toISOString()
+}
+
+export function defaultTrackingForProfile(
+  profileId: string,
+  persistedStartDate?: string | null,
+): TrackingMetadata {
+  const startDate = trackingStartDateForProfile(profileId, persistedStartDate)
   return {
-    profileId: "suren",
-    timezone: SUREN_TRACKING_TIMEZONE,
-    startDate: SUREN_TRACKING_START_DATE,
-    startAt: SUREN_TRACKING_START_AT,
+    profileId,
+    timezone: DEFAULT_TRACKING_TIMEZONE,
+    startDate,
+    startAt: trackingStartAtForDate(startDate),
     benchmark: TRACKING_BENCHMARK,
     baselineVersion: HOLDING_BASELINE_VERSION,
     baselineStatus: "pending",
@@ -43,18 +76,21 @@ export function defaultSurenTracking(): TrackingMetadata {
 export function recommendationIsEligible(
   profileId: string | null | undefined,
   record: RecommendationRecord,
+  tracking?: TrackingMetadata | null,
 ) {
-  if (profileId !== "suren") return true
+  if (!profileId) return false
   if (record.origin === "seed") return false
+  const startAt = tracking?.startAt ?? defaultTrackingForProfile(profileId).startAt
   const timestamp = new Date(record.datetime).getTime()
-  return Number.isFinite(timestamp) && timestamp >= new Date(SUREN_TRACKING_START_AT).getTime()
+  return Number.isFinite(timestamp) && timestamp >= new Date(startAt).getTime()
 }
 
 export function trackedRecommendationsForProfile(
   profileId: string | null | undefined,
   recommendations: RecommendationRecord[],
+  tracking?: TrackingMetadata | null,
 ) {
-  return recommendations.filter((record) => recommendationIsEligible(profileId, record))
+  return recommendations.filter((record) => recommendationIsEligible(profileId, record, tracking))
 }
 
 export function baselineNeedsMeasurement(baseline: ExistingHoldingBaseline, now = Date.now()) {

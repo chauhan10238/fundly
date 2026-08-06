@@ -8,9 +8,8 @@ import { SEED_HOLDINGS, SEED_RECOMMENDATIONS, SEED_TRANSACTIONS } from "@/lib/di
 import { useProfile } from "@/components/dios/profile-provider"
 import {
   HOLDING_BASELINE_VERSION,
-  SUREN_TRACKING_START_DATE,
   baselineNeedsMeasurement,
-  defaultSurenTracking,
+  defaultTrackingForProfile,
   trackedRecommendationsForProfile,
 } from "@/lib/dios/tracking"
 import type {
@@ -177,38 +176,41 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
 
   const applyRemoteState = useCallback((
     remote: Partial<PersistedStore>,
-    profileId: "deepak" | "suren",
+    profileId: string,
   ) => {
     const remoteRecommendations = Array.isArray(remote.recommendations)
       ? remote.recommendations
       : []
+    const trackingDefaults = defaultTrackingForProfile(profileId, remote.tracking?.startDate)
+    const tracking: TrackingMetadata = {
+      ...trackingDefaults,
+      ...(remote.tracking ?? {}),
+      profileId,
+      startDate: trackingDefaults.startDate,
+      startAt: trackingDefaults.startAt,
+      baselineVersion: HOLDING_BASELINE_VERSION,
+      baselineStatus: remote.tracking?.baselineStatus ?? "pending",
+      baselineBuiltAt: remote.tracking?.baselineBuiltAt,
+      baselineMeasuredAt: remote.tracking?.baselineMeasuredAt,
+      baselineError: remote.tracking?.baselineError,
+    }
     const eligibleRecommendations = trackedRecommendationsForProfile(
       profileId,
       remoteRecommendations,
+      tracking,
     )
     const recommendationsChanged = eligibleRecommendations.length !== remoteRecommendations.length
 
     const remoteBaselines = Array.isArray(remote.holdingBaselines)
       ? remote.holdingBaselines
       : []
-    const tracking = profileId === "suren"
-      ? {
-          ...(remote.tracking ?? {}),
-          ...defaultSurenTracking(),
-          baselineStatus: remote.tracking?.baselineStatus ?? "pending",
-          baselineBuiltAt: remote.tracking?.baselineBuiltAt,
-          baselineMeasuredAt: remote.tracking?.baselineMeasuredAt,
-          baselineError: remote.tracking?.baselineError,
-        }
-      : remote.tracking ?? null
-    const trackingChanged = profileId === "suren" && (
+    const trackingChanged = (
       !remote.tracking ||
-      remote.tracking.startDate !== SUREN_TRACKING_START_DATE ||
+      remote.tracking.profileId !== profileId ||
+      remote.tracking.startDate !== tracking.startDate ||
       remote.tracking.baselineVersion !== HOLDING_BASELINE_VERSION
     )
-    const migrationChanged = recommendationsChanged || trackingChanged || (
-      profileId === "suren" && !Array.isArray(remote.holdingBaselines)
-    )
+    const migrationChanged = recommendationsChanged || trackingChanged || !Array.isArray(remote.holdingBaselines)
 
     suppressNextSaveRef.current = !migrationChanged
     localChangesPendingRef.current = migrationChanged
@@ -228,9 +230,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
             },
           }
         : current.settings,
-      recommendations: profileId === "suren"
-        ? eligibleRecommendations
-        : (Array.isArray(remote.recommendations) ? remote.recommendations : current.recommendations),
+      recommendations: eligibleRecommendations,
       journal: Array.isArray(remote.journal) ? remote.journal : current.journal,
       holdingBaselines: remoteBaselines,
       tracking,
@@ -252,7 +252,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
         data?: Partial<PersistedStore> | null
         sha?: string | null
         error?: string
-        profileId?: "deepak" | "suren"
+        profileId?: string
       }
 
       if (!response.ok) {
@@ -374,12 +374,12 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   }, [activeProfile?.id])
 
   const refreshHoldingBaselines = useCallback(async () => {
-    if (activeProfile?.id !== "suren" || baselineBuildRef.current) return
+    if (!activeProfile?.id || baselineBuildRef.current) return
 
     const snapshot = stateRef.current
     const capturedHoldings = snapshot.tracking?.baselineHoldings?.length
       ? snapshot.tracking.baselineHoldings
-      : buildHoldingsAsOf(snapshot.holdings, snapshot.transactions, SUREN_TRACKING_START_DATE)
+      : buildHoldingsAsOf(snapshot.holdings, snapshot.transactions, snapshot.tracking?.startDate ?? defaultTrackingForProfile(activeProfile.id).startDate)
     const capturedTickers = snapshot.tracking?.baselineTickers?.length
       ? snapshot.tracking.baselineTickers
       : capturedHoldings.map((holding) => holding.ticker)
@@ -396,8 +396,8 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
         setState((current) => ({
           ...current,
           tracking: {
-            ...defaultSurenTracking(),
             ...(current.tracking ?? {}),
+            ...defaultTrackingForProfile(activeProfile?.id ?? "unknown", current.tracking?.startDate),
             baselineTickers: capturedTickers,
             baselineHoldings: capturedHoldings,
             baselineStatus: "complete",
@@ -414,8 +414,8 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
     setState((current) => ({
       ...current,
       tracking: {
-        ...defaultSurenTracking(),
         ...(current.tracking ?? {}),
+        ...defaultTrackingForProfile(activeProfile?.id ?? "unknown", current.tracking?.startDate),
         baselineTickers: capturedTickers,
         baselineHoldings: capturedHoldings,
         baselineStatus: "building",
@@ -433,7 +433,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            date: SUREN_TRACKING_START_DATE,
+            date: snapshot.tracking?.startDate ?? defaultTrackingForProfile(activeProfile.id).startDate,
             holdings: chunk.map(({ ticker, quantity, avgCost }) => ({
               ticker, quantity, avgCost,
             })),
@@ -466,8 +466,8 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
           ...current,
           holdingBaselines: Array.from(byTicker.values()).sort((a, b) => a.ticker.localeCompare(b.ticker)),
           tracking: {
-            ...defaultSurenTracking(),
             ...(current.tracking ?? {}),
+            ...defaultTrackingForProfile(activeProfile?.id ?? "unknown", current.tracking?.startDate),
             baselineTickers: capturedTickers,
             baselineHoldings: capturedHoldings,
             baselineStatus: complete ? "complete" : "partial",
@@ -481,8 +481,8 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
       setState((current) => ({
         ...current,
         tracking: {
-          ...defaultSurenTracking(),
           ...(current.tracking ?? {}),
+          ...defaultTrackingForProfile(activeProfile?.id ?? "unknown", current.tracking?.startDate),
           baselineStatus: "partial",
           baselineError: error instanceof Error ? error.message : "Unable to build holding baselines.",
         },
@@ -493,7 +493,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   }, [activeProfile?.id])
 
   const refreshBaselineMeasurements = useCallback(async () => {
-    if (activeProfile?.id !== "suren" || baselineMeasureRef.current) return
+    if (!activeProfile?.id || baselineMeasureRef.current) return
     const due = stateRef.current.holdingBaselines.filter((baseline) => baselineNeedsMeasurement(baseline))
     if (!due.length) return
 
@@ -552,7 +552,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   }, [activeProfile?.id])
 
   useEffect(() => {
-    if (!hydrated || activeProfile?.id !== "suren" || !cloudReadyRef.current) return
+    if (!hydrated || !activeProfile?.id || !cloudReadyRef.current) return
     const baselineTickers = new Set(state.holdingBaselines.map((item) => item.ticker))
     const expectedTickers = state.tracking?.baselineTickers?.length
       ? state.tracking.baselineTickers
@@ -572,7 +572,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   ])
 
   useEffect(() => {
-    if (!hydrated || activeProfile?.id !== "suren" || !state.holdingBaselines.length) return
+    if (!hydrated || !activeProfile?.id || !state.holdingBaselines.length) return
     if (state.holdingBaselines.some((baseline) => baselineNeedsMeasurement(baseline))) {
       void refreshBaselineMeasurements()
     }

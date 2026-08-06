@@ -28,8 +28,8 @@ async function mapLimit<T, R>(items: T[], limit: number, mapper: (item: T) => Pr
 
 export async function POST(request: NextRequest) {
   const profileId = readProfileSession(request.cookies.get(PROFILE_COOKIE_NAME)?.value)
-  if (profileId !== "suren") {
-    return NextResponse.json({ error: "Existing-holding measurements are available only for Suren's profile." }, { status: 403 })
+  if (!profileId) {
+    return NextResponse.json({ error: "A valid investor profile session is required." }, { status: 401 })
   }
 
   const body = (await request.json().catch(() => null)) as {
