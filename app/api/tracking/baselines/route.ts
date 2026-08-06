@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     // Baselines can still be created even if the benchmark is temporarily unavailable.
   }
 
-  const rows = await mapLimit(holdings, 4, async (holding) => {
+  const rows = await mapLimit(holdings, 1, async (holding) => {
     const ticker = cleanMarketTicker(String(holding.ticker ?? ""))
     const quantity = Math.max(0, Number(holding.quantity) || 0)
     const avgCost = Math.max(0, Number(holding.avgCost) || 0)

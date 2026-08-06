@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   }
 
   const now = new Date()
-  const rows = await mapLimit(baselines, 4, async (baseline) => {
+  const rows = await mapLimit(baselines, 1, async (baseline) => {
     try {
       const startAt = new Date(baseline.startAt)
       if (!Number.isFinite(startAt.getTime()) || baseline.baselinePrice <= 0) {

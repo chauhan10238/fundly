@@ -4,6 +4,30 @@ import type { EarningsEvent, ProviderResult, VerifiedQuote } from "./types"
 const PROVIDER = "Financial Modeling Prep" as const
 const BASE = "https://financialmodelingprep.com/stable"
 
+type CachedResponse = { expiresAt: number; value: { payload: unknown; sourceUrl: string } }
+const requestCache = new Map<string, CachedResponse>()
+const inFlight = new Map<string, Promise<{ payload: unknown; sourceUrl: string }>>()
+let activeRequests = 0
+const waiters: Array<() => void> = []
+const MAX_FMP_CONCURRENCY = 2
+
+async function acquireFmpSlot() {
+  if (activeRequests < MAX_FMP_CONCURRENCY) { activeRequests += 1; return }
+  await new Promise<void>((resolve) => waiters.push(resolve))
+  activeRequests += 1
+}
+
+function releaseFmpSlot() {
+  activeRequests = Math.max(0, activeRequests - 1)
+  waiters.shift()?.()
+}
+
+function cacheTtl(path: string) {
+  if (path.includes("quote") || path.includes("search")) return 30_000
+  if (path.includes("historical")) return 5 * 60_000
+  return 2 * 60_000
+}
+
 export function getFmpApiKey() {
   return (
     process.env.FMP_API_KEY ||
@@ -39,26 +63,53 @@ async function request(path: string, params: Record<string, string>) {
   const url = new URL(`${BASE}/${path}`)
   Object.entries(params).forEach(([name, value]) => url.searchParams.set(name, value))
   url.searchParams.set("apikey", key)
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 8000)
-  let response: Response
-  try {
-    response = await fetch(url, {
-      cache: "no-store",
-      signal: controller.signal,
-      headers: { Accept: "application/json", "User-Agent": "Fundly/2.0" },
-    })
-  } finally {
-    clearTimeout(timeout)
-  }
-  const raw = await response.text()
-  let payload: unknown
-  try { payload = JSON.parse(raw) } catch { throw new Error(`FMP returned non-JSON (${response.status})`) }
-  if (!response.ok) throw new Error(`FMP request failed (${response.status})`)
-  if (payload && typeof payload === "object" && !Array.isArray(payload) && "Error Message" in payload) {
-    throw new Error(String((payload as Record<string, unknown>)["Error Message"]))
-  }
-  return { payload, sourceUrl: url.toString().replace(key, "REDACTED") }
+  const cacheKey = `${path}?${new URLSearchParams(params).toString()}`
+  const cached = requestCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) return cached.value
+  const existing = inFlight.get(cacheKey)
+  if (existing) return existing
+
+  const task = (async () => {
+    await acquireFmpSlot()
+    try {
+      let lastError: unknown
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 10_000)
+        try {
+          const response = await fetch(url, {
+            cache: "no-store",
+            signal: controller.signal,
+            headers: { Accept: "application/json", "User-Agent": "Fundly/2.0" },
+          })
+          const raw = await response.text()
+          let payload: unknown
+          try { payload = JSON.parse(raw) } catch { throw new Error(`FMP returned non-JSON (${response.status})`) }
+          if (response.status === 429 && attempt === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 900))
+            continue
+          }
+          if (!response.ok) throw new Error(`FMP request failed (${response.status})`)
+          if (payload && typeof payload === "object" && !Array.isArray(payload) && "Error Message" in payload) {
+            throw new Error(String((payload as Record<string, unknown>)["Error Message"]))
+          }
+          const value = { payload, sourceUrl: url.toString().replace(key, "REDACTED") }
+          requestCache.set(cacheKey, { expiresAt: Date.now() + cacheTtl(path), value })
+          return value
+        } catch (error) {
+          lastError = error
+        } finally {
+          clearTimeout(timeout)
+        }
+      }
+      throw lastError instanceof Error ? lastError : new Error("FMP request failed")
+    } finally {
+      releaseFmpSlot()
+      inFlight.delete(cacheKey)
+    }
+  })()
+  inFlight.set(cacheKey, task)
+  return task
 }
 
 function failure<T>(error: unknown, sourceUrl?: string): ProviderResult<T> {
@@ -196,6 +247,30 @@ export async function getFmpEarnings(symbolInput: string): Promise<ProviderResul
         quarter: number(row.quarter),
         year: number(row.fiscalDateEnding?.slice?.(0, 4) ?? row.year),
       }))
+    return { ok: true, provider: PROVIDER, data, retrievedAt: new Date().toISOString(), sourceUrl }
+  } catch (error) {
+    return failure(error, sourceUrl)
+  }
+}
+
+export async function getFmpBatchQuotes(symbolInputs: string[]): Promise<ProviderResult<VerifiedQuote[]>> {
+  const symbols = Array.from(new Set(symbolInputs.map(cleanSymbol).filter(Boolean))).slice(0, 200)
+  const sourceUrl = `${BASE}/batch-quote?symbols=${encodeURIComponent(symbols.join(","))}`
+  if (!symbols.length) return { ok: true, provider: PROVIDER, data: [], retrievedAt: new Date().toISOString(), sourceUrl }
+  try {
+    const { payload } = await request("batch-quote", { symbols: symbols.join(",") })
+    const rows = Array.isArray(payload) ? payload : []
+    const data: VerifiedQuote[] = rows.flatMap((row: any) => {
+      const symbol = cleanSymbol(String(row.symbol ?? ""))
+      const price = number(row.price)
+      if (!symbol || !price || price <= 0) return []
+      const previousClose = number(row.previousClose) ?? (number(row.change) !== undefined ? price - Number(row.change) : undefined)
+      return [{
+        symbol, price, previousClose, change: number(row.change),
+        changePercent: number(row.changesPercentage ?? row.changePercentage),
+        latestTradingDay: row.timestamp ? new Date(Number(row.timestamp) * 1000).toISOString().slice(0, 10) : undefined,
+      }]
+    })
     return { ok: true, provider: PROVIDER, data, retrievedAt: new Date().toISOString(), sourceUrl }
   } catch (error) {
     return failure(error, sourceUrl)
