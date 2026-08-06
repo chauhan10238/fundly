@@ -227,7 +227,7 @@ function AnalyseInner() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <TickerSearch onSelect={select} />
+        <TickerSearch onSelect={select} initialValue={ticker} />
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-muted-foreground">Quick pick:</span>
