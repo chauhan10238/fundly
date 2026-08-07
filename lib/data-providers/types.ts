@@ -6,7 +6,7 @@ export type ProviderResult<T> =
 
 export interface MacroObservation { seriesId: string; label: string; date: string; value: number; previousValue?: number; change?: number; units?: string }
 export interface EnergyObservation { seriesId: string; label: string; period: string; value: number; units?: string }
-export interface VerifiedQuote { symbol: string; price: number; previousClose?: number; change?: number; changePercent?: number; latestTradingDay?: string }
+export interface VerifiedQuote { symbol: string; price: number; previousClose?: number; change?: number; changePercent?: number; latestTradingDay?: string; name?: string; currency?: string; exchange?: string; assetType?: "stock" | "etf" }
 export interface ProviderNewsItem { title: string; url: string; source: string; publishedAt: string; summary?: string; sentiment: "positive" | "neutral" | "negative"; sentimentScore?: number }
 export interface EarningsEvent { symbol: string; date: string; hour?: string; epsEstimate?: number; epsActual?: number; revenueEstimate?: number; revenueActual?: number; quarter?: number; year?: number }
 export interface SecTickerRecord { cik: string; ticker: string; title: string }

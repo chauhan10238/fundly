@@ -73,7 +73,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const refreshTape = useCallback(async () => {
     if (document.visibilityState === "hidden") return
     try {
-      const response = await fetch("/api/market-overview", { cache: "no-store" })
+      const response = await fetch("/api/market-overview", { cache: "default" })
       const payload = await response.json() as { items?: TapeItem[]; refreshedAt?: string; status?: "live" | "partial"; error?: string }
       if (!response.ok || !Array.isArray(payload.items)) throw new Error(payload.error || "Market overview unavailable")
       setTape(payload.items)
@@ -86,7 +86,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     void refreshTape()
-    const timer = window.setInterval(() => void refreshTape(), 10_000)
+    const timer = window.setInterval(() => void refreshTape(), 30_000)
     const onVisibility = () => { if (document.visibilityState === "visible") void refreshTape() }
     document.addEventListener("visibilitychange", onVisibility)
     return () => {

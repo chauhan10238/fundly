@@ -5,27 +5,69 @@ const PROVIDER = "Financial Modeling Prep" as const
 const BASE = "https://financialmodelingprep.com/stable"
 
 type CachedResponse = { expiresAt: number; value: { payload: unknown; sourceUrl: string } }
-const requestCache = new Map<string, CachedResponse>()
-const inFlight = new Map<string, Promise<{ payload: unknown; sourceUrl: string }>>()
-let activeRequests = 0
-const waiters: Array<() => void> = []
+
+type FmpRuntimeState = {
+  requestCache: Map<string, CachedResponse>
+  inFlight: Map<string, Promise<{ payload: unknown; sourceUrl: string }>>
+  activeRequests: number
+  waiters: Array<() => void>
+  callTimestamps: number[]
+}
+
+const globalForFmp = globalThis as typeof globalThis & { __fundlyFmpState?: FmpRuntimeState }
+const state: FmpRuntimeState = globalForFmp.__fundlyFmpState ?? {
+  requestCache: new Map(),
+  inFlight: new Map(),
+  activeRequests: 0,
+  waiters: [],
+  callTimestamps: [],
+}
+globalForFmp.__fundlyFmpState = state
+
 const MAX_FMP_CONCURRENCY = 2
+// Keep substantial headroom under the Starter-plan 300 calls/minute ceiling.
+const MAX_FMP_CALLS_PER_MINUTE = 190
 
 async function acquireFmpSlot() {
-  if (activeRequests < MAX_FMP_CONCURRENCY) { activeRequests += 1; return }
-  await new Promise<void>((resolve) => waiters.push(resolve))
-  activeRequests += 1
+  if (state.activeRequests < MAX_FMP_CONCURRENCY) { state.activeRequests += 1; return }
+  await new Promise<void>((resolve) => state.waiters.push(resolve))
+  state.activeRequests += 1
 }
 
 function releaseFmpSlot() {
-  activeRequests = Math.max(0, activeRequests - 1)
-  waiters.shift()?.()
+  state.activeRequests = Math.max(0, state.activeRequests - 1)
+  state.waiters.shift()?.()
 }
 
 function cacheTtl(path: string) {
-  if (path.includes("quote") || path.includes("search")) return 30_000
-  if (path.includes("historical")) return 5 * 60_000
-  return 2 * 60_000
+  // Requested Fundly policy: live quotes 30s, ticker search 5m.
+  if (path === "quote" || path === "batch-quote") return 30_000
+  if (path.includes("search")) return 5 * 60_000
+  if (path.includes("historical")) return 6 * 60 * 60_000
+  if (path === "profile") return 24 * 60 * 60_000
+  if (path.includes("news")) return 10 * 60_000
+  if (path.includes("analyst") || path.includes("rating") || path.includes("estimate")) return 60 * 60_000
+  if (path.includes("earnings")) return 60 * 60_000
+  if (path.includes("etf") || path.includes("institutional") || path.includes("holder") || path.includes("ownership")) return 6 * 60 * 60_000
+  if (path.includes("statement") || path.includes("ratios") || path.includes("metrics")) return 6 * 60 * 60_000
+  return 60 * 60_000
+}
+
+function pruneRuntimeCache(now = Date.now()) {
+  // Prevent a long-lived Vercel worker from accumulating stale entries forever.
+  if (state.requestCache.size < 1500) return
+  for (const [key, entry] of state.requestCache) {
+    if (entry.expiresAt <= now) state.requestCache.delete(key)
+  }
+}
+
+function reserveRateBudget() {
+  const now = Date.now()
+  state.callTimestamps = state.callTimestamps.filter((stamp) => now - stamp < 60_000)
+  if (state.callTimestamps.length >= MAX_FMP_CALLS_PER_MINUTE) {
+    throw new Error("FMP internal rate guard active; using cached/fallback data")
+  }
+  state.callTimestamps.push(now)
 }
 
 export function getFmpApiKey() {
@@ -64,9 +106,10 @@ async function request(path: string, params: Record<string, string>) {
   Object.entries(params).forEach(([name, value]) => url.searchParams.set(name, value))
   url.searchParams.set("apikey", key)
   const cacheKey = `${path}?${new URLSearchParams(params).toString()}`
-  const cached = requestCache.get(cacheKey)
+  pruneRuntimeCache()
+  const cached = state.requestCache.get(cacheKey)
   if (cached && cached.expiresAt > Date.now()) return cached.value
-  const existing = inFlight.get(cacheKey)
+  const existing = state.inFlight.get(cacheKey)
   if (existing) return existing
 
   const task = (async () => {
@@ -74,11 +117,13 @@ async function request(path: string, params: Record<string, string>) {
     try {
       let lastError: unknown
       for (let attempt = 0; attempt < 2; attempt += 1) {
+        reserveRateBudget()
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 10_000)
         try {
           const response = await fetch(url, {
-            cache: "no-store",
+            cache: "force-cache",
+            next: { revalidate: Math.max(1, Math.floor(cacheTtl(path) / 1000)) },
             signal: controller.signal,
             headers: { Accept: "application/json", "User-Agent": "Fundly/2.0" },
           })
@@ -86,7 +131,8 @@ async function request(path: string, params: Record<string, string>) {
           let payload: unknown
           try { payload = JSON.parse(raw) } catch { throw new Error(`FMP returned non-JSON (${response.status})`) }
           if (response.status === 429 && attempt === 0) {
-            await new Promise((resolve) => setTimeout(resolve, 900))
+            const retryAfter = Number(response.headers.get("retry-after") ?? "0")
+            await new Promise((resolve) => setTimeout(resolve, retryAfter > 0 ? retryAfter * 1000 : 2_000))
             continue
           }
           if (!response.ok) throw new Error(`FMP request failed (${response.status})`)
@@ -94,7 +140,7 @@ async function request(path: string, params: Record<string, string>) {
             throw new Error(String((payload as Record<string, unknown>)["Error Message"]))
           }
           const value = { payload, sourceUrl: url.toString().replace(key, "REDACTED") }
-          requestCache.set(cacheKey, { expiresAt: Date.now() + cacheTtl(path), value })
+          state.requestCache.set(cacheKey, { expiresAt: Date.now() + cacheTtl(path), value })
           return value
         } catch (error) {
           lastError = error
@@ -105,10 +151,10 @@ async function request(path: string, params: Record<string, string>) {
       throw lastError instanceof Error ? lastError : new Error("FMP request failed")
     } finally {
       releaseFmpSlot()
-      inFlight.delete(cacheKey)
+      state.inFlight.delete(cacheKey)
     }
   })()
-  inFlight.set(cacheKey, task)
+  state.inFlight.set(cacheKey, task)
   return task
 }
 
@@ -143,6 +189,10 @@ export async function getFmpQuote(symbolInput: string): Promise<ProviderResult<V
         change: number(row.change),
         changePercent: number(row.changesPercentage ?? row.changePercentage),
         latestTradingDay: row.timestamp ? new Date(Number(row.timestamp) * 1000).toISOString().slice(0, 10) : undefined,
+        name: row.name ? String(row.name) : undefined,
+        currency: row.currency ? String(row.currency) : undefined,
+        exchange: row.exchange ? String(row.exchange) : undefined,
+        assetType: String(row.type ?? row.assetType ?? "").toLowerCase().includes("etf") ? "etf" : undefined,
       },
     }
   } catch (error) {

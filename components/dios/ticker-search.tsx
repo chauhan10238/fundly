@@ -61,7 +61,7 @@ export function TickerSearch({
 
     try {
       const response = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
-        cache: "no-store",
+        cache: "default",
         signal: controller.signal,
       })
       const payload = (await response.json().catch(() => ({}))) as {

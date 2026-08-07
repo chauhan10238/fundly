@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { searchFmpSymbols } from "@/lib/data-providers/fmp"
-import { resolveLiveQuote, searchYahoo, type SearchResult } from "@/lib/dios/server-market"
+import { searchYahoo, type SearchResult } from "@/lib/dios/server-market"
 import { UNIVERSE_LIST } from "@/lib/dios/universe"
-import { getFmpApiKey } from "@/lib/data-providers/fmp"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -37,33 +36,21 @@ export async function GET(request: NextRequest) {
   const query = (request.nextUrl.searchParams.get("q") ?? "").trim()
   if (!query) return NextResponse.json({ results: [] })
 
-  const exact = query.toUpperCase().replace(/[^A-Z0-9.\-^=]/g, "")
-  const [fmpResult, yahooRows, exactQuote] = await Promise.all([
+  const [fmpResult, yahooRows] = await Promise.all([
     within(searchFmpSymbols(query), 3500, null),
     within(searchYahoo(query), 3500, [] as SearchResult[]),
-    exact && exact.length <= 12
-      ? within(resolveLiveQuote(exact, getFmpApiKey()), 3500, null)
-      : Promise.resolve(null),
   ])
 
   const fmpRows = fmpResult?.ok ? fmpResult.data : []
-  const exactRows: SearchResult[] = exactQuote ? [{
-    symbol: exact,
-    name: exactQuote.name || exact,
-    exchange: "",
-    type: exactQuote.type,
-    currency: exactQuote.currency,
-  }] : []
   const localRows = localResults(query)
-  const results = dedupe([...exactRows, ...fmpRows, ...yahooRows, ...localRows]).slice(0, 12)
+  const results = dedupe([...fmpRows, ...yahooRows, ...localRows]).slice(0, 12)
 
   return NextResponse.json({
     results,
-    provider: fmpRows.length ? "Financial Modeling Prep" : yahooRows.length ? "Yahoo Finance" : exactRows.length ? exactQuote?.snapshot.provider : localRows.length ? "Fundly instrument list" : "No match",
+    provider: fmpRows.length ? "Financial Modeling Prep" : yahooRows.length ? "Yahoo Finance" : localRows.length ? "Fundly instrument list" : "No match",
     diagnostics: {
       fmp: fmpResult?.ok ? "ok" : fmpResult?.error || "timed out/unavailable",
       yahoo: yahooRows.length ? "ok" : "timed out/unavailable",
-      exact: exactRows.length ? "verified" : "not verified",
     },
-  }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } })
+  }, { headers: { "Cache-Control": "public, max-age=300, s-maxage=300, stale-while-revalidate=300" } })
 }

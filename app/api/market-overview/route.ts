@@ -12,6 +12,6 @@ export async function GET() {
   const refreshedAt = new Date().toISOString()
   return NextResponse.json(
     { items, refreshedAt, status: items.length === 4 ? "live" : "partial" },
-    { headers: { "Cache-Control": "no-store, max-age=0" } },
+    { headers: { "Cache-Control": "public, max-age=30, s-maxage=30, stale-while-revalidate=30" } },
   )
 }

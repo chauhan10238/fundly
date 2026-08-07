@@ -44,5 +44,5 @@ export async function GET(request: NextRequest) {
   }
 
   if (!quotes.length) return NextResponse.json({ error: "No current quotes returned.", unavailable, fmpError: fmp && !fmp.ok ? fmp.error : undefined }, { status: 502 })
-  return NextResponse.json({ quotes, unavailable, provider: fmp?.ok && fmp.data.length ? "Financial Modeling Prep Batch (Primary)" : "Yahoo Finance (Fallback)", fmpStatus: fmp?.ok ? "connected" : getFmpApiKey() ? fmp?.error ?? "unavailable" : "API key missing", refreshedAt: new Date().toISOString() }, { headers: { "Cache-Control": "private, max-age=15, stale-while-revalidate=45" } })
+  return NextResponse.json({ quotes, unavailable, provider: fmp?.ok && fmp.data.length ? "Financial Modeling Prep Batch (Primary)" : "Yahoo Finance (Fallback)", fmpStatus: fmp?.ok ? "connected" : getFmpApiKey() ? fmp?.error ?? "unavailable" : "API key missing", refreshedAt: new Date().toISOString() }, { headers: { "Cache-Control": "public, max-age=30, s-maxage=30, stale-while-revalidate=30" } })
 }

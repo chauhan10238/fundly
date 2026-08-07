@@ -1,3 +1,4 @@
+import { getFmpQuote } from "@/lib/data-providers/fmp"
 import type { Instrument, InstrumentType, LiveNewsItem, MarketSnapshot, SourceCitation } from "./types"
 
 type YahooChartResult = {
@@ -131,32 +132,22 @@ export async function fetchFmpQuote(symbolInput: string, apiKey?: string): Promi
   if (!apiKey) return null
   const symbol = cleanSymbol(symbolInput)
   if (!symbol) return null
-  const url = `https://financialmodelingprep.com/stable/quote?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(apiKey)}`
-  try {
-    const payload = await fetchJson(url)
-    const row = Array.isArray(payload) ? payload[0] : payload
-    const price = Number(row?.price)
-    if (!Number.isFinite(price) || price <= 0) return null
-    const previousClose = typeof row.previousClose === "number" && row.previousClose > 0
-      ? row.previousClose
-      : typeof row.change === "number" ? price - row.change : price
-    const pct = Number(row.changesPercentage ?? row.changePercentage)
-    const ts = typeof row.timestamp === "number" ? row.timestamp : Math.floor(Date.now() / 1000)
-    return {
-      snapshot: {
-        price,
-        previousClose,
-        changePercent: Number.isFinite(pct) ? pct : previousClose ? ((price - previousClose) / previousClose) * 100 : 0,
-        refreshedAt: new Date(ts * 1000).toISOString(),
-        provider: "Financial Modeling Prep (Starter)",
-        isLive: true,
-      },
-      name: row.name || symbol,
-      currency: row.currency || "USD",
-      type: String(row.exchange ?? "").toUpperCase().includes("ETF") ? "etf" : "stock",
-    }
-  } catch {
-    return null
+  const result = await getFmpQuote(symbol)
+  if (!result.ok) return null
+  const row = result.data
+  const previousClose = row.previousClose ?? row.price
+  return {
+    snapshot: {
+      price: row.price,
+      previousClose,
+      changePercent: row.changePercent ?? (previousClose ? ((row.price - previousClose) / previousClose) * 100 : 0),
+      refreshedAt: result.retrievedAt,
+      provider: "Financial Modeling Prep (Starter)",
+      isLive: true,
+    },
+    name: row.name || symbol,
+    currency: row.currency || "USD",
+    type: row.assetType || "stock",
   }
 }
 

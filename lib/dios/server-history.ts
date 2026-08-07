@@ -41,7 +41,8 @@ async function fetchFmpHistory(ticker: string, from: string, to: string): Promis
   url.searchParams.set("apikey", apiKey)
 
   const response = await fetch(url, {
-    cache: "no-store",
+    cache: "force-cache",
+    next: { revalidate: 21_600 },
     headers: { Accept: "application/json" },
   })
   const payload = await response.json()

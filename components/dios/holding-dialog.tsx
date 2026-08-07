@@ -86,7 +86,7 @@ export function AddHoldingDialog() {
       setSearching(true)
       try {
         const response = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
-          cache: "no-store",
+          cache: "default",
           signal: controller.signal,
         })
         const payload = await response.json() as { results?: SearchResult[]; provider?: string }
@@ -142,7 +142,7 @@ export function AddHoldingDialog() {
     setSaving(true)
     try {
       // Final quote check prevents a stale or invalid search result from being saved.
-      const response = await fetch(`/api/quotes?symbols=${encodeURIComponent(selected.symbol)}`, { cache: "no-store" })
+      const response = await fetch(`/api/quotes?symbols=${encodeURIComponent(selected.symbol)}`, { cache: "default" })
       const payload = await response.json() as QuoteResponse
       const quote = payload.quotes?.find((item) => item.symbol === selected.symbol)
       if (!response.ok || !quote || !Number.isFinite(quote.price) || quote.price <= 0) {

@@ -579,7 +579,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await fetch(
         `/api/quotes?symbols=${encodeURIComponent(symbols.join(","))}`,
-        { cache: "no-store" },
+        { cache: "default" },
       )
       const payload = await response.json() as {
         quotes?: LiveQuote[]
@@ -612,7 +612,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
     const refresh = () => {
       if (document.visibilityState === "visible") void refreshQuotes()
     }
-    const refreshMs = state.holdings.length > 25 ? 60_000 : 10_000
+    const refreshMs = 30_000
     const interval = window.setInterval(refresh, refreshMs)
     document.addEventListener("visibilitychange", refresh)
 
