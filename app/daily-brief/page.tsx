@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { AlertTriangle, CheckCircle2, RefreshCw, Sparkles } from "lucide-react"
 import { useDios } from "@/components/dios/store"
@@ -9,13 +9,11 @@ import { Panel, StatCard } from "@/components/dios/ui-bits"
 import { fetchLiveAnalysisReport, type LiveAnalysisResult } from "@/lib/dios/live-analysis"
 import { buildIntelligenceView, getSourceFamilies, rankOpportunity } from "@/lib/dios/intelligence-view"
 
-const ETF_UNIVERSE = [
-  "VOO", "QQQ", "VTI", "VT", "DIA", "IWM", "SCHD", "VIG", "VUG", "VTV",
-  "QUAL", "USMV", "AVUV", "SMH", "SOXX", "VGT", "XLK", "CIBR", "BOTZ", "ARKQ",
-  "XLE", "VDE", "XLF", "XLV", "XLI", "XLP", "XLU", "ITA", "PAVE", "VNQ",
-  "GLD", "SLV", "GDX", "COPX", "URA", "TLT", "IEF", "HYG", "LQD", "EFA",
-  "EEM", "INDA", "EWJ", "VGK", "IBIT",
+const ETF_WATCHLIST = [
+  "VOO", "QQQ", "SCHD", "SMH", "VGT", "GLD", "TLT", "IBIT",
 ]
+
+const EXTRA_ETF_COUNT = 5
 
 type MarketItem = {
   symbol: string
@@ -57,7 +55,7 @@ function tone(value: string) {
 }
 
 export default function DailyBriefPage() {
-  const { portfolio, settings, hydrated } = useDios()
+  const { holdings, portfolio, settings, hydrated } = useDios()
   const [market, setMarket] = useState<MarketItem[]>([])
   const [holdingResults, setHoldingResults] = useState<LiveAnalysisResult[]>([])
   const [opportunityResults, setOpportunityResults] = useState<LiveAnalysisResult[]>([])
@@ -65,13 +63,33 @@ export default function DailyBriefPage() {
   const [error, setError] = useState<string | null>(null)
   const [generatedAt, setGeneratedAt] = useState<string | null>(null)
 
-  const heldSet = useMemo(
-    () => new Set(portfolio.positions.map((position) => position.ticker)),
-    [portfolio.positions],
+  const portfolioRef = useRef(portfolio)
+  const settingsRef = useRef(settings)
+  const runRef = useRef(0)
+
+  useEffect(() => {
+    portfolioRef.current = portfolio
+  }, [portfolio])
+
+  useEffect(() => {
+    settingsRef.current = settings
+  }, [settings])
+
+  const heldTickers = useMemo(
+    () => Array.from(new Set(
+      holdings
+        .map((holding) => holding.ticker.trim().toUpperCase())
+        .filter(Boolean),
+    )),
+    [holdings],
   )
+
+  const heldSet = useMemo(() => new Set(heldTickers), [heldTickers])
 
   const refresh = useCallback(async () => {
     if (!hydrated) return
+
+    const runId = ++runRef.current
     setLoading(true)
     setError(null)
     setHoldingResults([])
@@ -79,26 +97,31 @@ export default function DailyBriefPage() {
     setGeneratedAt(null)
 
     try {
-      // Market data is independent and must never block holdings.
+      // Market overview runs independently and never blocks portfolio analysis.
       void fetch("/api/market-overview", { cache: "no-store" })
         .then(async (response) => {
           const payload = await response.json()
           if (!response.ok) throw new Error(payload.error || "Market overview failed")
-          setMarket(Array.isArray(payload.items) ? payload.items as MarketItem[] : [])
+          if (runRef.current === runId) {
+            setMarket(Array.isArray(payload.items) ? payload.items as MarketItem[] : [])
+          }
         })
-        .catch(() => setMarket([]))
+        .catch(() => {
+          if (runRef.current === runId) setMarket([])
+        })
 
-      // Stage 1: analyse the portfolio first and publish each result as soon as
-      // it arrives. This makes the useful part of the brief visible quickly.
-      const holdingTickers = Array.from(new Set(
-        portfolio.positions.map((position) => position.ticker.trim().toUpperCase()).filter(Boolean),
-      ))
-
+      // Analyse exactly the unique securities currently held first.
+      // Live quote refreshes change `portfolio`, but they do NOT restart this scan.
       await mapWithConcurrency(
-        holdingTickers,
-        4,
-        (ticker) => fetchLiveAnalysisReport(ticker, portfolio, settings),
+        heldTickers,
+        3,
+        (ticker) => fetchLiveAnalysisReport(
+          ticker,
+          portfolioRef.current,
+          settingsRef.current,
+        ),
         (result) => {
+          if (runRef.current !== runId) return
           setHoldingResults((current) =>
             current.some((item) => item.report.ticker === result.report.ticker)
               ? current
@@ -107,30 +130,39 @@ export default function DailyBriefPage() {
         },
       )
 
+      if (runRef.current !== runId) return
       setGeneratedAt(new Date().toISOString())
 
-      // Stage 2: scan unheld ETFs only after holdings are available. Keep the
-      // concurrency modest so Vercel/provider calls are not flooded.
-      const discovery = ETF_UNIVERSE
+      // Scan only a few unheld ETFs on top of the portfolio.
+      // Total analysis requests per refresh = unique holdings + 5 maximum.
+      const discovery = ETF_WATCHLIST
         .filter((ticker) => !heldSet.has(ticker))
-        .filter((ticker, index, all) => all.indexOf(ticker) === index)
-        .slice(0, 24)
+        .slice(0, EXTRA_ETF_COUNT)
 
       const candidates = await mapWithConcurrency(
         discovery,
-        4,
-        (ticker) => fetchLiveAnalysisReport(ticker, portfolio, settings),
+        2,
+        (ticker) => fetchLiveAnalysisReport(
+          ticker,
+          portfolioRef.current,
+          settingsRef.current,
+        ),
       )
 
+      if (runRef.current !== runId) return
       setOpportunityResults(
-        candidates.sort((a, b) => rankOpportunity(b) - rankOpportunity(a)).slice(0, 10),
+        candidates
+          .sort((a, b) => rankOpportunity(b) - rankOpportunity(a))
+          .slice(0, EXTRA_ETF_COUNT),
       )
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to build the Daily Brief")
+      if (runRef.current === runId) {
+        setError(cause instanceof Error ? cause.message : "Unable to build the Daily Brief")
+      }
     } finally {
-      setLoading(false)
+      if (runRef.current === runId) setLoading(false)
     }
-  }, [heldSet, hydrated, portfolio, settings])
+  }, [heldSet, heldTickers, hydrated])
 
   useEffect(() => {
     void refresh()
@@ -259,7 +291,7 @@ export default function DailyBriefPage() {
         </div>
       </Panel>
 
-      <Panel title="Top Ranked Unheld ETF Opportunities" description="The best available ETFs are always shown; Neutral entries are watchlist candidates, not automatic buys.">
+      <Panel title="Top Ranked Unheld ETF Opportunities" description="Up to 5 unheld ETFs are ranked from a focused watchlist after your portfolio has loaded; Neutral entries are watchlist candidates, not automatic buys.">
         <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-5">
           {opportunityViews.map(({ result, view }, index) => (
             <div key={result.report.ticker} className="rounded-lg border p-4">

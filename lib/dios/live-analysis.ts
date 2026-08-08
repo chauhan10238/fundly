@@ -27,8 +27,8 @@ type AnalysisPayload = {
 // Keep a short-lived client cache for raw API data and share in-flight requests.
 // We intentionally cache only the raw market payload; the DIOS report is still
 // rebuilt against the current portfolio/settings on every call.
-const API_CACHE_TTL_MS = 90_000
-const API_TIMEOUT_MS = 12_000
+const API_CACHE_TTL_MS = 5 * 60_000
+const API_TIMEOUT_MS = 10_000
 
 const payloadCache = new Map<string, { expiresAt: number; payload: AnalysisPayload }>()
 const inFlight = new Map<string, Promise<AnalysisPayload>>()
