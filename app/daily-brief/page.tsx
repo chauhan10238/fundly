@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { AlertTriangle, CheckCircle2, RefreshCw, Sparkles } from "lucide-react"
+import { AlertTriangle, CheckCircle2, RefreshCw, Sparkles, Square } from "lucide-react"
 import { useDios } from "@/components/dios/store"
 import { Button } from "@/components/ui/button"
 import { Panel, StatCard } from "@/components/dios/ui-bits"
@@ -66,6 +66,7 @@ export default function DailyBriefPage() {
   const portfolioRef = useRef(portfolio)
   const settingsRef = useRef(settings)
   const runRef = useRef(0)
+  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     portfolioRef.current = portfolio
@@ -75,19 +76,26 @@ export default function DailyBriefPage() {
     settingsRef.current = settings
   }, [settings])
 
-  const heldTickers = useMemo(
-    () => Array.from(new Set(
-      holdings
-        .map((holding) => holding.ticker.trim().toUpperCase())
-        .filter(Boolean),
-    )),
-    [holdings],
-  )
+  // Build a primitive ticker key so quote/price refreshes cannot restart the brief.
+  // Only an actual change to the set of held symbols will change this key.
+  const heldTickerKey = Array.from(new Set(
+    holdings
+      .map((holding) => holding.ticker.trim().toUpperCase())
+      .filter(Boolean),
+  )).sort().join("|")
 
-  const heldSet = useMemo(() => new Set(heldTickers), [heldTickers])
+  const heldTickers = useMemo(
+    () => heldTickerKey ? heldTickerKey.split("|") : [],
+    [heldTickerKey],
+  )
+  const heldSet = useMemo(() => new Set(heldTickers), [heldTickerKey])
 
   const refresh = useCallback(async () => {
     if (!hydrated) return
+
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
 
     const runId = ++runRef.current
     setLoading(true)
@@ -119,6 +127,7 @@ export default function DailyBriefPage() {
           ticker,
           portfolioRef.current,
           settingsRef.current,
+          controller.signal,
         ),
         (result) => {
           if (runRef.current !== runId) return
@@ -146,6 +155,7 @@ export default function DailyBriefPage() {
           ticker,
           portfolioRef.current,
           settingsRef.current,
+          controller.signal,
         ),
       )
 
@@ -156,13 +166,25 @@ export default function DailyBriefPage() {
           .slice(0, EXTRA_ETF_COUNT),
       )
     } catch (cause) {
-      if (runRef.current === runId) {
+      if (runRef.current === runId && !controller.signal.aborted) {
         setError(cause instanceof Error ? cause.message : "Unable to build the Daily Brief")
       }
     } finally {
-      if (runRef.current === runId) setLoading(false)
+      if (runRef.current === runId) {
+        setLoading(false)
+        if (abortRef.current === controller) abortRef.current = null
+      }
     }
-  }, [heldSet, heldTickers, hydrated])
+  }, [heldTickerKey, hydrated])
+
+  const stopBrief = useCallback(() => {
+    // Invalidate this UI run first, then abort every in-flight fetch started by it.
+    ++runRef.current
+    abortRef.current?.abort()
+    abortRef.current = null
+    setLoading(false)
+    setGeneratedAt(new Date().toISOString())
+  }, [])
 
   useEffect(() => {
     void refresh()
@@ -232,10 +254,18 @@ export default function DailyBriefPage() {
             One shared intelligence engine for holdings, market outlook and ranked ETF opportunities.
           </p>
         </div>
-        <Button onClick={() => void refresh()} disabled={loading || !hydrated}>
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          {loading ? "Building brief…" : "Refresh brief"}
-        </Button>
+        <div className="flex gap-2">
+          {loading && (
+            <Button variant="destructive" onClick={stopBrief}>
+              <Square className="h-4 w-4" />
+              Stop brief
+            </Button>
+          )}
+          <Button onClick={() => void refresh()} disabled={loading || !hydrated}>
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            {loading ? "Building brief…" : "Refresh brief"}
+          </Button>
+        </div>
       </div>
 
       {error && <div className="rounded-lg border border-negative/40 bg-negative/10 p-4 text-sm text-negative">{error}</div>}
