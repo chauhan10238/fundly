@@ -30,13 +30,16 @@ async function mapWithConcurrency<T, R>(
   values: T[],
   limit: number,
   worker: (value: T) => Promise<R>,
+  onResult?: (result: R) => void,
 ): Promise<R[]> {
   const results: R[] = new Array(values.length)
   let cursor = 0
   async function run() {
     while (cursor < values.length) {
       const index = cursor++
-      results[index] = await worker(values[index])
+      const result = await worker(values[index])
+      results[index] = result
+      onResult?.(result)
     }
   }
   await Promise.all(Array.from({ length: Math.min(limit, values.length) }, run))
@@ -71,35 +74,57 @@ export default function DailyBriefPage() {
     if (!hydrated) return
     setLoading(true)
     setError(null)
+    setHoldingResults([])
+    setOpportunityResults([])
+    setGeneratedAt(null)
 
     try {
-      const marketPromise = fetch("/api/market-overview", { cache: "no-store" })
+      // Market data is independent and must never block holdings.
+      void fetch("/api/market-overview", { cache: "no-store" })
         .then(async (response) => {
           const payload = await response.json()
           if (!response.ok) throw new Error(payload.error || "Market overview failed")
-          return Array.isArray(payload.items) ? payload.items as MarketItem[] : []
+          setMarket(Array.isArray(payload.items) ? payload.items as MarketItem[] : [])
         })
-        .catch(() => [] as MarketItem[])
+        .catch(() => setMarket([]))
 
-      const holdingTickers = portfolio.positions.map((position) => position.ticker)
-      const discovery = ETF_UNIVERSE.filter((ticker) => !heldSet.has(ticker)).slice(0, 30)
+      // Stage 1: analyse the portfolio first and publish each result as soon as
+      // it arrives. This makes the useful part of the brief visible quickly.
+      const holdingTickers = Array.from(new Set(
+        portfolio.positions.map((position) => position.ticker.trim().toUpperCase()).filter(Boolean),
+      ))
 
-      const [marketRows, holdings, candidates] = await Promise.all([
-        marketPromise,
-        mapWithConcurrency(holdingTickers, 5, (ticker) =>
-          fetchLiveAnalysisReport(ticker, portfolio, settings),
-        ),
-        mapWithConcurrency(discovery, 5, (ticker) =>
-          fetchLiveAnalysisReport(ticker, portfolio, settings),
-        ),
-      ])
+      await mapWithConcurrency(
+        holdingTickers,
+        4,
+        (ticker) => fetchLiveAnalysisReport(ticker, portfolio, settings),
+        (result) => {
+          setHoldingResults((current) =>
+            current.some((item) => item.report.ticker === result.report.ticker)
+              ? current
+              : [...current, result],
+          )
+        },
+      )
 
-      setMarket(marketRows)
-      setHoldingResults(holdings)
+      setGeneratedAt(new Date().toISOString())
+
+      // Stage 2: scan unheld ETFs only after holdings are available. Keep the
+      // concurrency modest so Vercel/provider calls are not flooded.
+      const discovery = ETF_UNIVERSE
+        .filter((ticker) => !heldSet.has(ticker))
+        .filter((ticker, index, all) => all.indexOf(ticker) === index)
+        .slice(0, 24)
+
+      const candidates = await mapWithConcurrency(
+        discovery,
+        4,
+        (ticker) => fetchLiveAnalysisReport(ticker, portfolio, settings),
+      )
+
       setOpportunityResults(
         candidates.sort((a, b) => rankOpportunity(b) - rankOpportunity(a)).slice(0, 10),
       )
-      setGeneratedAt(new Date().toISOString())
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to build the Daily Brief")
     } finally {
