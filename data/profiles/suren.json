@@ -4373,6 +4373,95 @@
   },
   "recommendations": [
     {
+      "id": "rec-1786405425685",
+      "datetime": "2026-08-10T23:43:45.685Z",
+      "ticker": "META",
+      "type": "stock",
+      "priceAtRec": 594.92,
+      "overallScore": 73,
+      "recommendation": "Buy",
+      "suggestedWeight": 1.8495604552936733,
+      "confidence": 75,
+      "reasons": [
+        "Upcoming earnings on 2026-10-27; event risk supports staged sizing rather than a full entry.",
+        "Price trend is constructive with momentum score 80/100; the name trades above key moving averages based on the current price trend.",
+        "Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Business quality is high (89/100): durable margins and competitive position support a core allocation.",
+        "Structural AI-driven demand remains a multi-quarter tailwind; confirm this against the latest earnings source listed below."
+      ],
+      "risks": [
+        "A close below key support (roughly $487.83, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 32,
+          "low": 0.22360000000000002,
+          "high": 0.3436,
+          "assumptions": [
+            "Revenue growth beats consensus",
+            "Margin expansion continues",
+            "Multiple re-rates toward peers"
+          ]
+        },
+        "base": {
+          "probability": 46,
+          "low": 0.1136,
+          "high": 0.1936,
+          "assumptions": [
+            "In-line earnings delivery",
+            "Stable valuation multiple",
+            "No major macro shock"
+          ]
+        },
+        "bear": {
+          "probability": 22,
+          "low": -0.22,
+          "high": -0.02,
+          "assumptions": [
+            "Earnings miss and guidance cut",
+            "Multiple compression",
+            "Macro or liquidity shock"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Communication Services",
+      "macroRegime": "Late-cycle expansion, easing bias",
+      "executionStatus": "Awaiting Decision",
+      "executionNotes": "",
+      "sourceNames": [
+        "Fundly Decision Engine",
+        "Financial Modeling Prep (Starter) — latest available quote for META",
+        "SEC EDGAR 10-Q",
+        "SEC EDGAR 8-K",
+        "MT Newswires — Market Chatter: Meta Platforms, Other Tech Firms Face Thousands of Social Media Addiction Lawsuits",
+        "Trefis — Amazon Stock And The Profit Signal Everyone Is Chasing",
+        "Yahoo — Same 100 Stocks, Different Price: Why QQQ Costs $180 Annually While QQQM Charges $150",
+        "Yahoo — Meta's AI Boom Just Hit a New Hurdle",
+        "Yahoo — CoreWeave Investors Face a Growing Problem",
+        "Yahoo — Stock Market Today, Aug. 10: Markets Slip as Oil Gains Fuel Inflation Fears",
+        "Yahoo — Five Takeaways From Zuckerberg’s 6,500-Word Manifesto on AI",
+        "Yahoo — Meta announces $1B fund for communities near its data centers"
+      ],
+      "confidenceContributors": [
+        "Positive: Upcoming earnings on 2026-10-27; event risk supports staged sizing rather than a full entry.",
+        "Positive: Price trend is constructive with momentum score 80/100; the name trades above key moving averages based on the current price trend.",
+        "Positive: Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Risk: A close below key support (roughly $487.83, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Risk: Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      }
+    },
+    {
       "id": "rec-1785997501153",
       "datetime": "2026-08-06T06:25:01.153Z",
       "ticker": "AAPL",
