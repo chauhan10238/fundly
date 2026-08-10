@@ -368,13 +368,32 @@
         "Risk: Two consecutive quarters of margin compression without a clear one-off explanation."
       ],
       "outcomes": {
-        "d1": null,
+        "d1": -1.85,
         "w1": null,
         "m1": null,
         "m3": null,
         "m6": null,
         "m12": null
-      }
+      },
+      "benchmarkPriceAtRec": 768.56,
+      "benchmarkOutcomes": {
+        "d1": 0.61,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "measurements": [
+        {
+          "horizon": "d1",
+          "measuredAt": "2026-08-07T21:00:00.000Z",
+          "returnPct": -1.85,
+          "benchmarkReturnPct": 0.61,
+          "alphaPct": -2.46,
+          "source": "Financial Modeling Prep (Starter)"
+        }
+      ]
     },
     {
       "id": "rec-1785989334256",
@@ -455,13 +474,32 @@
         "Risk: Two consecutive quarters of margin compression without a clear one-off explanation."
       ],
       "outcomes": {
-        "d1": null,
+        "d1": 5.08,
         "w1": null,
         "m1": null,
         "m3": null,
         "m6": null,
         "m12": null
-      }
+      },
+      "benchmarkPriceAtRec": 768.56,
+      "benchmarkOutcomes": {
+        "d1": 0.61,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "measurements": [
+        {
+          "horizon": "d1",
+          "measuredAt": "2026-08-07T21:00:00.000Z",
+          "returnPct": 5.08,
+          "benchmarkReturnPct": 0.61,
+          "alphaPct": 4.47,
+          "source": "Financial Modeling Prep (Starter)"
+        }
+      ]
     }
   ],
   "journal": [],
