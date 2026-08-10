@@ -588,5 +588,15 @@
       ]
     }
   ],
-  "journal": []
+  "journal": [],
+  "holdingBaselines": [],
+  "tracking": {
+    "profileId": "deepak",
+    "timezone": "Australia/Sydney",
+    "startDate": "2026-08-05",
+    "startAt": "2026-08-04T14:00:00.000Z",
+    "benchmark": "SPY",
+    "baselineVersion": 2,
+    "baselineStatus": "pending"
+  }
 }
