@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import {
   AlertTriangle,
@@ -8,6 +8,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   RefreshCw,
+  Square,
   ShieldCheck,
   TrendingUp,
 } from "lucide-react"
@@ -18,6 +19,8 @@ import { buildIntelligenceView, getSourceFamilies, rankOpportunity } from "@/lib
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+
+const MAX_DISCOVERY_CANDIDATES = 8
 
 const DISCOVERY_UNIVERSE = [
   "VOO", "QQQ", "VT", "VTI", "DIA", "SCHD", "VIG", "VUG", "VTV", "QUAL", "USMV", "AVUV", "IWM",
@@ -66,11 +69,13 @@ async function mapWithConcurrency<T, R>(
   values: T[],
   limit: number,
   worker: (value: T) => Promise<R>,
+  signal?: AbortSignal,
 ): Promise<PromiseSettledResult<R>[]> {
   const results: PromiseSettledResult<R>[] = new Array(values.length)
   let cursor = 0
   async function run() {
     while (cursor < values.length) {
+      if (signal?.aborted) break
       const index = cursor++
       try {
         results[index] = { status: "fulfilled", value: await worker(values[index]) }
@@ -216,8 +221,10 @@ function ItemCard({ item, owned }: { item: LiveItem; owned: boolean }) {
 export default function ScanPage() {
   const { portfolio, settings } = useDios()
   const [items, setItems] = useState<LiveItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lastCompletedAt, setLastCompletedAt] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   const heldTickers = useMemo(
     () => portfolio.positions.map((position) => position.ticker),
@@ -226,39 +233,52 @@ export default function ScanPage() {
   const heldSet = useMemo(() => new Set(heldTickers), [heldTickers])
 
   const refresh = useCallback(async () => {
+    if (abortRef.current) return
+
+    const controller = new AbortController()
+    abortRef.current = controller
     setLoading(true)
     setError(null)
 
     try {
-      const candidates = DISCOVERY_UNIVERSE.filter(
-        (ticker) => !heldSet.has(ticker),
-      )
-      const tickers = [...heldTickers, ...candidates]
+      const candidates = DISCOVERY_UNIVERSE
+        .filter((ticker) => !heldSet.has(ticker))
+        .slice(0, MAX_DISCOVERY_CANDIDATES)
+      const tickers = Array.from(new Set([...heldTickers, ...candidates]))
 
       const results = await mapWithConcurrency(
         tickers,
-        6,
-        (ticker) => fetchLiveAnalysisReport(ticker, portfolio, settings),
+        3,
+        (ticker) => fetchLiveAnalysisReport(ticker, portfolio, settings, controller.signal),
+        controller.signal,
       )
 
+      if (controller.signal.aborted) return
+
       const rows = results.flatMap((result) =>
-        result.status === "fulfilled" ? [result.value] : [],
+        result?.status === "fulfilled" ? [result.value] : [],
       )
       setItems(rows)
+      setLastCompletedAt(new Date().toISOString())
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Unable to run the live scan.",
-      )
+      if (!controller.signal.aborted) {
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "Unable to run the live scan.",
+        )
+      }
     } finally {
+      if (abortRef.current === controller) abortRef.current = null
       setLoading(false)
     }
   }, [heldSet, heldTickers, portfolio, settings])
 
-  useEffect(() => {
-    void refresh()
-  }, [refresh])
+  const stopScan = useCallback(() => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setLoading(false)
+  }, [])
 
   const holdings = items.filter((item) => heldSet.has(item.report.ticker))
 
@@ -293,16 +313,28 @@ export default function ScanPage() {
           </p>
         </div>
 
-        <Button
-          onClick={() => void refresh()}
-          disabled={loading}
-          className="ml-auto"
-        >
-          <RefreshCw
-            className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
-          />
-          Refresh scan
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          {loading && (
+            <Button variant="outline" onClick={stopScan}>
+              <Square className="mr-2 h-4 w-4" />
+              Stop scan
+            </Button>
+          )}
+          <Button
+            onClick={() => void refresh()}
+            disabled={loading}
+          >
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
+            />
+            {items.length ? "Refresh scan" : "Run scan"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="rounded-lg border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+        Daily Market Scan no longer auto-runs or auto-refreshes. It analyses all current holdings plus up to {MAX_DISCOVERY_CANDIDATES} unheld ETF candidates only when you press Run/Refresh scan.
+        {lastCompletedAt ? ` Last completed ${new Date(lastCompletedAt).toLocaleTimeString()}.` : ""}
       </div>
 
       <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 text-sm">

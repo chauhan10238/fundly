@@ -86,7 +86,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     void refreshTape()
-    const timer = window.setInterval(() => void refreshTape(), 10_000)
+    const timer = window.setInterval(() => void refreshTape(), 60_000)
     const onVisibility = () => { if (document.visibilityState === "visible") void refreshTape() }
     document.addEventListener("visibilitychange", onVisibility)
     return () => {

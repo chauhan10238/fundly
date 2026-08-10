@@ -29,9 +29,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Provide ticker." }, { status: 400 })
   }
 
+  const tracked = getInstrument(ticker)
   const [resolved, rawIntelligence, yahooNews] = await Promise.all([
     resolveLiveQuote(ticker, process.env.FMP_API_KEY),
-    getCompanyIntelligence(ticker),
+    getCompanyIntelligence(ticker, { assetType: tracked?.type }),
     fetchYahooNews(ticker),
   ])
 
@@ -46,7 +47,6 @@ export async function GET(request: NextRequest) {
 
   const intelligence = normalizeCompanyIntelligence(rawIntelligence)
 
-  const tracked = getInstrument(ticker)
   const instrument = tracked
     ? {
         ...tracked,
