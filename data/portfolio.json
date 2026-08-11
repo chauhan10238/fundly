@@ -263,6 +263,92 @@
   },
   "recommendations": [
     {
+      "id": "rec-1786429292974",
+      "datetime": "2026-08-11T06:21:32.974Z",
+      "ticker": "QQQ",
+      "type": "etf",
+      "priceAtRec": 720.87,
+      "overallScore": 69,
+      "recommendation": "Buy Watch",
+      "suggestedWeight": 20.279999999999998,
+      "confidence": 73,
+      "reasons": [
+        "Price trend is constructive with momentum score 80/100; the name trades above key moving averages based on the current price trend.",
+        "Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Business quality is high (86/100): durable margins and competitive position support a core allocation."
+      ],
+      "risks": [
+        "A close below key support (roughly $591.11, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 30,
+          "low": 0.21400000000000002,
+          "high": 0.334,
+          "assumptions": [
+            "Broad earnings growth re-accelerates",
+            "Multiple expansion on soft-landing confidence",
+            "Breadth improves beyond mega-caps"
+          ]
+        },
+        "base": {
+          "probability": 47,
+          "low": 0.10400000000000001,
+          "high": 0.184,
+          "assumptions": [
+            "Mid-single-digit earnings growth",
+            "Stable multiples",
+            "Dividends reinvested"
+          ]
+        },
+        "bear": {
+          "probability": 23,
+          "low": -0.22,
+          "high": -0.02,
+          "assumptions": [
+            "Earnings miss and guidance cut",
+            "Multiple compression",
+            "Macro or liquidity shock"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Technology",
+      "macroRegime": "Late-cycle expansion, easing bias",
+      "executionStatus": "Awaiting Decision",
+      "executionNotes": "",
+      "sourceNames": [
+        "Fundly Decision Engine",
+        "Financial Modeling Prep (Starter) — latest available quote for QQQ",
+        "SEC EDGAR 8-K",
+        "SeekingAlpha — Cumberland's Monday Memo",
+        "Stocktwits — S&P500, Nasdaq, Dow Futures Unchanged After Ending Session Mildly Lower As  Investors Brace For Key Inflation Data  — SPCX, TSLA, INTC, NFLX, PLTR In Focus",
+        "24/7 Wall St. — Same 100 Stocks, Different Price: Why QQQ Costs $180 Annually While QQQM Charges $150",
+        "etf.com — Semiconductor ETFs See Profit-Taking as Investors Pile Into QQQ",
+        "24/7 Wall St. — Growth Is Flat in 2026. Vanguard’s Deep-Value Fund Is Up 22%, and Almost Nobody Owns It",
+        "24/7 Wall St. — Trade Desk (TTD) Stock Is Falling Today: What’s Behind the Drop, and Are Its Peers Moving Too?",
+        "SeekingAlpha — The S&P Is Ignoring Semiconductor Crashes",
+        "MT Newswires — Exchange-Traded Funds, US Equities Lower After Midday"
+      ],
+      "confidenceContributors": [
+        "Positive: Price trend is constructive with momentum score 80/100; the name trades above key moving averages based on the current price trend.",
+        "Positive: Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Positive: Business quality is high (86/100): durable margins and competitive position support a core allocation.",
+        "Risk: A close below key support (roughly $591.11, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Risk: Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      }
+    },
+    {
       "id": "rec-1786405319336",
       "datetime": "2026-08-10T23:41:59.336Z",
       "ticker": "QQQ",
@@ -588,15 +674,5 @@
       ]
     }
   ],
-  "journal": [],
-  "holdingBaselines": [],
-  "tracking": {
-    "profileId": "deepak",
-    "timezone": "Australia/Sydney",
-    "startDate": "2026-08-05",
-    "startAt": "2026-08-04T14:00:00.000Z",
-    "benchmark": "SPY",
-    "baselineVersion": 2,
-    "baselineStatus": "pending"
-  }
+  "journal": []
 }
