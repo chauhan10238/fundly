@@ -566,7 +566,9 @@
           "source": "Financial Modeling Prep (Starter)"
         }
       ],
-      "decisionAt": "2026-08-11T06:22:26.470Z"
+      "decisionAt": "2026-08-11T06:22:26.470Z",
+      "executionPrice": null,
+      "executionQuantity": null
     },
     {
       "id": "rec-1785989334256",
