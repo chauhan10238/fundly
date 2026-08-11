@@ -16,6 +16,11 @@
       "avgCost": 128.2
     },
     {
+      "ticker": "KO",
+      "quantity": 3.00101157,
+      "avgCost": 88.97
+    },
+    {
       "ticker": "META",
       "quantity": 1,
       "avgCost": 650
@@ -24,6 +29,11 @@
       "ticker": "MLPX",
       "quantity": 4.0446,
       "avgCost": 75.16
+    },
+    {
+      "ticker": "NVDA",
+      "quantity": 0.99862208,
+      "avgCost": 219.85
     },
     {
       "ticker": "TSM",
@@ -43,6 +53,30 @@
   ],
   "cash": 0,
   "transactions": [
+    {
+      "date": "2026-08-05",
+      "ticker": "NVDA",
+      "type": "Buy",
+      "quantity": 0.99862208,
+      "price": 216.85,
+      "currency": "USD",
+      "brokerageFee": 3,
+      "fxFee": 0,
+      "notes": "Stake Gmail import MARKET [Stake:19fd0efcd75368a3] [FP:5bc4bc01d44da5c9daf6]",
+      "id": "t1785917429182-1001"
+    },
+    {
+      "date": "2026-07-29",
+      "ticker": "KO",
+      "type": "Buy",
+      "quantity": 3.00101157,
+      "price": 88.97,
+      "currency": "USD",
+      "brokerageFee": 3,
+      "fxFee": 0,
+      "notes": "Stake Gmail import MARKET [Stake:19face34e9307f55] [FP:c078fb5594e0bde7219e]",
+      "id": "t1785387263724-1001"
+    },
     {
       "date": "2026-07-23",
       "ticker": "VDE",
@@ -229,227 +263,41 @@
   },
   "recommendations": [
     {
-      "id": "r1",
-      "datetime": "2025-08-14T10:15:00-04:00",
-      "ticker": "NVDA",
+      "id": "rec-1785997579042",
+      "datetime": "2026-08-06T06:26:19.042Z",
+      "ticker": "GOOG",
       "type": "stock",
-      "priceAtRec": 124.46452375589898,
-      "overallScore": 86,
-      "recommendation": "Strong Buy",
-      "suggestedWeight": 6,
-      "confidence": 76.5,
-      "reasons": [
-        "NVIDIA Corporation scored 86/100 with supportive trend and macro.",
-        "Portfolio fit within limits at time of recommendation."
-      ],
-      "risks": [
-        "Sector concentration",
-        "Valuation sensitivity to guidance"
-      ],
-      "scenarios": {
-        "bull": {
-          "probability": 38,
-          "low": 0.3186,
-          "high": 0.4806,
-          "assumptions": [
-            "AI capex cycle extends with sustained data-center demand",
-            "Gross margins hold above prior peak on pricing power",
-            "Export-control disruption remains contained"
-          ]
-        },
-        "base": {
-          "probability": 45,
-          "low": 0.12599999999999997,
-          "high": 0.20599999999999996,
-          "assumptions": [
-            "In-line earnings delivery",
-            "Stable valuation multiple",
-            "No major macro shock"
-          ]
-        },
-        "bear": {
-          "probability": 17,
-          "low": -0.29700000000000004,
-          "high": -0.027000000000000003,
-          "assumptions": [
-            "AI capex digestion / inventory correction",
-            "Export controls tighten",
-            "Cyclical demand rolls over"
-          ]
-        }
-      },
-      "modelVersion": "dios-analyst-1.0.0",
-      "scoringVersion": "dios-scoring-2026.02",
-      "sector": "Technology",
-      "macroRegime": "Late-cycle expansion",
-      "outcomes": {
-        "d1": 1.2,
-        "w1": 3.4,
-        "m1": 8.1,
-        "m3": 19.2,
-        "m6": 31.5,
-        "m12": null
-      }
-    },
-    {
-      "id": "r2",
-      "datetime": "2025-09-03T11:02:00-04:00",
-      "ticker": "TSM",
-      "type": "stock",
-      "priceAtRec": 188.214755959621,
-      "overallScore": 81,
+      "priceAtRec": 360.13,
+      "overallScore": 73,
       "recommendation": "Buy",
-      "suggestedWeight": 6,
-      "confidence": 75.25,
+      "suggestedWeight": 7.855049494357913,
+      "confidence": 76,
       "reasons": [
-        "Taiwan Semiconductor Manufacturing scored 81/100 with supportive trend and macro.",
-        "Portfolio fit within limits at time of recommendation."
+        "Upcoming earnings on 2026-10-27; event risk supports staged sizing rather than a full entry.",
+        "Price trend is constructive with momentum score 74/100; the name trades above key moving averages based on the current price trend.",
+        "Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Business quality is high (91/100): durable margins and competitive position support a core allocation.",
+        "Structural AI-driven demand remains a multi-quarter tailwind; confirm this against the latest earnings source listed below."
       ],
       "risks": [
-        "Sector concentration",
-        "Valuation sensitivity to guidance"
+        "A close below key support (roughly $295.31, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Two consecutive quarters of margin compression without a clear one-off explanation."
       ],
       "scenarios": {
         "bull": {
-          "probability": 36,
-          "low": 0.23719999999999997,
-          "high": 0.35719999999999996,
-          "assumptions": [
-            "AI capex cycle extends with sustained data-center demand",
-            "Gross margins hold above prior peak on pricing power",
-            "Export-control disruption remains contained"
-          ]
-        },
-        "base": {
-          "probability": 45,
-          "low": 0.12719999999999998,
-          "high": 0.2072,
-          "assumptions": [
-            "In-line earnings delivery",
-            "Stable valuation multiple",
-            "No major macro shock"
-          ]
-        },
-        "bear": {
-          "probability": 19,
-          "low": -0.22,
-          "high": -0.02,
-          "assumptions": [
-            "AI capex digestion / inventory correction",
-            "Export controls tighten",
-            "Cyclical demand rolls over"
-          ]
-        }
-      },
-      "modelVersion": "dios-analyst-1.0.0",
-      "scoringVersion": "dios-scoring-2026.02",
-      "sector": "Technology",
-      "macroRegime": "Late-cycle expansion",
-      "outcomes": {
-        "d1": 0.6,
-        "w1": 2.1,
-        "m1": 5.5,
-        "m3": 14.8,
-        "m6": 22.3,
-        "m12": null
-      }
-    },
-    {
-      "id": "r3",
-      "datetime": "2025-09-28T09:45:00-04:00",
-      "ticker": "INTC",
-      "type": "stock",
-      "priceAtRec": 21.273631177745685,
-      "overallScore": 44,
-      "recommendation": "Avoid",
-      "suggestedWeight": 6,
-      "confidence": 66,
-      "reasons": [
-        "Intel Corporation scored 44/100 with supportive trend and macro.",
-        "Portfolio fit within limits at time of recommendation."
-      ],
-      "risks": [
-        "Sector concentration",
-        "Valuation sensitivity to guidance"
-      ],
-      "scenarios": {
-        "bull": {
-          "probability": 17,
-          "low": 0.25974,
-          "high": 0.42174000000000006,
-          "assumptions": [
-            "AI capex cycle extends with sustained data-center demand",
-            "Gross margins hold above prior peak on pricing power",
-            "Export-control disruption remains contained"
-          ]
-        },
-        "base": {
-          "probability": 51,
-          "low": 0.0824,
-          "high": 0.1624,
-          "assumptions": [
-            "In-line earnings delivery",
-            "Stable valuation multiple",
-            "No major macro shock"
-          ]
-        },
-        "bear": {
           "probability": 32,
-          "low": -0.29700000000000004,
-          "high": -0.027000000000000003,
+          "low": 0.2212,
+          "high": 0.3412,
           "assumptions": [
-            "AI capex digestion / inventory correction",
-            "Export controls tighten",
-            "Cyclical demand rolls over"
-          ]
-        }
-      },
-      "modelVersion": "dios-analyst-1.0.0",
-      "scoringVersion": "dios-scoring-2026.02",
-      "sector": "Technology",
-      "macroRegime": "Late-cycle expansion",
-      "outcomes": {
-        "d1": -0.9,
-        "w1": -2.8,
-        "m1": -6.4,
-        "m3": -11.2,
-        "m6": -14.7,
-        "m12": null
-      }
-    },
-    {
-      "id": "r4",
-      "datetime": "2025-10-11T14:20:00-04:00",
-      "ticker": "GLD",
-      "type": "etf",
-      "priceAtRec": 226.8086869863722,
-      "overallScore": 72,
-      "recommendation": "Buy",
-      "suggestedWeight": 12,
-      "confidence": 73,
-      "reasons": [
-        "SPDR Gold Shares scored 72/100 with supportive trend and macro.",
-        "Portfolio fit within limits at time of recommendation."
-      ],
-      "risks": [
-        "Sector concentration",
-        "Valuation sensitivity to guidance"
-      ],
-      "scenarios": {
-        "bull": {
-          "probability": 31,
-          "low": 0.1676,
-          "high": 0.2876,
-          "assumptions": [
-            "Real yields fall as easing continues",
-            "Central-bank and safe-haven demand persists",
-            "USD weakens further"
+            "Revenue growth beats consensus",
+            "Margin expansion continues",
+            "Multiple re-rates toward peers"
           ]
         },
         "base": {
-          "probability": 47,
-          "low": 0.0576,
-          "high": 0.1376,
+          "probability": 46,
+          "low": 0.1112,
+          "high": 0.19119999999999998,
           "assumptions": [
             "In-line earnings delivery",
             "Stable valuation multiple",
@@ -469,268 +317,635 @@
       },
       "modelVersion": "dios-analyst-1.0.0",
       "scoringVersion": "dios-scoring-2026.02",
-      "sector": "Commodity",
-      "macroRegime": "Late-cycle expansion",
-      "outcomes": {
-        "d1": 0.4,
-        "w1": 1.6,
-        "m1": 4.2,
-        "m3": 9.9,
-        "m6": null,
-        "m12": null
-      }
-    },
-    {
-      "id": "r5",
-      "datetime": "2025-11-19T10:05:00-05:00",
-      "ticker": "SMH",
-      "type": "etf",
-      "priceAtRec": 246.6116127539343,
-      "overallScore": 78,
-      "recommendation": "Buy Watch",
-      "suggestedWeight": 12,
-      "confidence": 74.5,
-      "reasons": [
-        "VanEck Semiconductor ETF scored 78/100 with supportive trend and macro.",
-        "Portfolio fit within limits at time of recommendation."
-      ],
-      "risks": [
-        "Sector concentration",
-        "Valuation sensitivity to guidance"
-      ],
-      "scenarios": {
-        "bull": {
-          "probability": 34,
-          "low": 0.30078,
-          "high": 0.46278,
-          "assumptions": [
-            "AI capex cycle extends with sustained data-center demand",
-            "Gross margins hold above prior peak on pricing power",
-            "Export-control disruption remains contained"
-          ]
-        },
-        "base": {
-          "probability": 46,
-          "low": 0.11280000000000001,
-          "high": 0.19280000000000003,
-          "assumptions": [
-            "In-line earnings delivery",
-            "Stable valuation multiple",
-            "No major macro shock"
-          ]
-        },
-        "bear": {
-          "probability": 20,
-          "low": -0.29700000000000004,
-          "high": -0.027000000000000003,
-          "assumptions": [
-            "AI capex digestion / inventory correction",
-            "Export controls tighten",
-            "Cyclical demand rolls over"
-          ]
+      "sector": "Communication Services",
+      "macroRegime": "Late-cycle expansion, easing bias",
+      "origin": "logged",
+      "recordKind": "ai-recommendation",
+      "benchmarkTicker": "SPY",
+      "trackingNotional": 1000,
+      "snapshot": {
+        "suggestedNotional": 1000,
+        "portfolioValue": 9169.3884362835,
+        "currentWeight": 7.855049494357913,
+        "proposedWeight": 7.855049494357913,
+        "marketDataProvider": "Financial Modeling Prep (Starter)",
+        "scoreBreakdown": {
+          "macro": 70,
+          "geopolitics": 48,
+          "earnings": 80,
+          "fundamentals": 82,
+          "valuation": 56,
+          "quality": 91,
+          "flows": 81,
+          "technical": 74,
+          "portfolioFit": 70,
+          "timing": 65,
+          "psychology": 68,
+          "opportunityCost": 62
         }
       },
-      "modelVersion": "dios-analyst-1.0.0",
-      "scoringVersion": "dios-scoring-2026.02",
-      "sector": "Technology",
-      "macroRegime": "Late-cycle expansion",
+      "executionStatus": "Awaiting Decision",
+      "executionNotes": "",
+      "sourceNames": [
+        "Fundly Decision Engine",
+        "Financial Modeling Prep (Starter) — latest available quote for GOOG",
+        "SEC EDGAR 10-Q",
+        "SEC EDGAR 8-K",
+        "MarketBeat — TTM Technologies Q2 Earnings Call Highlights",
+        "Forkast News — Meta’s Superintelligence Labs Ships Its First Product — and the Contributor Tier Is the Real Strategy",
+        "Moneyweek — As AI spend continues to soar, when will investors start to be rewarded?",
+        "Yahoo — Alphabet Post-Earnings Rebound is On: Buy at $363?",
+        "Yahoo — Alphabet CEO Sundar Pichai Just Made a $200 Billion Infrastructure Move. Nvidia, Micron, and Broadcom Investors Should Rejoice.",
+        "Yahoo — Google’s DeepMind Shakeup Reveals a Compute Landlord Betting on Infrastructure Over Research",
+        "Yahoo — Waymo's Co-CEO Just Issued a Stark Warning to Every AI Company Building Robots and Cars: 'There's Simply Not An Undo…'",
+        "Yahoo — Google Shifts AI Power to California in Race Against Anthropic, OpenAI"
+      ],
+      "confidenceContributors": [
+        "Positive: Upcoming earnings on 2026-10-27; event risk supports staged sizing rather than a full entry.",
+        "Positive: Price trend is constructive with momentum score 74/100; the name trades above key moving averages based on the current price trend.",
+        "Positive: Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Risk: A close below key support (roughly $295.31, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Risk: Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
       "outcomes": {
-        "d1": 0.8,
-        "w1": 2.9,
-        "m1": 7.7,
-        "m3": null,
-        "m6": null,
-        "m12": null
-      }
-    },
-    {
-      "id": "r6",
-      "datetime": "2025-12-05T13:30:00-05:00",
-      "ticker": "AMD",
-      "type": "stock",
-      "priceAtRec": 146.7889847988958,
-      "overallScore": 68,
-      "recommendation": "Start Small",
-      "suggestedWeight": 6,
-      "confidence": 72,
-      "reasons": [
-        "Advanced Micro Devices scored 68/100 with supportive trend and macro.",
-        "Portfolio fit within limits at time of recommendation."
-      ],
-      "risks": [
-        "Sector concentration",
-        "Valuation sensitivity to guidance"
-      ],
-      "scenarios": {
-        "bull": {
-          "probability": 29,
-          "low": 0.29322000000000004,
-          "high": 0.45522,
-          "assumptions": [
-            "AI capex cycle extends with sustained data-center demand",
-            "Gross margins hold above prior peak on pricing power",
-            "Export-control disruption remains contained"
-          ]
-        },
-        "base": {
-          "probability": 47,
-          "low": 0.10719999999999999,
-          "high": 0.18719999999999998,
-          "assumptions": [
-            "In-line earnings delivery",
-            "Stable valuation multiple",
-            "No major macro shock"
-          ]
-        },
-        "bear": {
-          "probability": 24,
-          "low": -0.29700000000000004,
-          "high": -0.027000000000000003,
-          "assumptions": [
-            "AI capex digestion / inventory correction",
-            "Export controls tighten",
-            "Cyclical demand rolls over"
-          ]
-        }
-      },
-      "modelVersion": "dios-analyst-1.0.0",
-      "scoringVersion": "dios-scoring-2026.02",
-      "sector": "Technology",
-      "macroRegime": "Late-cycle expansion",
-      "outcomes": {
-        "d1": -0.3,
-        "w1": 1.1,
-        "m1": 3.8,
-        "m3": null,
-        "m6": null,
-        "m12": null
-      }
-    },
-    {
-      "id": "r7",
-      "datetime": "2026-01-15T09:50:00-05:00",
-      "ticker": "VOO",
-      "type": "etf",
-      "priceAtRec": 466.18988873446193,
-      "overallScore": 74,
-      "recommendation": "Buy",
-      "suggestedWeight": 12,
-      "confidence": 73.5,
-      "reasons": [
-        "Vanguard S&P 500 ETF scored 74/100 with supportive trend and macro.",
-        "Portfolio fit within limits at time of recommendation."
-      ],
-      "risks": [
-        "Sector concentration",
-        "Valuation sensitivity to guidance"
-      ],
-      "scenarios": {
-        "bull": {
-          "probability": 32,
-          "low": 0.14364,
-          "high": 0.22764,
-          "assumptions": [
-            "Broad earnings growth re-accelerates",
-            "Multiple expansion on soft-landing confidence",
-            "Breadth improves beyond mega-caps"
-          ]
-        },
-        "base": {
-          "probability": 46,
-          "low": 0.0952,
-          "high": 0.17520000000000002,
-          "assumptions": [
-            "Mid-single-digit earnings growth",
-            "Stable multiples",
-            "Dividends reinvested"
-          ]
-        },
-        "bear": {
-          "probability": 22,
-          "low": -0.154,
-          "high": -0.013999999999999999,
-          "assumptions": [
-            "Earnings miss and guidance cut",
-            "Multiple compression",
-            "Macro or liquidity shock"
-          ]
-        }
-      },
-      "modelVersion": "dios-analyst-1.0.0",
-      "scoringVersion": "dios-scoring-2026.02",
-      "sector": "Diversified",
-      "macroRegime": "Late-cycle expansion",
-      "outcomes": {
-        "d1": 0.3,
-        "w1": 1.4,
-        "m1": 2.6,
-        "m3": null,
-        "m6": null,
-        "m12": null
-      }
-    },
-    {
-      "id": "r8",
-      "datetime": "2026-02-02T11:15:00-05:00",
-      "ticker": "MU",
-      "type": "stock",
-      "priceAtRec": 97.83806799466531,
-      "overallScore": 66,
-      "recommendation": "Start Small",
-      "suggestedWeight": 6,
-      "confidence": 71.5,
-      "reasons": [
-        "Micron Technology scored 66/100 with supportive trend and macro.",
-        "Portfolio fit within limits at time of recommendation."
-      ],
-      "risks": [
-        "Sector concentration",
-        "Valuation sensitivity to guidance"
-      ],
-      "scenarios": {
-        "bull": {
-          "probability": 28,
-          "low": 0.30294,
-          "high": 0.4649400000000001,
-          "assumptions": [
-            "AI capex cycle extends with sustained data-center demand",
-            "Gross margins hold above prior peak on pricing power",
-            "Export-control disruption remains contained"
-          ]
-        },
-        "base": {
-          "probability": 48,
-          "low": 0.1144,
-          "high": 0.19440000000000002,
-          "assumptions": [
-            "In-line earnings delivery",
-            "Stable valuation multiple",
-            "No major macro shock"
-          ]
-        },
-        "bear": {
-          "probability": 24,
-          "low": -0.29700000000000004,
-          "high": -0.027000000000000003,
-          "assumptions": [
-            "AI capex digestion / inventory correction",
-            "Export controls tighten",
-            "Cyclical demand rolls over"
-          ]
-        }
-      },
-      "modelVersion": "dios-analyst-1.0.0",
-      "scoringVersion": "dios-scoring-2026.02",
-      "sector": "Technology",
-      "macroRegime": "Late-cycle expansion",
-      "outcomes": {
-        "d1": 1.5,
+        "d1": -1.85,
         "w1": null,
         "m1": null,
         "m3": null,
         "m6": null,
         "m12": null
-      }
+      },
+      "benchmarkPriceAtRec": 768.56,
+      "benchmarkOutcomes": {
+        "d1": 0.61,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "measurements": [
+        {
+          "horizon": "d1",
+          "measuredAt": "2026-08-07T21:00:00.000Z",
+          "returnPct": -1.85,
+          "benchmarkReturnPct": 0.61,
+          "alphaPct": -2.46,
+          "source": "Financial Modeling Prep (Starter)"
+        }
+      ]
+    },
+    {
+      "id": "rec-1785989334256",
+      "datetime": "2026-08-06T04:08:54.256Z",
+      "ticker": "SHOP",
+      "type": "stock",
+      "priceAtRec": 144.24,
+      "overallScore": 57,
+      "recommendation": "Hold",
+      "suggestedWeight": 4.74,
+      "confidence": 81,
+      "reasons": [
+        "Does Shopify’s (SHOP) AI Commerce Push Quietly Redefine Its Long-Term Platform Moat? — Sahm [2026-07-31].",
+        "Upcoming earnings on 2026-11-02; event risk supports staged sizing rather than a full entry.",
+        "Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime."
+      ],
+      "risks": [
+        "A close below key support (roughly $118.28, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 24,
+          "low": 0.2565,
+          "high": 0.41850000000000004,
+          "assumptions": [
+            "Revenue growth beats consensus",
+            "Margin expansion continues",
+            "Multiple re-rates toward peers"
+          ]
+        },
+        "base": {
+          "probability": 48,
+          "low": 0.08,
+          "high": 0.16,
+          "assumptions": [
+            "In-line earnings delivery",
+            "Stable valuation multiple",
+            "No major macro shock"
+          ]
+        },
+        "bear": {
+          "probability": 28,
+          "low": -0.29700000000000004,
+          "high": -0.027000000000000003,
+          "assumptions": [
+            "Earnings miss and guidance cut",
+            "Multiple compression",
+            "Macro or liquidity shock"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Unknown",
+      "macroRegime": "Late-cycle expansion, easing bias",
+      "executionStatus": "Awaiting Decision",
+      "executionNotes": "",
+      "sourceNames": [
+        "Fundly Decision Engine",
+        "Financial Modeling Prep (Starter) — latest available quote for SHOP",
+        "SEC EDGAR 10-Q",
+        "SEC EDGAR 8-K",
+        "Yahoo — Shopify Inc. Q2 2026 Earnings Call Summary",
+        "Yahoo — PYPL's Historical Floor Is Back, But Is The Business The Same?",
+        "Yahoo — Dow Jones Futures: Nvidia Lifts Dow, But Google, SpaceX Skid; Sandisk, Western Digital Lead Earnings Losers Late",
+        "Yahoo — News of the day: Housing market hope, bitcoin hack, Shopify shares surge, CRA denies legal fees tax deduction, retirement planning and more",
+        "Yahoo — Stock Market Today, Aug. 5: Shopify Soars 17% After Beating Q2 Estimates, Raises Q3 Outlook",
+        "Yahoo — Shopify Inc (SHOP) (Q2 2026) Earnings Call Highlights: AI-Driven Growth Propels GMV Past $116 ...",
+        "Yahoo — What Is The Market Really Expecting From SHOP Stock?",
+        "Yahoo — Sector Update: Tech Stocks Mixed Late Afternoon"
+      ],
+      "confidenceContributors": [
+        "Positive: Does Shopify’s (SHOP) AI Commerce Push Quietly Redefine Its Long-Term Platform Moat? — Sahm [2026-07-31].",
+        "Positive: Upcoming earnings on 2026-11-02; event risk supports staged sizing rather than a full entry.",
+        "Positive: Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Risk: A close below key support (roughly $118.28, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Risk: Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "outcomes": {
+        "d1": 5.08,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "benchmarkPriceAtRec": 768.56,
+      "benchmarkOutcomes": {
+        "d1": 0.61,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "measurements": [
+        {
+          "horizon": "d1",
+          "measuredAt": "2026-08-07T21:00:00.000Z",
+          "returnPct": 5.08,
+          "benchmarkReturnPct": 0.61,
+          "alphaPct": 4.47,
+          "source": "Financial Modeling Prep (Starter)"
+        }
+      ]
     }
-  ]
+  ],
+  "journal": [],
+  "holdingBaselines": [
+    {
+      "id": "baseline-2026-08-05-AMD",
+      "ticker": "AMD",
+      "startDate": "2026-08-05",
+      "startAt": "2026-08-05T21:00:00.000Z",
+      "quantity": 30,
+      "avgCost": 156.395,
+      "baselinePrice": 482.04998779296875,
+      "baselineValue": 14461.5,
+      "priceDate": "2026-08-05",
+      "provider": "Yahoo Finance (Fallback)",
+      "benchmarkTicker": "SPY",
+      "benchmarkPrice": 769.7899780273438,
+      "createdAt": "2026-08-06T06:36:44.693Z",
+      "status": "active",
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "benchmarkOutcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "measurements": []
+    },
+    {
+      "id": "baseline-2026-08-05-GLD",
+      "ticker": "GLD",
+      "startDate": "2026-08-05",
+      "startAt": "2026-08-05T21:00:00.000Z",
+      "quantity": 29.0886608,
+      "avgCost": 198.5,
+      "baselinePrice": 389.6400146484375,
+      "baselineValue": 11334.11,
+      "priceDate": "2026-08-05",
+      "provider": "Yahoo Finance (Fallback)",
+      "benchmarkTicker": "SPY",
+      "benchmarkPrice": 769.7899780273438,
+      "createdAt": "2026-08-06T06:36:44.695Z",
+      "status": "active",
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "benchmarkOutcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "measurements": []
+    },
+    {
+      "id": "baseline-2026-08-05-GOOG",
+      "ticker": "GOOG",
+      "startDate": "2026-08-05",
+      "startAt": "2026-08-05T21:00:00.000Z",
+      "quantity": 2,
+      "avgCost": 345.5,
+      "baselinePrice": 360.1300048828125,
+      "baselineValue": 720.26,
+      "priceDate": "2026-08-05",
+      "provider": "Yahoo Finance (Fallback)",
+      "benchmarkTicker": "SPY",
+      "benchmarkPrice": 769.7899780273438,
+      "createdAt": "2026-08-06T06:36:44.699Z",
+      "status": "active",
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "benchmarkOutcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "measurements": []
+    },
+    {
+      "id": "baseline-2026-08-05-INTC",
+      "ticker": "INTC",
+      "startDate": "2026-08-05",
+      "startAt": "2026-08-05T21:00:00.000Z",
+      "quantity": 120,
+      "avgCost": 33.824999999999996,
+      "baselinePrice": 101.05999755859375,
+      "baselineValue": 12127.2,
+      "priceDate": "2026-08-05",
+      "provider": "Yahoo Finance (Fallback)",
+      "benchmarkTicker": "SPY",
+      "benchmarkPrice": 769.7899780273438,
+      "createdAt": "2026-08-06T06:36:44.761Z",
+      "status": "active",
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "benchmarkOutcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "measurements": []
+    },
+    {
+      "id": "baseline-2026-08-05-KO",
+      "ticker": "KO",
+      "startDate": "2026-08-05",
+      "startAt": "2026-08-05T21:00:00.000Z",
+      "quantity": 3.00101157,
+      "avgCost": 89.96966292365877,
+      "baselinePrice": 86.83000183105469,
+      "baselineValue": 260.58,
+      "priceDate": "2026-08-05",
+      "provider": "Yahoo Finance (Fallback)",
+      "benchmarkTicker": "SPY",
+      "benchmarkPrice": 769.7899780273438,
+      "createdAt": "2026-08-06T06:36:44.814Z",
+      "status": "active",
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "benchmarkOutcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "measurements": []
+    },
+    {
+      "id": "baseline-2026-08-05-META",
+      "ticker": "META",
+      "startDate": "2026-08-05",
+      "startAt": "2026-08-05T21:00:00.000Z",
+      "quantity": 1,
+      "avgCost": 650,
+      "baselinePrice": 588.77001953125,
+      "baselineValue": 588.77,
+      "priceDate": "2026-08-05",
+      "provider": "Yahoo Finance (Fallback)",
+      "benchmarkTicker": "SPY",
+      "benchmarkPrice": 769.7899780273438,
+      "createdAt": "2026-08-06T06:36:44.741Z",
+      "status": "active",
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "benchmarkOutcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "measurements": []
+    },
+    {
+      "id": "baseline-2026-08-05-MLPX",
+      "ticker": "MLPX",
+      "startDate": "2026-08-05",
+      "startAt": "2026-08-05T21:00:00.000Z",
+      "quantity": 150,
+      "avgCost": 47.92,
+      "baselinePrice": 73.01000213623047,
+      "baselineValue": 10951.5,
+      "priceDate": "2026-08-05",
+      "provider": "Yahoo Finance (Fallback)",
+      "benchmarkTicker": "SPY",
+      "benchmarkPrice": 769.7899780273438,
+      "createdAt": "2026-08-06T06:36:44.753Z",
+      "status": "active",
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "benchmarkOutcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "measurements": []
+    },
+    {
+      "id": "baseline-2026-08-05-NVDA",
+      "ticker": "NVDA",
+      "startDate": "2026-08-05",
+      "startAt": "2026-08-05T21:00:00.000Z",
+      "quantity": 0.99862208,
+      "avgCost": 219.85,
+      "baselinePrice": 219.22000122070312,
+      "baselineValue": 218.92,
+      "priceDate": "2026-08-05",
+      "provider": "Yahoo Finance (Fallback)",
+      "benchmarkTicker": "SPY",
+      "benchmarkPrice": 769.7899780273438,
+      "createdAt": "2026-08-06T06:36:44.793Z",
+      "status": "active",
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "benchmarkOutcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "measurements": []
+    },
+    {
+      "id": "baseline-2026-08-05-TSM",
+      "ticker": "TSM",
+      "startDate": "2026-08-05",
+      "startAt": "2026-08-05T21:00:00.000Z",
+      "quantity": 60,
+      "avgCost": 149.67,
+      "baselinePrice": 414,
+      "baselineValue": 24840,
+      "priceDate": "2026-08-05",
+      "provider": "Yahoo Finance (Fallback)",
+      "benchmarkTicker": "SPY",
+      "benchmarkPrice": 769.7899780273438,
+      "createdAt": "2026-08-06T06:36:45.214Z",
+      "status": "active",
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "benchmarkOutcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "measurements": []
+    },
+    {
+      "id": "baseline-2026-08-05-VDE",
+      "ticker": "VDE",
+      "startDate": "2026-08-05",
+      "startAt": "2026-08-05T21:00:00.000Z",
+      "quantity": 2.47532604,
+      "avgCost": 171.43196155638552,
+      "baselinePrice": 161.57000732421875,
+      "baselineValue": 399.94,
+      "priceDate": "2026-08-05",
+      "provider": "Yahoo Finance (Fallback)",
+      "benchmarkTicker": "SPY",
+      "benchmarkPrice": 769.7899780273438,
+      "createdAt": "2026-08-06T06:36:45.225Z",
+      "status": "active",
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "benchmarkOutcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "measurements": []
+    },
+    {
+      "id": "baseline-2026-08-05-VT",
+      "ticker": "VT",
+      "startDate": "2026-08-05",
+      "startAt": "2026-08-05T21:00:00.000Z",
+      "quantity": 200,
+      "avgCost": 101.215,
+      "baselinePrice": 160.1699981689453,
+      "baselineValue": 32034,
+      "priceDate": "2026-08-05",
+      "provider": "Yahoo Finance (Fallback)",
+      "benchmarkTicker": "SPY",
+      "benchmarkPrice": 769.7899780273438,
+      "createdAt": "2026-08-06T06:36:45.193Z",
+      "status": "active",
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "benchmarkOutcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      },
+      "measurements": []
+    }
+  ],
+  "tracking": {
+    "profileId": "deepak",
+    "timezone": "Australia/Sydney",
+    "startDate": "2026-08-05",
+    "startAt": "2026-08-04T14:00:00.000Z",
+    "benchmark": "SPY",
+    "baselineVersion": 2,
+    "baselineStatus": "complete",
+    "baselineBuiltAt": "2026-08-06T06:36:45.506Z",
+    "baselineTickers": [
+      "AMD",
+      "GLD",
+      "GOOG",
+      "INTC",
+      "KO",
+      "META",
+      "MLPX",
+      "NVDA",
+      "TSM",
+      "VDE",
+      "VT"
+    ],
+    "baselineHoldings": [
+      {
+        "ticker": "AMD",
+        "quantity": 30,
+        "avgCost": 156.395
+      },
+      {
+        "ticker": "GLD",
+        "quantity": 29.0886608,
+        "avgCost": 198.5
+      },
+      {
+        "ticker": "GOOG",
+        "quantity": 2,
+        "avgCost": 345.5
+      },
+      {
+        "ticker": "INTC",
+        "quantity": 120,
+        "avgCost": 33.824999999999996
+      },
+      {
+        "ticker": "KO",
+        "quantity": 3.00101157,
+        "avgCost": 89.96966292365877
+      },
+      {
+        "ticker": "META",
+        "quantity": 1,
+        "avgCost": 650
+      },
+      {
+        "ticker": "MLPX",
+        "quantity": 150,
+        "avgCost": 47.92
+      },
+      {
+        "ticker": "NVDA",
+        "quantity": 0.99862208,
+        "avgCost": 219.85
+      },
+      {
+        "ticker": "TSM",
+        "quantity": 60,
+        "avgCost": 149.67
+      },
+      {
+        "ticker": "VDE",
+        "quantity": 2.47532604,
+        "avgCost": 171.43196155638552
+      },
+      {
+        "ticker": "VT",
+        "quantity": 200,
+        "avgCost": 101.215
+      }
+    ]
+  }
 }
