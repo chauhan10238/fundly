@@ -263,6 +263,91 @@
   },
   "recommendations": [
     {
+      "id": "rec-1786430648794",
+      "datetime": "2026-08-11T06:44:08.794Z",
+      "ticker": "ADBE",
+      "type": "stock",
+      "priceAtRec": 272.96,
+      "overallScore": 57,
+      "recommendation": "Hold",
+      "suggestedWeight": 4.74,
+      "confidence": 81,
+      "reasons": [
+        "Upcoming earnings on 2026-09-10; event risk supports staged sizing rather than a full entry.",
+        "Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime."
+      ],
+      "risks": [
+        "A close below key support (roughly $223.83, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 24,
+          "low": 0.2565,
+          "high": 0.41850000000000004,
+          "assumptions": [
+            "Revenue growth beats consensus",
+            "Margin expansion continues",
+            "Multiple re-rates toward peers"
+          ]
+        },
+        "base": {
+          "probability": 48,
+          "low": 0.08,
+          "high": 0.16,
+          "assumptions": [
+            "In-line earnings delivery",
+            "Stable valuation multiple",
+            "No major macro shock"
+          ]
+        },
+        "bear": {
+          "probability": 28,
+          "low": -0.29700000000000004,
+          "high": -0.027000000000000003,
+          "assumptions": [
+            "Earnings miss and guidance cut",
+            "Multiple compression",
+            "Macro or liquidity shock"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Unknown",
+      "macroRegime": "Late-cycle expansion, easing bias",
+      "executionStatus": "Awaiting Decision",
+      "executionNotes": "",
+      "sourceNames": [
+        "Fundly Decision Engine",
+        "Financial Modeling Prep (Starter) — latest available quote for ADBE",
+        "SEC EDGAR 8-K",
+        "SEC EDGAR 10-Q",
+        "Yahoo — CRM Stock Has Bounced From This Price Before. Now What?",
+        "Morningstar Research — US Large Cap Pick List - August 2026",
+        "Yahoo — The Options Market Says Adobe Stock Can Fall Over A Third Or Rise More Than Half",
+        "Yahoo — What Are Wall Street Analysts' Target Price for Adobe Stock?",
+        "Benzinga — Retail Investors Bought the July Dip in These 5 Stocks: Schwab Data",
+        "Benzinga — 7 Information Technology Stocks With Whale Alerts In Today’s Session",
+        "Yahoo — Salesforce Declines 17% Over the Past Year: How to Play CRM Stock?",
+        "Yahoo — 25-Year-Old Lost $35 Billion of His Investors’ Money. 2 Weeks Later, Silicon Valley Insiders Are Lining Up to Give Him More Cash."
+      ],
+      "confidenceContributors": [
+        "Positive: Upcoming earnings on 2026-09-10; event risk supports staged sizing rather than a full entry.",
+        "Positive: Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Risk: A close below key support (roughly $223.83, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Risk: Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      }
+    },
+    {
       "id": "rec-1786429292974",
       "datetime": "2026-08-11T06:21:32.974Z",
       "ticker": "QQQ",
