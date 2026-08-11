@@ -516,7 +516,7 @@
           "opportunityCost": 62
         }
       },
-      "executionStatus": "Awaiting Decision",
+      "executionStatus": "Watching",
       "executionNotes": "",
       "sourceNames": [
         "Fundly Decision Engine",
@@ -565,7 +565,8 @@
           "alphaPct": -2.46,
           "source": "Financial Modeling Prep (Starter)"
         }
-      ]
+      ],
+      "decisionAt": "2026-08-11T06:22:26.470Z"
     },
     {
       "id": "rec-1785989334256",
