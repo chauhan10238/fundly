@@ -263,6 +263,90 @@
   },
   "recommendations": [
     {
+      "id": "rec-1786484327807",
+      "datetime": "2026-08-11T21:38:47.807Z",
+      "ticker": "SPCX",
+      "type": "stock",
+      "priceAtRec": 133.29,
+      "overallScore": 55,
+      "recommendation": "Hold",
+      "suggestedWeight": 4.68,
+      "confidence": 80,
+      "reasons": [
+        "Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime."
+      ],
+      "risks": [
+        "A close below key support (roughly $109.30, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 23,
+          "low": 0.2565,
+          "high": 0.41850000000000004,
+          "assumptions": [
+            "Revenue growth beats consensus",
+            "Margin expansion continues",
+            "Multiple re-rates toward peers"
+          ]
+        },
+        "base": {
+          "probability": 49,
+          "low": 0.08,
+          "high": 0.16,
+          "assumptions": [
+            "In-line earnings delivery",
+            "Stable valuation multiple",
+            "No major macro shock"
+          ]
+        },
+        "bear": {
+          "probability": 28,
+          "low": -0.29700000000000004,
+          "high": -0.027000000000000003,
+          "assumptions": [
+            "Earnings miss and guidance cut",
+            "Multiple compression",
+            "Macro or liquidity shock"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Unknown",
+      "macroRegime": "Late-cycle expansion, easing bias",
+      "executionStatus": "Awaiting Decision",
+      "executionNotes": "",
+      "sourceNames": [
+        "Fundly Decision Engine",
+        "Financial Modeling Prep (Starter) — latest available quote for SPCX",
+        "Alpha Vantage quote verification",
+        "SEC EDGAR 10-Q",
+        "SEC EDGAR 8-K",
+        "Yahoo Finance Video — CoreWeave jumps 10% following Q2 earnings",
+        "Investor's Business Daily — Dow Jones Futures: Stocks Pause Before CPI Inflation; 3 Nvidia Partners Lead Earnings Movers Late",
+        "MT Newswires — Update: US Equity Indexes Decline as Growth Sectors Hit Amid Gains in Crude Oil Ahead of July's Consumer Price Inflation Data",
+        "Motley Fool — 3 Space Stocks That Could Turn $10,000 Into $50,000 By 2035",
+        "Motley Fool — SpaceX vs. Rocket Lab: Which Space Stock Looks Like the Better Buy Right Now?",
+        "Investor's Business Daily — Stock Market Today: Dow Skids, Oil Pops As Iran Says This On Hormuz; SpaceX Shares Take A Dive (Live Coverage)",
+        "Barrons.com — Micron, SpaceX, Rocket Lab, Fermi, AppLovin, and More Stocks That Explain Today’s Market",
+        "Investor's Business Daily — SpaceX Stock Falls Back Below IPO Price, Snaps Three-Day Streak"
+      ],
+      "confidenceContributors": [
+        "Positive: Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Risk: A close below key support (roughly $109.30, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Risk: Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      }
+    },
+    {
       "id": "rec-1786430758927",
       "datetime": "2026-08-11T06:45:58.927Z",
       "ticker": "INTC",
