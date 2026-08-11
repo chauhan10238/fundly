@@ -1,6 +1,0 @@
-import { NextRequest,NextResponse } from "next/server"
-import { readGithubJson,writeGithubJson } from "@/lib/dios/github-json-store"
-import { resolveLiveQuote } from "@/lib/dios/server-market"
-import { resolvePrediction,predictionStats,type PredictionRecord } from "@/lib/dios/prediction-learning"
-export const dynamic="force-dynamic";export const runtime="nodejs";const PATH="data/dios-predictions.json"
-export async function POST(req:NextRequest){try{const body=await req.json() as {ids?:string[]};const r=await readGithubJson<PredictionRecord[]>(PATH,[]);const now=Date.now(),wanted=new Set(body.ids??[]);const due=r.data.filter(p=>!p.resolvedAt&&new Date(p.targetDate).getTime()<=now&&(!wanted.size||wanted.has(p.id)));const resolved=new Map<string,PredictionRecord>();for(const p of due){const q=await resolveLiveQuote(p.ticker,process.env.FMP_API_KEY);if(q)resolved.set(p.id,resolvePrediction(p,q.snapshot.price))}const rows=r.data.map(p=>resolved.get(p.id)??p);const sha=resolved.size?await writeGithubJson(PATH,rows,r.sha):r.sha;return NextResponse.json({ok:true,resolved:resolved.size,sha,stats:predictionStats(rows)})}catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Unable to resolve predictions"},{status:500})}}

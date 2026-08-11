@@ -1,3 +1,0 @@
-import { NextRequest,NextResponse } from "next/server"
-import { runWalkForwardBacktest,summariseBacktest,type PriceBar } from "@/lib/dios/backtest"
-export async function POST(req:NextRequest){const body=await req.json() as {bars?:PriceBar[];weights?:Record<string,number>;horizon?:number};if(!Array.isArray(body.bars)||body.bars.length<10)return NextResponse.json({error:"Provide at least 10 chronological price bars with feature values."},{status:400});const weights=body.weights??{technical:.2,macro:.15,sector:.15,etfStrength:.15,news:.1,marketRegime:.1,portfolioFit:.1,volatility:.05};const rows=runWalkForwardBacktest(body.bars,weights,body.horizon??1);return NextResponse.json({summary:summariseBacktest(rows),rows})}

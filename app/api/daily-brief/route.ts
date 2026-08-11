@@ -8,11 +8,16 @@ import type {
   BriefOpportunity,
   DailyBriefRequest,
 } from "@/lib/dios/daily-brief-types"
-import { ETF_DAILY_BRIEF_UNIVERSE } from "@/lib/dios/etf-universe"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
+const DEFAULT_ETF_SCAN = [
+  "VOO", "QQQ", "IWM", "DIA", "VTI", "VT", "SCHD", "VUG", "VTV", "QUAL",
+  "SMH", "SOXX", "VGT", "XLK", "XLE", "XLF", "XLV", "XLI", "XLP", "XLU",
+  "GLD", "SLV", "GDX", "COPX", "URA", "IBIT", "TLT", "IEF", "HYG", "LQD",
+  "EFA", "EEM", "INDA", "EWJ", "VGK", "VNQ", "PAVE", "ITA", "CIBR", "BOTZ",
+]
 
 function normaliseSymbol(value: string) {
   return value.trim().toUpperCase().replace(/[^A-Z0-9.\-^=]/g, "")
@@ -96,7 +101,7 @@ export async function POST(request: NextRequest) {
 
   // Phase 1 uses a capped ETF scan to stay within Vercel execution limits.
   // Phase 2/FMP can increase this safely to 100–150 symbols.
-  const requestedScan = (body.scanSymbols?.length ? body.scanSymbols : ETF_DAILY_BRIEF_UNIVERSE)
+  const requestedScan = (body.scanSymbols?.length ? body.scanSymbols : DEFAULT_ETF_SCAN)
     .map(normaliseSymbol)
     .filter(Boolean)
     .filter((symbol, index, all) => all.indexOf(symbol) === index)
