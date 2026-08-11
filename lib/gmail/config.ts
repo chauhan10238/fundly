@@ -11,6 +11,7 @@ export const gmailConfig = {
   clientSecret: required("GOOGLE_CLIENT_SECRET"),
   redirectUri: required("GOOGLE_REDIRECT_URI"),
   expectedAccount: required("EXPECTED_GOOGLE_ACCOUNT").toLowerCase(),
+  schwabExpectedAccount: process.env.SCHWAB_EXPECTED_GOOGLE_ACCOUNT?.trim().toLowerCase() || null,
   stakeEmail: process.env.STAKE_EMAIL?.toLowerCase() ?? "notifications@hellostake.com",
   appUrl: required("NEXT_PUBLIC_APP_URL"),
   stateSecret: required("OAUTH_STATE_SECRET"),

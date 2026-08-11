@@ -1,31 +1,214 @@
-import { err, fetchJson, num } from "./http"
-import type { EarningsEvent, FmpFundamentals, ProviderResult, VerifiedQuote } from "./types"
+import type { NormalizedFundamentals } from "./normalized-types"
+import type { EarningsEvent, ProviderResult, VerifiedQuote } from "./types"
+
+const PROVIDER = "Financial Modeling Prep" as const
 const BASE = "https://financialmodelingprep.com/stable"
-function key() { return process.env.FMP_API_KEY?.trim() }
-function url(endpoint: string, symbol: string) { return `${BASE}/${endpoint}?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(key() ?? "")}` }
-function first(payload: any) { return Array.isArray(payload) ? payload[0] : payload }
-function value(...items: any[]) { for (const item of items) { const n=num(item); if (n !== undefined) return n } return undefined }
+
+function apiKey() {
+  return process.env.FMP_API_KEY?.trim()
+}
+
+function cleanSymbol(value: string) {
+  return value.trim().toUpperCase().replace(/[^A-Z0-9.\-^=]/g, "")
+}
+
+function number(value: unknown): number | undefined {
+  const parsed = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+function first(payload: unknown): Record<string, any> | null {
+  if (Array.isArray(payload)) return (payload[0] as Record<string, any>) ?? null
+  if (payload && typeof payload === "object") return payload as Record<string, any>
+  return null
+}
+
+async function request(path: string, params: Record<string, string>) {
+  const key = apiKey()
+  if (!key) throw new Error("FMP_API_KEY is not configured")
+  const url = new URL(`${BASE}/${path}`)
+  Object.entries(params).forEach(([name, value]) => url.searchParams.set(name, value))
+  url.searchParams.set("apikey", key)
+  const response = await fetch(url, { cache: "no-store", headers: { Accept: "application/json" } })
+  const raw = await response.text()
+  let payload: unknown
+  try { payload = JSON.parse(raw) } catch { throw new Error(`FMP returned non-JSON (${response.status})`) }
+  if (!response.ok) throw new Error(`FMP request failed (${response.status})`)
+  if (payload && typeof payload === "object" && !Array.isArray(payload) && "Error Message" in payload) {
+    throw new Error(String((payload as Record<string, unknown>)["Error Message"]))
+  }
+  return { payload, sourceUrl: url.toString().replace(key, "REDACTED") }
+}
+
+function failure<T>(error: unknown, sourceUrl?: string): ProviderResult<T> {
+  return {
+    ok: false,
+    provider: PROVIDER,
+    error: error instanceof Error ? error.message : "FMP request failed",
+    retrievedAt: new Date().toISOString(),
+    sourceUrl,
+  }
+}
+
 export async function getFmpQuote(symbolInput: string): Promise<ProviderResult<VerifiedQuote>> {
-  const retrievedAt=new Date().toISOString(), symbol=symbolInput.trim().toUpperCase(), sourceUrl=url("quote",symbol)
-  if (!key()) return {ok:false,provider:"Financial Modeling Prep",error:"FMP_API_KEY is not configured",retrievedAt,sourceUrl}
-  try { const row=first(await fetchJson<any>(sourceUrl,{},10000)); const price=num(row?.price); if (!price || price<=0) throw new Error(`No valid quote for ${symbol}`); return {ok:true,provider:"Financial Modeling Prep",retrievedAt,sourceUrl,data:{symbol:String(row?.symbol??symbol).toUpperCase(),price,previousClose:value(row?.previousClose,price-num(row?.change)),change:num(row?.change),changePercent:value(row?.changesPercentage,row?.changePercentage),latestTradingDay:typeof row?.timestamp==="number"?new Date(row.timestamp*1000).toISOString().slice(0,10):retrievedAt.slice(0,10)}} } catch(error){return {ok:false,provider:"Financial Modeling Prep",error:err(error),retrievedAt,sourceUrl}}
-}
-export async function getFmpFundamentals(symbolInput: string): Promise<ProviderResult<FmpFundamentals>> {
-  const retrievedAt=new Date().toISOString(), symbol=symbolInput.trim().toUpperCase(), sourceUrl=url("income-statement-ttm",symbol)
-  if (!key()) return {ok:false,provider:"Financial Modeling Prep",error:"FMP_API_KEY is not configured",retrievedAt,sourceUrl}
+  const symbol = cleanSymbol(symbolInput)
+  const sourceUrl = `${BASE}/quote?symbol=${encodeURIComponent(symbol)}`
   try {
-    const [incomePayload,balancePayload,cashPayload,ratiosPayload,metricsPayload,profilePayload] = await Promise.all([
-      fetchJson<any>(url("income-statement-ttm",symbol),{},12000), fetchJson<any>(url("balance-sheet-statement-ttm",symbol),{},12000), fetchJson<any>(url("cash-flow-statement-ttm",symbol),{},12000), fetchJson<any>(url("ratios-ttm",symbol),{},12000), fetchJson<any>(url("key-metrics-ttm",symbol),{},12000), fetchJson<any>(url("profile",symbol),{},12000),
-    ])
-    const i=first(incomePayload)??{}, b=first(balancePayload)??{}, c=first(cashPayload)??{}, r=first(ratiosPayload)??{}, m=first(metricsPayload)??{}, profile=first(profilePayload)??{}
-    const revenue=value(i.revenue,i.revenueTTM), netIncome=value(i.netIncome,i.netIncomeTTM), operatingCashFlow=value(c.operatingCashFlow,c.netCashProvidedByOperatingActivities), capex=value(c.capitalExpenditure,c.capitalExpenditureTTM), fcf=value(c.freeCashFlow, operatingCashFlow !== undefined && capex !== undefined ? operatingCashFlow-Math.abs(capex):undefined)
-    const data:FmpFundamentals={entityName:String(profile.companyName??profile.name??symbol),currency:String(profile.currency??i.reportedCurrency??"USD"),revenueTTM:revenue,grossProfitTTM:value(i.grossProfit,i.grossProfitTTM),operatingIncomeTTM:value(i.operatingIncome,i.operatingIncomeTTM),netIncomeTTM:netIncome,operatingCashFlowTTM:operatingCashFlow,capitalExpenditureTTM:capex,freeCashFlowTTM:fcf,cash:value(b.cashAndCashEquivalents,b.cashAndShortTermInvestments),totalDebt:value(b.totalDebt,m.netDebt),assets:value(b.totalAssets),liabilities:value(b.totalLiabilities),equity:value(b.totalStockholdersEquity,b.totalEquity),sharesOutstanding:value(i.weightedAverageShsOutDil,profile.volAvg),epsDilutedTTM:value(i.epsDiluted,i.epsdiluted),bookValuePerShare:value(m.bookValuePerShareTTM,m.bookValuePerShare),grossMargin:value(r.grossProfitMarginTTM,r.grossProfitMargin),operatingMargin:value(r.operatingProfitMarginTTM,r.operatingProfitMargin),profitMargin:value(r.netProfitMarginTTM,r.netProfitMargin),freeCashFlowMargin:revenue&&fcf!==undefined?(fcf/revenue)*100:undefined,returnOnEquity:value(r.returnOnEquityTTM,r.returnOnEquity,m.roeTTM),debtToEquity:value(r.debtEquityRatioTTM,r.debtEquityRatio),currentRatio:value(r.currentRatioTTM,r.currentRatio),sourcePeriod:String(i.date??"TTM"),latestFiled:String(i.fillingDate??i.filingDate??i.date??retrievedAt.slice(0,10))}
-    if (!data.revenueTTM && !data.netIncomeTTM && !data.freeCashFlowTTM) throw new Error(`No FMP Starter fundamentals returned for ${symbol}`)
-    return {ok:true,provider:"Financial Modeling Prep",retrievedAt,sourceUrl,data}
-  } catch(error){return {ok:false,provider:"Financial Modeling Prep",error:err(error),retrievedAt,sourceUrl}}
+    const { payload } = await request("quote", { symbol })
+    const row = first(payload)
+    const price = number(row?.price)
+    if (!row || !price || price <= 0) throw new Error("No FMP quote returned")
+    const previousClose = number(row.previousClose) ?? (number(row.change) !== undefined ? price - Number(row.change) : undefined)
+    return {
+      ok: true,
+      provider: PROVIDER,
+      retrievedAt: new Date().toISOString(),
+      sourceUrl,
+      data: {
+        symbol,
+        price,
+        previousClose,
+        change: number(row.change),
+        changePercent: number(row.changesPercentage ?? row.changePercentage),
+        latestTradingDay: row.timestamp ? new Date(Number(row.timestamp) * 1000).toISOString().slice(0, 10) : undefined,
+      },
+    }
+  } catch (error) {
+    return failure(error, sourceUrl)
+  }
 }
-export async function getFmpEarnings(symbolInput:string):Promise<ProviderResult<EarningsEvent[]>>{
-  const retrievedAt=new Date().toISOString(),symbol=symbolInput.trim().toUpperCase(),sourceUrl=url("earnings",symbol)
-  if(!key()) return {ok:false,provider:"Financial Modeling Prep",error:"FMP_API_KEY is not configured",retrievedAt,sourceUrl}
-  try{const payload=await fetchJson<any>(sourceUrl,{},12000);const rows=Array.isArray(payload)?payload:[];const data=rows.map((row:any)=>({symbol,date:String(row.date??""),hour:row.time??row.hour,epsEstimate:num(row.epsEstimated??row.epsEstimate),epsActual:num(row.epsActual),revenueEstimate:num(row.revenueEstimated??row.revenueEstimate),revenueActual:num(row.revenueActual),quarter:num(row.quarter),year:num(row.year)})).filter((x:EarningsEvent)=>Boolean(x.date));return {ok:true,provider:"Financial Modeling Prep",retrievedAt,sourceUrl,data}}catch(error){return {ok:false,provider:"Financial Modeling Prep",error:err(error),retrievedAt,sourceUrl}}
+
+export async function getFmpFundamentals(symbolInput: string): Promise<ProviderResult<NormalizedFundamentals>> {
+  const symbol = cleanSymbol(symbolInput)
+  const sourceUrl = `${BASE}/income-statement-ttm?symbol=${encodeURIComponent(symbol)}`
+  try {
+    const [profileRes, incomeRes, balanceRes, cashRes, ratiosRes, metricsRes, annualIncomeRes] = await Promise.all([
+      request("profile", { symbol }),
+      request("income-statement-ttm", { symbol }),
+      request("balance-sheet-statement-ttm", { symbol }),
+      request("cash-flow-statement-ttm", { symbol }),
+      request("ratios-ttm", { symbol }),
+      request("key-metrics-ttm", { symbol }),
+      request("income-statement", { symbol, period: "annual", limit: "2" }),
+    ])
+
+    const profile = first(profileRes.payload) ?? {}
+    const income = first(incomeRes.payload) ?? {}
+    const balance = first(balanceRes.payload) ?? {}
+    const cashflow = first(cashRes.payload) ?? {}
+    const ratios = first(ratiosRes.payload) ?? {}
+    const metrics = first(metricsRes.payload) ?? {}
+    const annual = Array.isArray(annualIncomeRes.payload) ? annualIncomeRes.payload as Record<string, any>[] : []
+    const currentRevenue = number(annual[0]?.revenue)
+    const priorRevenue = number(annual[1]?.revenue)
+    const revenueGrowth = currentRevenue !== undefined && priorRevenue && priorRevenue !== 0
+      ? { current: currentRevenue, previous: priorRevenue, changePercent: ((currentRevenue - priorRevenue) / Math.abs(priorRevenue)) * 100 }
+      : undefined
+
+    const revenue = number(income.revenue)
+    const grossProfit = number(income.grossProfit)
+    const operatingIncome = number(income.operatingIncome)
+    const netIncome = number(income.netIncome)
+    const operatingCashFlow = number(cashflow.operatingCashFlow ?? cashflow.netCashProvidedByOperatingActivities)
+    const capex = number(cashflow.capitalExpenditure)
+    const freeCashFlow = number(cashflow.freeCashFlow) ?? (operatingCashFlow !== undefined ? operatingCashFlow - Math.abs(capex ?? 0) : undefined)
+    const equity = number(balance.totalStockholdersEquity ?? balance.totalEquity)
+    const shares = number(income.weightedAverageShsOutDil ?? metrics.averageSharesOutstanding)
+
+    const data: NormalizedFundamentals = {
+      entityName: String(profile.companyName ?? profile.name ?? symbol),
+      currency: String(profile.currency ?? income.reportedCurrency ?? "USD"),
+      revenueTTM: revenue,
+      revenueGrowth,
+      grossProfitTTM: grossProfit,
+      operatingIncomeTTM: operatingIncome,
+      netIncomeTTM: netIncome,
+      operatingCashFlowTTM: operatingCashFlow,
+      capitalExpenditureTTM: capex,
+      freeCashFlowTTM: freeCashFlow,
+      cash: number(balance.cashAndCashEquivalents ?? balance.cashAndShortTermInvestments),
+      totalDebt: number(balance.totalDebt),
+      assets: number(balance.totalAssets),
+      liabilities: number(balance.totalLiabilities),
+      equity,
+      sharesOutstanding: shares,
+      epsDilutedTTM: number(income.epsDiluted ?? income.eps),
+      bookValuePerShare: number(metrics.bookValuePerShare) ?? (equity !== undefined && shares ? equity / shares : undefined),
+      grossMargin: number(ratios.grossProfitMargin) !== undefined ? Number(ratios.grossProfitMargin) * 100 : revenue && grossProfit !== undefined ? (grossProfit / revenue) * 100 : undefined,
+      operatingMargin: number(ratios.operatingProfitMargin) !== undefined ? Number(ratios.operatingProfitMargin) * 100 : revenue && operatingIncome !== undefined ? (operatingIncome / revenue) * 100 : undefined,
+      profitMargin: number(ratios.netProfitMargin) !== undefined ? Number(ratios.netProfitMargin) * 100 : revenue && netIncome !== undefined ? (netIncome / revenue) * 100 : undefined,
+      freeCashFlowMargin: revenue && freeCashFlow !== undefined ? (freeCashFlow / revenue) * 100 : undefined,
+      returnOnEquity: number(ratios.returnOnEquity) !== undefined ? Number(ratios.returnOnEquity) * 100 : number(metrics.returnOnEquity) !== undefined ? Number(metrics.returnOnEquity) * 100 : undefined,
+      debtToEquity: number(ratios.debtEquityRatio ?? metrics.debtToEquity),
+      currentRatio: number(ratios.currentRatio ?? metrics.currentRatio),
+      sourcePeriod: String(income.period ?? "TTM"),
+      latestFiled: String(income.fillingDate ?? income.date ?? new Date().toISOString().slice(0, 10)),
+    }
+
+    if (!data.revenueTTM && !data.netIncomeTTM && !data.assets) throw new Error("FMP returned no usable fundamentals")
+
+    return { ok: true, provider: PROVIDER, data, retrievedAt: new Date().toISOString(), sourceUrl }
+  } catch (error) {
+    return failure(error, sourceUrl)
+  }
+}
+
+export async function getFmpEarnings(symbolInput: string): Promise<ProviderResult<EarningsEvent[]>> {
+  const symbol = cleanSymbol(symbolInput)
+  const sourceUrl = `${BASE}/earnings-calendar?symbol=${encodeURIComponent(symbol)}`
+  try {
+    const now = new Date()
+    const from = new Date(now.getTime() - 370 * 86_400_000).toISOString().slice(0, 10)
+    const to = new Date(now.getTime() + 370 * 86_400_000).toISOString().slice(0, 10)
+    const { payload } = await request("earnings-calendar", { from, to, symbol })
+    const rows = Array.isArray(payload) ? payload : []
+    const data: EarningsEvent[] = rows
+      .filter((row: any) => String(row.symbol ?? "").toUpperCase() === symbol && row.date)
+      .map((row: any) => ({
+        symbol,
+        date: String(row.date),
+        hour: row.time ? String(row.time) : undefined,
+        epsEstimate: number(row.epsEstimated ?? row.epsEstimate),
+        epsActual: number(row.epsActual),
+        revenueEstimate: number(row.revenueEstimated ?? row.revenueEstimate),
+        revenueActual: number(row.revenueActual),
+        quarter: number(row.quarter),
+        year: number(row.fiscalDateEnding?.slice?.(0, 4) ?? row.year),
+      }))
+    return { ok: true, provider: PROVIDER, data, retrievedAt: new Date().toISOString(), sourceUrl }
+  } catch (error) {
+    return failure(error, sourceUrl)
+  }
+}
+
+export interface FmpSymbolSearchResult {
+  symbol: string
+  name: string
+  exchange: string
+  type: "stock" | "etf"
+  currency?: string
+}
+
+export async function searchFmpSymbols(queryInput: string): Promise<ProviderResult<FmpSymbolSearchResult[]>> {
+  const query = queryInput.trim()
+  const sourceUrl = `${BASE}/search-symbol?query=${encodeURIComponent(query)}`
+  try {
+    if (!query) {
+      return { ok: true, provider: PROVIDER, data: [], retrievedAt: new Date().toISOString(), sourceUrl }
+    }
+    const { payload } = await request("search-symbol", { query, limit: "12" })
+    const rows = Array.isArray(payload) ? payload : []
+    const data = rows
+      .map((row: any) => ({
+        symbol: cleanSymbol(String(row.symbol ?? "")),
+        name: String(row.name ?? row.companyName ?? row.symbol ?? ""),
+        exchange: String(row.exchangeShortName ?? row.exchange ?? ""),
+        type: String(row.type ?? row.assetType ?? "stock").toLowerCase().includes("etf") ? "etf" as const : "stock" as const,
+        currency: row.currency ? String(row.currency) : undefined,
+      }))
+      .filter((row) => Boolean(row.symbol && row.name))
+    return { ok: true, provider: PROVIDER, data, retrievedAt: new Date().toISOString(), sourceUrl }
+  } catch (error) {
+    return failure(error, sourceUrl)
+  }
 }

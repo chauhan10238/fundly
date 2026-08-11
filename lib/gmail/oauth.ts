@@ -9,7 +9,7 @@ export function createOAuthClient() {
   );
 }
 
-export function createGoogleAuthorizationUrl(state: string): string {
+export function createGoogleAuthorizationUrl(state: string, loginHint?: string | null): string {
   const client = createOAuthClient();
 
   return client.generateAuthUrl({
@@ -18,7 +18,7 @@ export function createGoogleAuthorizationUrl(state: string): string {
     include_granted_scopes: true,
     scope: [GMAIL_SCOPE],
     state,
-    login_hint: gmailConfig.expectedAccount,
+    ...(loginHint ? { login_hint: loginHint } : {}),
   });
 }
 
@@ -58,10 +58,10 @@ export function createAuthenticatedOAuthClient(refreshToken: string) {
   return client;
 }
 
-
 export function isGoogleInvalidGrant(error: unknown): boolean {
-  const value = error as { message?: string; response?: { data?: { error?: string; error_description?: string } } }
-  const code = value?.response?.data?.error
-  const message = `${value?.message ?? ""} ${value?.response?.data?.error_description ?? ""}`.toLowerCase()
-  return code === "invalid_grant" || message.includes("invalid_grant") || message.includes("token has been expired or revoked")
+  const candidates = [
+    error instanceof Error ? error.message : "",
+    typeof error === "object" && error !== null ? JSON.stringify(error) : String(error ?? ""),
+  ].join(" ").toLowerCase()
+  return candidates.includes("invalid_grant") || candidates.includes("token has been expired or revoked") || candidates.includes("invalid grant")
 }

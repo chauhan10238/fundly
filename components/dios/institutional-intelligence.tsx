@@ -63,7 +63,7 @@ export function InstitutionalIntelligenceView({
     <div className="space-y-6">
       <Panel
         title="Institutional Intelligence"
-        description={`Normalized across ${intelligence.providerConfidence.connected.join(", ") || "available providers"}.`}
+        description={`FMP Starter fundamentals and quotes, verified with ${intelligence.providerConfidence.connected.filter((name) => name !== "Financial Modeling Prep").join(", ") || "available providers"}.`}
         action={
           <div className="flex items-center gap-2 text-xs">
             <ShieldCheck className="h-4 w-4 text-positive" />
@@ -142,7 +142,7 @@ export function InstitutionalIntelligenceView({
             />
           </div>
 
-          <Panel title="Financial Health Breakdown" description="SEC-derived financial statements normalized into five quality pillars.">
+          <Panel title="Financial Health Breakdown" description="FMP Starter fundamentals with SEC fallback, normalized into five quality pillars.">
             <div className="grid gap-0 divide-y md:grid-cols-5 md:divide-x md:divide-y-0">
               {health.pillars.map((pillar) => (
                 <div key={pillar.name} className="p-4">
@@ -239,7 +239,7 @@ export function InstitutionalIntelligenceView({
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel
           title="Earnings Intelligence"
-          description="Finnhub calendar and reported estimate comparisons."
+          description="FMP earnings calendar with Finnhub fallback and reported estimate comparisons."
           action={<CalendarClock className="h-4 w-4 text-muted-foreground" />}
         >
           <div className="grid grid-cols-2 gap-px bg-border">

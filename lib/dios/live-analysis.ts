@@ -16,6 +16,20 @@ export interface LiveAnalysisResult {
   source: "live" | "fallback"
 }
 
+type AnalysisPayload = {
+  snapshot?: MarketSnapshot
+  context?: ExternalAnalysisContext
+  error?: string
+  warning?: string
+}
+
+// Cache successful raw provider payloads. The DIOS report itself is still
+// recalculated against the current portfolio/settings every time.
+const API_CACHE_TTL_MS = 5 * 60_000
+const API_TIMEOUT_MS = 10_000
+
+const payloadCache = new Map<string, { expiresAt: number; payload: AnalysisPayload }>()
+
 function asReport(
   ticker: string,
   portfolio: PortfolioSummary,
@@ -32,16 +46,63 @@ function asReport(
   return result
 }
 
+async function fetchAnalysisPayload(
+  ticker: string,
+  externalSignal?: AbortSignal,
+): Promise<AnalysisPayload> {
+  const now = Date.now()
+  const cached = payloadCache.get(ticker)
+  if (cached && cached.expiresAt > now) {
+    return cached.payload
+  }
+
+  if (externalSignal?.aborted) {
+    throw new DOMException("Analysis stopped", "AbortError")
+  }
+
+  const controller = new AbortController()
+  const timeout = globalThis.setTimeout(() => controller.abort(), API_TIMEOUT_MS)
+  const abortFromCaller = () => controller.abort()
+  externalSignal?.addEventListener("abort", abortFromCaller, { once: true })
+
+  try {
+    const response = await fetch(
+      `/api/analysis?ticker=${encodeURIComponent(ticker)}`,
+      { cache: "no-store", signal: controller.signal },
+    )
+
+    const payload = await response.json() as AnalysisPayload
+
+    if (!response.ok || !payload.snapshot) {
+      throw new Error(
+        payload.error || `Analysis request failed (${response.status})`,
+      )
+    }
+
+    payloadCache.set(ticker, {
+      expiresAt: Date.now() + API_CACHE_TTL_MS,
+      payload,
+    })
+
+    return payload
+  } finally {
+    globalThis.clearTimeout(timeout)
+    externalSignal?.removeEventListener("abort", abortFromCaller)
+  }
+}
+
 /**
  * The single client-side entry point for a DIOS decision.
  *
- * Analyse, Portfolio and future Daily Briefing pages should all call this
- * function so recommendation, score and confidence cannot diverge.
+ * The optional AbortSignal is used by Daily Brief / Daily Scan so the user can
+ * stop a run immediately and prevent the remaining provider calls from being
+ * started. Existing callers that do not pass a signal continue to work.
  */
 export async function fetchLiveAnalysisReport(
   tickerInput: string,
   portfolio: PortfolioSummary,
   settings: Settings,
+  signal?: AbortSignal,
 ): Promise<LiveAnalysisResult> {
   const ticker = tickerInput.trim().toUpperCase()
 
@@ -50,24 +111,7 @@ export async function fetchLiveAnalysisReport(
   }
 
   try {
-    const response = await fetch(
-      `/api/analysis?ticker=${encodeURIComponent(ticker)}`,
-      { cache: "no-store" },
-    )
-
-    const payload = await response.json() as {
-      snapshot?: MarketSnapshot
-      context?: ExternalAnalysisContext
-      error?: string
-      warning?: string
-    }
-
-    if (!response.ok || !payload.snapshot) {
-      throw new Error(
-        payload.error || `Analysis request failed (${response.status})`,
-      )
-    }
-
+    const payload = await fetchAnalysisPayload(ticker, signal)
     const context = payload.context ?? null
     const rawReport = asReport(
       ticker,
@@ -88,14 +132,20 @@ export async function fetchLiveAnalysisReport(
 
     return {
       report,
-      snapshot: payload.snapshot,
+      snapshot: payload.snapshot ?? null,
       context,
       warning,
       source: "live",
     }
   } catch (error) {
-    // A network/provider problem must not leave a held ETF or stock without a
-    // decision. Use the same DIOS engine with its tracked fallback data.
+    // A deliberate user stop is different from provider failure. Propagate it
+    // so the concurrency worker stops scheduling more tickers instead of
+    // generating fallback reports and continuing to consume calls.
+    if (signal?.aborted) {
+      throw new DOMException("Analysis stopped", "AbortError")
+    }
+
+    // A provider timeout/error still returns a fallback DIOS decision.
     const rawReport = asReport(ticker, portfolio, settings)
     const report = calibrateLiveDecision({
       report: rawReport,
@@ -103,14 +153,17 @@ export async function fetchLiveAnalysisReport(
       usedFallback: true,
     })
 
+    const message = error instanceof Error
+      ? error.name === "AbortError"
+        ? `Live request timed out after ${Math.round(API_TIMEOUT_MS / 1000)} seconds.`
+        : error.message
+      : "Live context unavailable."
+
     return {
       report,
       snapshot: null,
       context: null,
-      warning:
-        error instanceof Error
-          ? `Live context unavailable. ${error.message}`
-          : "Live context unavailable.",
+      warning: `Live context unavailable. ${message}`,
       source: "fallback",
     }
   }

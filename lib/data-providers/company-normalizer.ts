@@ -134,11 +134,9 @@ function summaryLines(
 export function normalizeCompanyIntelligence(
   raw: ReturnTypeCompanyIntelligence,
 ): InstitutionalCompanyIntelligence {
-  const fundamentals = raw.fmpFundamentals
-    ? { ...raw.fmpFundamentals }
-    : raw.companyFacts
-      ? normalizeSecCompanyFacts(raw.companyFacts)
-      : null
+  const fundamentals = raw.fmpFundamentals ?? (raw.companyFacts
+    ? normalizeSecCompanyFacts(raw.companyFacts)
+    : null)
 
   const financialHealth = fundamentals
     ? calculateFinancialHealth(fundamentals)

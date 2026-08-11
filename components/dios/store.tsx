@@ -5,7 +5,7 @@ import { buildPortfolio, type LiveQuote, type LiveQuoteMap, type PortfolioSummar
 import { getInstrument } from "@/lib/dios/universe"
 import { DEFAULT_SETTINGS } from "@/lib/dios/macro"
 import { SEED_HOLDINGS, SEED_RECOMMENDATIONS, SEED_TRANSACTIONS } from "@/lib/dios/seed"
-import type { Holding, RecommendationRecord, Settings, Transaction } from "@/lib/dios/types"
+import type { Holding, InvestmentJournalEntry, RecommendationRecord, Settings, Transaction } from "@/lib/dios/types"
 
 const MIN_POSITION_QTY = 0.001
 
@@ -15,6 +15,7 @@ interface PersistedStore {
   transactions: Transaction[]
   settings: Settings
   recommendations: RecommendationRecord[]
+  journal: InvestmentJournalEntry[]
 }
 
 type QuoteStatus = "idle" | "loading" | "live" | "partial" | "error"
@@ -37,6 +38,9 @@ interface StoreValue extends PersistedStore {
   updateSettings: (patch: Partial<Settings>) => void
   resetSettings: () => void
   addRecommendation: (r: RecommendationRecord) => void
+  updateRecommendation: (id: string, patch: Partial<RecommendationRecord>) => void
+  upsertJournalEntry: (entry: InvestmentJournalEntry) => void
+  removeJournalEntry: (ticker: string) => void
   resetPortfolio: () => void
 }
 
@@ -50,6 +54,7 @@ function normalizeHolding(h: Holding): Holding {
     ticker: h.ticker.trim().toUpperCase(),
     quantity: rawQuantity <= MIN_POSITION_QTY ? 0 : rawQuantity,
     avgCost: Math.max(0, Number(h.avgCost) || 0),
+    instrument: h.instrument,
   }
 }
 
@@ -94,6 +99,7 @@ function initialState(): PersistedStore {
     transactions: SEED_TRANSACTIONS,
     settings: DEFAULT_SETTINGS,
     recommendations: SEED_RECOMMENDATIONS,
+    journal: [],
   }
 }
 
@@ -109,6 +115,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   const cloudReadyRef = useRef(false)
   const remoteShaRef = useRef<string | null>(null)
   const suppressNextSaveRef = useRef(false)
+  const localChangesPendingRef = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveRequestRef = useRef<AbortController | null>(null)
 
@@ -118,6 +125,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
 
   const applyRemoteState = useCallback((remote: Partial<PersistedStore>) => {
     suppressNextSaveRef.current = true
+    localChangesPendingRef.current = false
     setState((current) => ({
       holdings: Array.isArray(remote.holdings)
         ? remote.holdings.map(normalizeHolding).filter((holding) => holding.quantity > 0)
@@ -137,10 +145,14 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
       recommendations: Array.isArray(remote.recommendations)
         ? remote.recommendations
         : current.recommendations,
+      journal: Array.isArray(remote.journal) ? remote.journal : current.journal,
     }))
   }, [])
 
   const loadRemoteStore = useCallback(async (silent = false) => {
+    // Do not let a stale cloud read overwrite a trade that is waiting to be saved.
+    if (silent && localChangesPendingRef.current) return
+
     try {
       const response = await fetch(`/api/store?t=${Date.now()}`, {
         method: "GET",
@@ -210,9 +222,26 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
         } | null
 
         if (response.status === 409 && payload?.conflict) {
+          // Keep the user's local import and retry against the newest cloud SHA.
           remoteShaRef.current = payload.sha ?? null
-          if (payload.data) applyRemoteState(payload.data)
-          console.warn("DIOS cloud data changed elsewhere; this browser reloaded the latest version.")
+          const retry = await fetch("/api/store", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              data: stateRef.current,
+              baseSha: remoteShaRef.current,
+            }),
+            signal: controller.signal,
+          })
+          const retryPayload = await retry.json().catch(() => null) as {
+            error?: string
+            sha?: string | null
+          } | null
+          if (!retry.ok) {
+            throw new Error(retryPayload?.error || `Store retry failed with status ${retry.status}`)
+          }
+          remoteShaRef.current = retryPayload?.sha ?? remoteShaRef.current
+          localChangesPendingRef.current = false
           return
         }
 
@@ -221,12 +250,13 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
         }
 
         remoteShaRef.current = payload?.sha ?? remoteShaRef.current
+        localChangesPendingRef.current = false
       } catch (error) {
         if (!(error instanceof DOMException && error.name === "AbortError")) {
           console.error("Unable to save the DIOS portfolio to GitHub:", error)
         }
       }
-    }, 2000)
+    }, 350)
 
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
@@ -302,7 +332,8 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
     const refresh = () => {
       if (document.visibilityState === "visible") void refreshQuotes()
     }
-    const interval = window.setInterval(refresh, 10_000)
+    const refreshMs = state.holdings.length > 25 ? 120_000 : 60_000
+    const interval = window.setInterval(refresh, refreshMs)
     document.addEventListener("visibilitychange", refresh)
 
     return () => {
@@ -317,6 +348,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   )
 
   const upsertHolding = useCallback((holding: Holding) => {
+    localChangesPendingRef.current = true
     const h = normalizeHolding(holding)
     setState((prev) => {
       const idx = prev.holdings.findIndex((x) => x.ticker === h.ticker)
@@ -333,6 +365,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const removeHolding = useCallback((ticker: string) => {
+    localChangesPendingRef.current = true
     setState((prev) => ({
       ...prev,
       holdings: prev.holdings.filter(
@@ -350,6 +383,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const addTransaction = useCallback((transaction: Omit<Transaction, "id">) => {
+    localChangesPendingRef.current = true
     const t = { ...transaction, ticker: transaction.ticker.trim().toUpperCase() }
     setState((prev) => ({
       ...prev,
@@ -363,6 +397,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const addTransactions = useCallback((batch: Omit<Transaction, "id">[]) => {
+    localChangesPendingRef.current = true
     const normalized = batch.map((t) => ({
       ...t,
       ticker: t.ticker.trim().toUpperCase(),
@@ -385,6 +420,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const removeTransaction = useCallback((id: string) => {
+    localChangesPendingRef.current = true
     setState((prev) => ({
       ...prev,
       transactions: prev.transactions.filter((t) => t.id !== id),
@@ -392,6 +428,7 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const updateSettings = useCallback((patch: Partial<Settings>) => {
+    localChangesPendingRef.current = true
     setState((prev) => ({
       ...prev,
       settings: {
@@ -406,17 +443,53 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const resetSettings = useCallback(() => {
+    localChangesPendingRef.current = true
     setState((prev) => ({ ...prev, settings: DEFAULT_SETTINGS }))
   }, [])
 
   const addRecommendation = useCallback((r: RecommendationRecord) => {
+    localChangesPendingRef.current = true
     setState((prev) => ({
       ...prev,
       recommendations: [r, ...prev.recommendations],
     }))
   }, [])
 
-  const resetPortfolio = useCallback(() => setState(initialState()), [])
+  const updateRecommendation = useCallback((id: string, patch: Partial<RecommendationRecord>) => {
+    localChangesPendingRef.current = true
+    setState((prev) => ({
+      ...prev,
+      recommendations: prev.recommendations.map((item) =>
+        item.id === id ? { ...item, ...patch } : item,
+      ),
+    }))
+  }, [])
+
+  const upsertJournalEntry = useCallback((entry: InvestmentJournalEntry) => {
+    localChangesPendingRef.current = true
+    const ticker = entry.ticker.trim().toUpperCase()
+    setState((prev) => ({
+      ...prev,
+      journal: [
+        { ...entry, ticker, updatedAt: new Date().toISOString() },
+        ...prev.journal.filter((item) => item.ticker !== ticker),
+      ],
+    }))
+  }, [])
+
+  const removeJournalEntry = useCallback((ticker: string) => {
+    localChangesPendingRef.current = true
+    const normalized = ticker.trim().toUpperCase()
+    setState((prev) => ({
+      ...prev,
+      journal: prev.journal.filter((item) => item.ticker !== normalized),
+    }))
+  }, [])
+
+  const resetPortfolio = useCallback(() => {
+    localChangesPendingRef.current = true
+    setState(initialState())
+  }, [])
 
   return (
     <StoreContext.Provider
@@ -439,6 +512,9 @@ export function DiosProvider({ children }: { children: React.ReactNode }) {
         updateSettings,
         resetSettings,
         addRecommendation,
+        updateRecommendation,
+        upsertJournalEntry,
+        removeJournalEntry,
         resetPortfolio,
       }}
     >

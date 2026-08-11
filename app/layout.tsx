@@ -1,24 +1,37 @@
-import type { Metadata } from "next"
-import { Lora, Manrope } from "next/font/google"
-import { DiosProvider } from "@/components/dios/store"
-import "./globals.css"
+import { Analytics } from '@vercel/analytics/next'
+import type { Metadata, Viewport } from 'next'
+import { Inter, JetBrains_Mono } from 'next/font/google'
+import { Toaster } from '@/components/ui/sonner'
+import { DiosProvider } from '@/components/dios/store'
+import { ProfileProvider } from '@/components/dios/profile-provider'
+import { AppShell } from '@/components/dios/app-shell'
+import './globals.css'
 
-const manrope = Manrope({
-  subsets: ["latin"],
-  variable: "--font-ui",
-  display: "swap",
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
 })
 
-const lora = Lora({
-  subsets: ["latin"],
-  variable: "--font-display",
-  display: "swap",
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains-mono',
+  display: 'swap',
 })
 
 export const metadata: Metadata = {
-  title: "DIOS | Investment Decision Intelligence",
+  title: 'Fundly — Private Investment Operating System',
   description:
-    "Portfolio tracking, market intelligence, analysis and Stake transaction sync powered by Financial Modeling Prep.",
+    'Private investment decision-support terminal. Institutional-quality analysis, portfolio management, market scanning and earnings intelligence.',
+  generator: 'v0.app',
+}
+
+export const viewport: Viewport = {
+  colorScheme: 'light dark',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f7f8fa' },
+    { media: '(prefers-color-scheme: dark)', color: '#141a24' },
+  ],
 }
 
 export default function RootLayout({
@@ -27,9 +40,15 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${manrope.variable} ${lora.variable}`}>
-      <body>
-        <DiosProvider>{children}</DiosProvider>
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} bg-background`}>
+      <body className="font-sans antialiased">
+        <ProfileProvider>
+          <DiosProvider>
+            <AppShell>{children}</AppShell>
+          </DiosProvider>
+        </ProfileProvider>
+        <Toaster position="top-right" />
+        {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
   )

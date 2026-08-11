@@ -174,6 +174,16 @@ function AnalyseInner() {
       sector:
         externalContext?.instrument?.sector ?? instrument?.sector ?? "—",
       macroRegime: MACRO.regime,
+      executionStatus: "Awaiting Decision",
+      executionNotes: "",
+      sourceNames: Array.from(new Set([
+        "Fundly Decision Engine",
+        ...(report.sources ?? []).map((source) => source.name).filter(Boolean),
+      ])),
+      confidenceContributors: [
+        ...report.whyToday.slice(0, 3).map((reason) => `Positive: ${reason}`),
+        ...report.thesisInvalidation.slice(0, 2).map((risk) => `Risk: ${risk}`),
+      ],
       outcomes: {
         d1: null,
         w1: null,

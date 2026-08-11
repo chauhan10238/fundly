@@ -18,11 +18,20 @@ import {
   TrendingUp,
   RefreshCw,
   Newspaper,
+  ShieldCheck,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MACRO } from "@/lib/dios/macro"
+import { ProfileSwitcher } from "@/components/dios/profile-switcher"
+import { useProfile } from "@/components/dios/profile-provider"
 
-const NAV = [
+const NAV: Array<{
+  href: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  adminOnly?: boolean
+  investorOnly?: boolean
+}> = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/analyse", label: "Analyse", icon: Search },
   { href: "/portfolio", label: "Portfolio", icon: Briefcase },
@@ -31,7 +40,9 @@ const NAV = [
   { href: "/scan", label: "Daily Scan", icon: Radar },
   { href: "/earnings", label: "Earnings", icon: CalendarClock },
   { href: "/history", label: "Rec. History", icon: History },
-  { href: "/stake-sync", label: "Stake Sync", icon: RefreshCw },
+  { href: "/investor-hub", label: "Investor Hub", icon: ShieldCheck },
+  { href: "/stake-sync", label: "Stake Sync", icon: RefreshCw, adminOnly: true },
+  { href: "/schwab-sync", label: "Schwab Sync", icon: RefreshCw, investorOnly: true },
   { href: "/settings", label: "Settings", icon: Settings },
 ]
 
@@ -53,6 +64,7 @@ function formatTapeValue(item: TapeItem) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { activeProfile, ready: profileReady } = useProfile()
   const [open, setOpen] = useState(false)
   const [tape, setTape] = useState<TapeItem[]>([])
   const [marketStatus, setMarketStatus] = useState<"loading" | "live" | "partial" | "error">("loading")
@@ -74,7 +86,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     void refreshTape()
-    const timer = window.setInterval(() => void refreshTape(), 10_000)
+    const timer = window.setInterval(() => void refreshTape(), 60_000)
     const onVisibility = () => { if (document.visibilityState === "visible") void refreshTape() }
     document.addEventListener("visibilitychange", onVisibility)
     return () => {
@@ -110,7 +122,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
-          {NAV.map((item) => {
+          {NAV.filter((item) => (!item.adminOnly || activeProfile?.role === "admin") && (!item.investorOnly || activeProfile?.id === "suren")).map((item) => {
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
             const Icon = item.icon
             return (
@@ -157,7 +169,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className={cn("inline-flex h-1.5 w-1.5 rounded-full", marketStatus === "live" ? "animate-pulse bg-[var(--positive)]" : marketStatus === "error" ? "bg-[var(--negative)]" : "bg-[var(--warning)]")} />
             <span className="font-mono text-xs text-muted-foreground">{statusText} · informational analysis only</span>
           </div>
-          <div className="ml-auto hidden items-center gap-4 font-mono text-xs text-muted-foreground sm:flex">
+          <div className="ml-auto flex items-center gap-3">
+            <ProfileSwitcher />
+            <div className="hidden items-center gap-4 font-mono text-xs text-muted-foreground sm:flex">
             {tape.map((item) => (
               <span key={item.symbol} className="flex items-center gap-1.5" title={`${item.provider}${item.timestamp ? ` · ${new Date(item.timestamp * 1000).toLocaleString()}` : ""}`}>
                 <span>{item.label}</span>
@@ -167,9 +181,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </span>
               </span>
             ))}
+            </div>
           </div>
         </header>
-        <main className="flex-1 p-4 lg:p-6">{children}</main>
+        <main className="flex-1 p-4 lg:p-6">
+          {profileReady ? children : (
+            <div className="flex min-h-[50vh] items-center justify-center text-sm text-muted-foreground">Opening Fundly profile…</div>
+          )}
+        </main>
       </div>
     </div>
   )

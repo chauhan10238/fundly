@@ -71,6 +71,8 @@ export interface Holding {
   ticker: string
   quantity: number
   avgCost: number
+  /** Verified instrument metadata for symbols outside the original demo universe. */
+  instrument?: Instrument
 }
 
 export type TransactionType =
@@ -304,6 +306,27 @@ export interface RippleImpact {
   duration: string
 }
 
+
+export interface InvestmentJournalEntry {
+  ticker: string
+  thesis: string
+  targetWeight: number
+  conviction: 1 | 2 | 3 | 4 | 5
+  reviewDate: string
+  sellRule: string
+  notes: string
+  updatedAt: string
+}
+
+export type RecommendationExecutionStatus =
+  | "Pending" // legacy records; displayed as Awaiting Decision
+  | "Awaiting Decision"
+  | "Executed"
+  | "Partially Executed"
+  | "Watching"
+  | "Ignored"
+  | "Already Own"
+
 export interface RecommendationRecord {
   id: string
   datetime: string
@@ -321,6 +344,13 @@ export interface RecommendationRecord {
   scoringVersion: string
   sector: string
   macroRegime: string
+  executionStatus?: RecommendationExecutionStatus
+  executionNotes?: string
+  decisionAt?: string
+  executionPrice?: number | null
+  executionQuantity?: number | null
+  sourceNames?: string[]
+  confidenceContributors?: string[]
   outcomes: {
     d1: number | null
     w1: number | null

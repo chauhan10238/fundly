@@ -12,7 +12,6 @@ import type {
   SecFiling,
   VerifiedQuote,
   EarningsEvent,
-  FmpFundamentals,
 } from "./types"
 
 function dedupeNews(items: ProviderNewsItem[]): ProviderNewsItem[] {
@@ -50,8 +49,8 @@ export function quoteConfidence(
 
   for (const result of valid) {
     const differencePct =
-      (Math.abs(result.data.price - primaryPrice) /
-        Math.max(primaryPrice, 0.000001)) *
+      Math.abs(result.data.price - primaryPrice) /
+      Math.max(primaryPrice, 0.000001) *
       100
 
     if (differencePct <= 0.5) {
@@ -77,11 +76,11 @@ export interface ReturnTypeCompanyIntelligence {
   earnings: EarningsEvent[]
   filings: SecFiling[]
   companyFacts: SecCompanyFacts | null
-  fmpFundamentals: FmpFundamentals | null
+  fmpFundamentals: import("./normalized-types").NormalizedFundamentals | null
   warnings: string[]
   providers: {
     fmpQuote: ProviderResult<VerifiedQuote>
-    fmpFundamentals: ProviderResult<FmpFundamentals>
+    fmpFundamentals: ProviderResult<import("./normalized-types").NormalizedFundamentals>
     fmpEarnings: ProviderResult<EarningsEvent[]>
     alphaQuote: ProviderResult<VerifiedQuote>
     alphaNews: ProviderResult<ProviderNewsItem[]>
@@ -94,8 +93,25 @@ export interface ReturnTypeCompanyIntelligence {
 
 export async function getCompanyIntelligence(
   ticker: string,
+  options?: { assetType?: "stock" | "etf" },
 ): Promise<ReturnTypeCompanyIntelligence> {
   const symbol = ticker.trim().toUpperCase()
+  const isEtf = options?.assetType === "etf"
+
+  // Company statements and earnings calendars are stock-specific and cost
+  // eight FMP requests per symbol. Do not burn that quota for ETFs.
+  const skippedFundamentals: ProviderResult<import("./normalized-types").NormalizedFundamentals> = {
+    ok: false,
+    provider: "Financial Modeling Prep",
+    error: "Skipped for ETF",
+    retrievedAt: new Date().toISOString(),
+  }
+  const skippedEarnings: ProviderResult<EarningsEvent[]> = {
+    ok: false,
+    provider: "Financial Modeling Prep",
+    error: "Skipped for ETF",
+    retrievedAt: new Date().toISOString(),
+  }
 
   const [
     fmpQuote,
@@ -109,8 +125,8 @@ export async function getCompanyIntelligence(
     secFacts,
   ] = await Promise.all([
     getFmpQuote(symbol),
-    getFmpFundamentals(symbol),
-    getFmpEarnings(symbol),
+    isEtf ? Promise.resolve(skippedFundamentals) : getFmpFundamentals(symbol),
+    isEtf ? Promise.resolve(skippedEarnings) : getFmpEarnings(symbol),
     getAlphaVantageQuote(symbol),
     getAlphaVantageNews(symbol),
     getFinnhubCompanyNews(symbol),
@@ -135,7 +151,7 @@ export async function getCompanyIntelligence(
     secFilings,
     secFacts,
   ]
-    .filter((item) => !item.ok)
+    .filter((item) => !item.ok && item.error !== "Skipped for ETF")
     .map((item) => `${item.provider}: ${item.error}`)
 
   return {

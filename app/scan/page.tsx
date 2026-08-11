@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import {
   AlertTriangle,
@@ -8,6 +8,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   RefreshCw,
+  Square,
   ShieldCheck,
   TrendingUp,
 } from "lucide-react"
@@ -15,11 +16,17 @@ import { useDios } from "@/components/dios/store"
 import { fetchLiveAnalysisReport } from "@/lib/dios/live-analysis"
 import type { AnalysisReport, ExternalAnalysisContext } from "@/lib/dios/types"
 import { buildIntelligenceView, getSourceFamilies, rankOpportunity } from "@/lib/dios/intelligence-view"
-import { ETF_DISCOVERY_UNIVERSE } from "@/lib/dios/etf-universe"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
+const MAX_DISCOVERY_CANDIDATES = 8
+
+const DISCOVERY_UNIVERSE = [
+  "VOO", "QQQ", "VT", "VTI", "DIA", "SCHD", "VIG", "VUG", "VTV", "QUAL", "USMV", "AVUV", "IWM",
+  "SMH", "SOXX", "VGT", "XLK", "CIBR", "BOTZ", "ARKQ", "XLE", "VDE", "XLF", "XLV", "XLI", "XLP", "XLU",
+  "ITA", "PAVE", "VNQ", "GLD", "SLV", "GDX", "COPX", "URA", "TLT", "IEF", "HYG", "LQD", "EFA", "EEM", "INDA", "EWJ", "VGK", "IBIT",
+]
 type LiveItem = {
   report: AnalysisReport
   context: ExternalAnalysisContext | null
@@ -62,11 +69,13 @@ async function mapWithConcurrency<T, R>(
   values: T[],
   limit: number,
   worker: (value: T) => Promise<R>,
+  signal?: AbortSignal,
 ): Promise<PromiseSettledResult<R>[]> {
   const results: PromiseSettledResult<R>[] = new Array(values.length)
   let cursor = 0
   async function run() {
     while (cursor < values.length) {
+      if (signal?.aborted) break
       const index = cursor++
       try {
         results[index] = { status: "fulfilled", value: await worker(values[index]) }
@@ -147,8 +156,8 @@ function ItemCard({ item, owned }: { item: LiveItem; owned: boolean }) {
           </div>
 
           <div>
-            <p className="text-[11px] text-muted-foreground">Probability / reliability</p>
-            <p className="text-sm font-semibold">{outlook.probability}% / {buildIntelligenceView(item).reliability}%</p>
+            <p className="text-[11px] text-muted-foreground">Model confidence</p>
+            <p className="text-sm font-semibold">{outlook.probability}%</p>
           </div>
         </div>
 
@@ -174,11 +183,6 @@ function ItemCard({ item, owned }: { item: LiveItem; owned: boolean }) {
           <p className="mt-2 text-xs text-muted-foreground">
             {outlook.explanation}
           </p>
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px]">
-            <div><p className="text-muted-foreground">Today</p><p className={outlookTone(buildIntelligenceView(item).today.outlook)}>{buildIntelligenceView(item).today.outlook}</p></div>
-            <div><p className="text-muted-foreground">1–3 days</p><p className={outlookTone(buildIntelligenceView(item).shortTerm.outlook)}>{buildIntelligenceView(item).shortTerm.outlook}</p></div>
-            <div><p className="text-muted-foreground">1–4 weeks</p><p className={outlookTone(buildIntelligenceView(item).mediumTerm.outlook)}>{buildIntelligenceView(item).mediumTerm.outlook}</p></div>
-          </div>
         </div>
 
         <div>
@@ -217,8 +221,10 @@ function ItemCard({ item, owned }: { item: LiveItem; owned: boolean }) {
 export default function ScanPage() {
   const { portfolio, settings } = useDios()
   const [items, setItems] = useState<LiveItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lastCompletedAt, setLastCompletedAt] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   const heldTickers = useMemo(
     () => portfolio.positions.map((position) => position.ticker),
@@ -227,39 +233,52 @@ export default function ScanPage() {
   const heldSet = useMemo(() => new Set(heldTickers), [heldTickers])
 
   const refresh = useCallback(async () => {
+    if (abortRef.current) return
+
+    const controller = new AbortController()
+    abortRef.current = controller
     setLoading(true)
     setError(null)
 
     try {
-      const candidates = ETF_DISCOVERY_UNIVERSE.filter(
-        (ticker) => !heldSet.has(ticker),
-      )
-      const tickers = [...heldTickers, ...candidates]
+      const candidates = DISCOVERY_UNIVERSE
+        .filter((ticker) => !heldSet.has(ticker))
+        .slice(0, MAX_DISCOVERY_CANDIDATES)
+      const tickers = Array.from(new Set([...heldTickers, ...candidates]))
 
       const results = await mapWithConcurrency(
         tickers,
-        6,
-        (ticker) => fetchLiveAnalysisReport(ticker, portfolio, settings),
+        3,
+        (ticker) => fetchLiveAnalysisReport(ticker, portfolio, settings, controller.signal),
+        controller.signal,
       )
 
+      if (controller.signal.aborted) return
+
       const rows = results.flatMap((result) =>
-        result.status === "fulfilled" ? [result.value] : [],
+        result?.status === "fulfilled" ? [result.value] : [],
       )
       setItems(rows)
+      setLastCompletedAt(new Date().toISOString())
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Unable to run the live scan.",
-      )
+      if (!controller.signal.aborted) {
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "Unable to run the live scan.",
+        )
+      }
     } finally {
+      if (abortRef.current === controller) abortRef.current = null
       setLoading(false)
     }
   }, [heldSet, heldTickers, portfolio, settings])
 
-  useEffect(() => {
-    void refresh()
-  }, [refresh])
+  const stopScan = useCallback(() => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setLoading(false)
+  }, [])
 
   const holdings = items.filter((item) => heldSet.has(item.report.ticker))
 
@@ -294,16 +313,28 @@ export default function ScanPage() {
           </p>
         </div>
 
-        <Button
-          onClick={() => void refresh()}
-          disabled={loading}
-          className="ml-auto"
-        >
-          <RefreshCw
-            className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
-          />
-          Refresh scan
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          {loading && (
+            <Button variant="outline" onClick={stopScan}>
+              <Square className="mr-2 h-4 w-4" />
+              Stop scan
+            </Button>
+          )}
+          <Button
+            onClick={() => void refresh()}
+            disabled={loading}
+          >
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
+            />
+            {items.length ? "Refresh scan" : "Run scan"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="rounded-lg border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+        Daily Market Scan no longer auto-runs or auto-refreshes. It analyses all current holdings plus up to {MAX_DISCOVERY_CANDIDATES} unheld ETF candidates only when you press Run/Refresh scan.
+        {lastCompletedAt ? ` Last completed ${new Date(lastCompletedAt).toLocaleTimeString()}.` : ""}
       </div>
 
       <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 text-sm">
