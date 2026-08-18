@@ -263,6 +263,94 @@
   },
   "recommendations": [
     {
+      "id": "rec-1787094172370",
+      "datetime": "2026-08-18T23:02:52.370Z",
+      "ticker": "BAC",
+      "type": "stock",
+      "priceAtRec": 64.23,
+      "overallScore": 57,
+      "recommendation": "Hold",
+      "suggestedWeight": 4.74,
+      "confidence": 81,
+      "reasons": [
+        "Bank of America Says $5,000 Gold Is Within Reach — TradingView [S11, 2026-08-18].",
+        "PNC Financial Stock Hits 52-Week High: Is There More Upside Left? — TradingView [2026-08-18].",
+        "Upcoming earnings on 2026-10-14; event risk supports staged sizing rather than a full entry.",
+        "Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime."
+      ],
+      "risks": [
+        "A close below key support (roughly $52.67, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 24,
+          "low": 0.2565,
+          "high": 0.41850000000000004,
+          "assumptions": [
+            "Revenue growth beats consensus",
+            "Margin expansion continues",
+            "Multiple re-rates toward peers"
+          ]
+        },
+        "base": {
+          "probability": 48,
+          "low": 0.08,
+          "high": 0.16,
+          "assumptions": [
+            "In-line earnings delivery",
+            "Stable valuation multiple",
+            "No major macro shock"
+          ]
+        },
+        "bear": {
+          "probability": 28,
+          "low": -0.29700000000000004,
+          "high": -0.027000000000000003,
+          "assumptions": [
+            "Earnings miss and guidance cut",
+            "Multiple compression",
+            "Macro or liquidity shock"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Unknown",
+      "macroRegime": "Late-cycle expansion, easing bias",
+      "executionStatus": "Awaiting Decision",
+      "executionNotes": "",
+      "sourceNames": [
+        "Fundly Decision Engine",
+        "Financial Modeling Prep (Starter) — latest available quote for BAC",
+        "SEC EDGAR 10-Q",
+        "SEC EDGAR 8-K",
+        "GuruFocus.com — Bank of America Has a Stark Warning on AI Spending",
+        "GuruFocus.com — BofA Sends Bullish Message For Taiwan Semiconductor Stock Fans",
+        "TheStreet — World's second-largest bank boosts XRP holdings",
+        "Stock Titan — Bank of America (NYSE: BAC) CEO cashes RSUs, returns 18,083 shares",
+        "TradingView — Bank of America Says $5,000 Gold Is Within Reach",
+        "Fortune — With the national debt nearing $40 trillion, Bank of America has a warning for bond investors",
+        "GuruFocus.com — Stock Alert: BofA Calls Nvidia Valuation 'Compelling' Ahead of Earnings",
+        "Stock Titan — Bank of America’s $250,000 gift will help wildfire-hit families get shelter"
+      ],
+      "confidenceContributors": [
+        "Positive: Bank of America Says $5,000 Gold Is Within Reach — TradingView [S11, 2026-08-18].",
+        "Positive: PNC Financial Stock Hits 52-Week High: Is There More Upside Left? — TradingView [2026-08-18].",
+        "Positive: Upcoming earnings on 2026-10-14; event risk supports staged sizing rather than a full entry.",
+        "Risk: A close below key support (roughly $52.67, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Risk: Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      }
+    },
+    {
       "id": "rec-1786484327807",
       "datetime": "2026-08-11T21:38:47.807Z",
       "ticker": "SPCX",
