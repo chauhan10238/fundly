@@ -317,7 +317,7 @@
       "scoringVersion": "dios-scoring-2026.02",
       "sector": "Diversified",
       "macroRegime": "Late-cycle expansion, easing bias",
-      "executionStatus": "Awaiting Decision",
+      "executionStatus": "Executed",
       "executionNotes": "",
       "sourceNames": [
         "Fundly Decision Engine",
@@ -345,7 +345,8 @@
         "m3": null,
         "m6": null,
         "m12": null
-      }
+      },
+      "decisionAt": "2026-08-19T23:26:12.661Z"
     },
     {
       "id": "rec-1787181101683",
