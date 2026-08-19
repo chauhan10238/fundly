@@ -263,6 +263,92 @@
   },
   "recommendations": [
     {
+      "id": "rec-1787181101683",
+      "datetime": "2026-08-19T23:11:41.683Z",
+      "ticker": "GOLD",
+      "type": "stock",
+      "priceAtRec": 45.53,
+      "overallScore": 57,
+      "recommendation": "Hold",
+      "suggestedWeight": 4.74,
+      "confidence": 81,
+      "reasons": [
+        "Upcoming earnings on 2026-08-27; event risk supports staged sizing rather than a full entry.",
+        "Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime."
+      ],
+      "risks": [
+        "A close below key support (roughly $37.33, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 24,
+          "low": 0.2565,
+          "high": 0.41850000000000004,
+          "assumptions": [
+            "Revenue growth beats consensus",
+            "Margin expansion continues",
+            "Multiple re-rates toward peers"
+          ]
+        },
+        "base": {
+          "probability": 48,
+          "low": 0.08,
+          "high": 0.16,
+          "assumptions": [
+            "In-line earnings delivery",
+            "Stable valuation multiple",
+            "No major macro shock"
+          ]
+        },
+        "bear": {
+          "probability": 28,
+          "low": -0.29700000000000004,
+          "high": -0.027000000000000003,
+          "assumptions": [
+            "Earnings miss and guidance cut",
+            "Multiple compression",
+            "Macro or liquidity shock"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Unknown",
+      "macroRegime": "Late-cycle expansion, easing bias",
+      "executionStatus": "Awaiting Decision",
+      "executionNotes": "",
+      "sourceNames": [
+        "Fundly Decision Engine",
+        "Financial Modeling Prep (Starter) — latest available quote for GOLD",
+        "Alpha Vantage quote verification",
+        "SEC EDGAR 10-Q",
+        "SEC EDGAR 8-K",
+        "Zacks — Gold.com (GOLD) Dips More Than Broader Market: What You Should Know",
+        "Trefis — The Floor Under PAAS Stock Is Being Tested Again",
+        "Zacks — Gold.com (GOLD) Laps the Stock Market: Here's Why",
+        "MarketBeat — Gold.com Q2 Earnings Call Highlights",
+        "Proactive — Barrick Mining shares slide on second quarter earnings miss",
+        "Zacks — Is It Worth Investing in Gold.com (GOLD) Based on Wall Street's Bullish Views?",
+        "Zacks — Why Gold.com (GOLD) Outpaced the Stock Market Today",
+        "Trefis — Earn 14% On SCCO Stock Now, For Capping Your Upside At 18%"
+      ],
+      "confidenceContributors": [
+        "Positive: Upcoming earnings on 2026-08-27; event risk supports staged sizing rather than a full entry.",
+        "Positive: Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 70/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Risk: A close below key support (roughly $37.33, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Risk: Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      }
+    },
+    {
       "id": "rec-1787094172370",
       "datetime": "2026-08-18T23:02:52.370Z",
       "ticker": "BAC",
