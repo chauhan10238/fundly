@@ -263,6 +263,91 @@
   },
   "recommendations": [
     {
+      "id": "rec-1787181588097",
+      "datetime": "2026-08-19T23:19:48.097Z",
+      "ticker": "VOO",
+      "type": "etf",
+      "priceAtRec": 706.91,
+      "overallScore": 67,
+      "recommendation": "Buy",
+      "suggestedWeight": 20.04,
+      "confidence": 76,
+      "reasons": [
+        "Price trend is constructive with momentum score 70/100; the name trades above key moving averages based on the current price trend.",
+        "Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 62/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Business quality is high (90/100): durable margins and competitive position support a core allocation."
+      ],
+      "risks": [
+        "A close below key support (roughly $579.67, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "scenarios": {
+        "bull": {
+          "probability": 29,
+          "low": 0.14364,
+          "high": 0.22764,
+          "assumptions": [
+            "Broad earnings growth re-accelerates",
+            "Multiple expansion on soft-landing confidence",
+            "Breadth improves beyond mega-caps"
+          ]
+        },
+        "base": {
+          "probability": 47,
+          "low": 0.0952,
+          "high": 0.17520000000000002,
+          "assumptions": [
+            "Mid-single-digit earnings growth",
+            "Stable multiples",
+            "Dividends reinvested"
+          ]
+        },
+        "bear": {
+          "probability": 24,
+          "low": -0.154,
+          "high": -0.013999999999999999,
+          "assumptions": [
+            "Earnings miss and guidance cut",
+            "Multiple compression",
+            "Macro or liquidity shock"
+          ]
+        }
+      },
+      "modelVersion": "dios-analyst-1.0.0",
+      "scoringVersion": "dios-scoring-2026.02",
+      "sector": "Diversified",
+      "macroRegime": "Late-cycle expansion, easing bias",
+      "executionStatus": "Awaiting Decision",
+      "executionNotes": "",
+      "sourceNames": [
+        "Fundly Decision Engine",
+        "Financial Modeling Prep (Starter) — latest available quote for VOO",
+        "24/7 Wall St. — Between Your Last Paycheck and Age 73 Are the Lowest Tax Years of Your Life. These 3 ETFs Are Where That Money Goes",
+        "24/7 Wall St. — The Average 401(k) at 65 Is $258,800. The IRS Owns a Slice of Every Dollar. These 3 ETFs Build the Part It Can’t Touch",
+        "etf.com — ETF League Tables: Vanguard Gains $2.7B",
+        "Motley Fool — 1 Unstoppable Vanguard ETF I Wish I'd Bought 10 Years Ago",
+        "Motley Fool — The Small-Cap Premium Was Supposed to Beat Large Caps Over Time. It Hasn't in 15 Years. Here's the Actual Gap.",
+        "SeekingAlpha — SCHD: Dividend Stocks Are Turning The Real Corner (Technical Analysis)",
+        "Benzinga — Moderna Doubles, Gold Rallies To $4,500 As Dollar Sinks: Stock Market Today",
+        "SeekingAlpha — Bond Yields Have Soared To Pre-Great Recession Levels, This Doesn't Worry Me"
+      ],
+      "confidenceContributors": [
+        "Positive: Price trend is constructive with momentum score 70/100; the name trades above key moving averages based on the current price trend.",
+        "Positive: Macro regime (\"Late-cycle expansion, easing bias\") is supportive at 62/100 for this profile — disinflation plus an easing bias using the current DIOS macro regime.",
+        "Positive: Business quality is high (90/100): durable margins and competitive position support a core allocation.",
+        "Risk: A close below key support (roughly $579.67, ~18% downside) would signal thesis failure and trigger the exit rule.",
+        "Risk: Two consecutive quarters of margin compression without a clear one-off explanation."
+      ],
+      "outcomes": {
+        "d1": null,
+        "w1": null,
+        "m1": null,
+        "m3": null,
+        "m6": null,
+        "m12": null
+      }
+    },
+    {
       "id": "rec-1787181101683",
       "datetime": "2026-08-19T23:11:41.683Z",
       "ticker": "GOLD",
