@@ -46,6 +46,11 @@
       "avgCost": 171.43196155638552
     },
     {
+      "ticker": "VOO",
+      "quantity": 0.70201726,
+      "avgCost": 710.96
+    },
+    {
       "ticker": "VT",
       "quantity": 20.8111,
       "avgCost": 144.01
@@ -53,6 +58,18 @@
   ],
   "cash": 0,
   "transactions": [
+    {
+      "date": "2026-08-19",
+      "ticker": "VOO",
+      "type": "Buy",
+      "quantity": 0.70201726,
+      "price": 707.96,
+      "currency": "USD",
+      "brokerageFee": 3,
+      "fxFee": 0,
+      "notes": "Stake Gmail import MARKET [Stake:1a01c5821192c1b1] [FP:fab273d9ba4bc3a5fcdb]",
+      "id": "t1787182096844-1001"
+    },
     {
       "date": "2026-08-05",
       "ticker": "NVDA",
