@@ -342,7 +342,7 @@
         "Risk: Two consecutive quarters of margin compression without a clear one-off explanation."
       ],
       "outcomes": {
-        "d1": null,
+        "d1": -1.65,
         "w1": null,
         "m1": null,
         "m3": null,
