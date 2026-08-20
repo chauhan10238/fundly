@@ -91,7 +91,7 @@ async function fetchYahooHistory(ticker: string, range: RangeKey) {
   const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}`)
   url.searchParams.set("range", settings.yahooRange)
   url.searchParams.set("interval", settings.interval)
-  url.searchParams.set("includePrePost", "false")
+  url.searchParams.set("includePrePost", range === "1D" || range === "5D" ? "true" : "false")
   url.searchParams.set("events", "div,splits")
   const response = await fetch(url, { cache: "no-store", headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; DIOS-Fund-Manager/1.0)" } })
   const payload = await response.json()
@@ -121,16 +121,37 @@ export async function GET(request: NextRequest) {
   let provider = "Financial Modeling Prep (Starter)"
   let fallbackUsed = false
   let warning: string | null = null
-  try {
-    result = await fetchFmpHistory(ticker, range)
-  } catch (fmpError) {
-    fallbackUsed = true
-    warning = `FMP unavailable: ${fmpError instanceof Error ? fmpError.message : "unknown error"}`
-    provider = "Yahoo Finance (Fallback)"
+
+  // For 1D/5D, use Yahoo first because its chart endpoint can include pre- and
+  // post-market trades. This keeps the short-term chart aligned with the
+  // session-aware live quote used elsewhere in Fundly. Longer history remains
+  // FMP-first to preserve the existing historical-data path.
+  if (range === "1D" || range === "5D") {
+    provider = "Yahoo Finance (extended hours)"
     try {
       result = await fetchYahooHistory(ticker, range)
     } catch (yahooError) {
-      return NextResponse.json({ error: `Unable to retrieve historical prices. ${warning}. Yahoo: ${yahooError instanceof Error ? yahooError.message : "unknown error"}` }, { status: 502 })
+      fallbackUsed = true
+      warning = `Yahoo intraday unavailable: ${yahooError instanceof Error ? yahooError.message : "unknown error"}`
+      provider = "Financial Modeling Prep (Fallback)"
+      try {
+        result = await fetchFmpHistory(ticker, range)
+      } catch (fmpError) {
+        return NextResponse.json({ error: `Unable to retrieve historical prices. ${warning}. FMP: ${fmpError instanceof Error ? fmpError.message : "unknown error"}` }, { status: 502 })
+      }
+    }
+  } else {
+    try {
+      result = await fetchFmpHistory(ticker, range)
+    } catch (fmpError) {
+      fallbackUsed = true
+      warning = `FMP unavailable: ${fmpError instanceof Error ? fmpError.message : "unknown error"}`
+      provider = "Yahoo Finance (Fallback)"
+      try {
+        result = await fetchYahooHistory(ticker, range)
+      } catch (yahooError) {
+        return NextResponse.json({ error: `Unable to retrieve historical prices. ${warning}. Yahoo: ${yahooError instanceof Error ? yahooError.message : "unknown error"}` }, { status: 502 })
+      }
     }
   }
 

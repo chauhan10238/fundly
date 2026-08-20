@@ -161,18 +161,23 @@ export async function fetchFmpQuote(symbolInput: string, apiKey?: string): Promi
 }
 
 export async function resolveLiveQuote(symbol: string, apiKey?: string) {
-  const fmp = await fetchFmpQuote(symbol, apiKey)
-  if (fmp) return fmp
+  // Yahoo's intraday chart includes pre/post-market data. Prefer it for the
+  // canonical live price so Portfolio, Analyse, Daily Scan and Daily Brief all
+  // use the freshest session-aware quote. FMP remains the reliable fallback
+  // and continues to power fundamentals/intelligence elsewhere.
   try {
     const yahoo = await fetchYahooQuote(symbol)
-    if (yahoo) {
-      return {
-        ...yahoo,
-        snapshot: { ...yahoo.snapshot, provider: "Yahoo Finance (Fallback)" },
-      }
-    }
+    if (yahoo) return yahoo
   } catch {
-    // no provider returned a quote
+    // Fall through to FMP.
+  }
+
+  const fmp = await fetchFmpQuote(symbol, apiKey)
+  if (fmp) {
+    return {
+      ...fmp,
+      snapshot: { ...fmp.snapshot, provider: "Financial Modeling Prep (Fallback)" },
+    }
   }
   return null
 }

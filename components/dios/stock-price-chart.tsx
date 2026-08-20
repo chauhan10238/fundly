@@ -62,10 +62,10 @@ function money(value: number) {
 }
 
 function intervalLabel(interval?: string) {
-  if (interval === "5min") return "5-minute"
-  if (interval === "15min") return "15-minute"
-  if (interval === "1hour") return "hourly"
-  if (interval === "1week") return "weekly"
+  if (interval === "5min" || interval === "5m") return "5-minute"
+  if (interval === "15min" || interval === "15m") return "15-minute"
+  if (interval === "1hour" || interval === "1h") return "hourly"
+  if (interval === "1week" || interval === "1wk") return "weekly"
   return "daily"
 }
 
@@ -196,7 +196,7 @@ export function StockPriceChart({ ticker }: { ticker: string }) {
               </span>
 
               <span className="text-xs text-muted-foreground">
-                across the selected {range} range
+                range move · latest chart point{payload.provider ? ` · ${payload.provider}` : ""}
               </span>
             </div>
           )}
